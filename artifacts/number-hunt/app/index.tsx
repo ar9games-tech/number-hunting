@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   hero: { alignItems: "center", gap: 16 },
-  digitsRow: { flexDirection: "row", gap: 10, marginBottom: 8 },
+  digitsRow: { flexDirection: "row", gap: 10, marginBottom: 8, direction: "ltr" },
   digitChip: {
     width: 56, height: 72, borderRadius: 18, borderWidth: 2,
     alignItems: "center", justifyContent: "center",

@@ -44,6 +44,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     justifyContent: "center",
+    // Force LTR so digit slots always read left-to-right, even in RTL mode.
+    direction: "ltr",
   },
   cell: {
     width: 56,

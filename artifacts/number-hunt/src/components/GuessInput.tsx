@@ -44,6 +44,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     justifyContent: "center",
+    // Force LTR so slot 0 is always leftmost — multi-digit numbers read
+    // left-to-right even when the app is in Arabic/RTL mode.
+    direction: "ltr",
   },
   cell: {
     width: 48,
