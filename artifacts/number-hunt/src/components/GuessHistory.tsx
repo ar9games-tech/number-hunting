@@ -22,7 +22,7 @@ export function GuessHistory({
   emptyText?: string;
 }) {
   const colors = useColors();
-  const { t } = useT();
+  const { t, lz } = useT();
   const empty = emptyText ?? t("misc.noGuesses");
   if (items.length === 0) {
     return (
@@ -63,13 +63,13 @@ export function GuessHistory({
             key={idx}
             style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}
           >
-            <Text style={[styles.guess, { color: colors.foreground }]}>{it.guess}</Text>
+            <Text style={[styles.guess, { color: colors.foreground }]}>{lz(it.guess)}</Text>
             <View style={[styles.chip, { backgroundColor: tone + "22" }]}>
               <Feather name={arrow} size={14} color={tone} />
               <Text style={[styles.chipText, { color: tone }]}>
                 {t(labelKey)}
                 {showCorrectCount && !it.feedback.correct
-                  ? ` · ${it.feedback.correctDigitCount}`
+                  ? ` · ${lz(it.feedback.correctDigitCount)}`
                   : ""}
               </Text>
             </View>

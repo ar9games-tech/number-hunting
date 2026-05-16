@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/src/i18n/useT";
 import { formatTime } from "@/src/utils/scoring";
 
 export function Timer({
@@ -15,6 +16,7 @@ export function Timer({
   resetSignal?: number;
 }) {
   const colors = useColors();
+  const { lz } = useT();
   const [sec, setSec] = useState(0);
   const startRef = useRef<number | null>(null);
   const accumulatedRef = useRef<number>(0);
@@ -53,7 +55,7 @@ export function Timer({
   return (
     <View style={[styles.chip, { backgroundColor: colors.secondary }]}>
       <Feather name="clock" size={14} color={colors.secondaryForeground} />
-      <Text style={[styles.text, { color: colors.secondaryForeground }]}>{formatTime(sec)}</Text>
+      <Text style={[styles.text, { color: colors.secondaryForeground }]}>{lz(formatTime(sec))}</Text>
     </View>
   );
 }

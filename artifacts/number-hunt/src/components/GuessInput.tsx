@@ -2,9 +2,11 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/src/i18n/useT";
 
 export function GuessInput({ value, digits }: { value: string; digits: number }) {
   const colors = useColors();
+  const { lz } = useT();
   return (
     <View style={styles.row}>
       {Array.from({ length: digits }).map((_, i) => {
@@ -28,7 +30,7 @@ export function GuessInput({ value, digits }: { value: string; digits: number })
                 { color: filled ? colors.primaryForeground : colors.mutedForeground },
               ]}
             >
-              {ch || ""}
+              {ch ? lz(ch) : ""}
             </Text>
           </View>
         );

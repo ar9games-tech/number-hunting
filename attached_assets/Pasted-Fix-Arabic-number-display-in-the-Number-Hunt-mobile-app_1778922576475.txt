@@ -1,0 +1,68 @@
+Fix Arabic number display in the Number Hunt mobile app.
+
+Problem:
+When the app language is changed to Arabic, numbers are still displayed using English digits 0-9. They should appear as Arabic-Indic digits:
+0 → ٠
+1 → ١
+2 → ٢
+3 → ٣
+4 → ٤
+5 → ٥
+6 → ٦
+7 → ٧
+8 → ٨
+9 → ٩
+
+Requirements:
+- When language is Arabic, display all visible numbers using Arabic-Indic digits.
+- When language is English, display numbers using English digits.
+- This must apply to:
+  - Hidden number X display count
+  - Player input
+  - Numeric keypad
+  - Guess history
+  - Timer
+  - Records
+  - Score
+  - Number of guesses
+  - Difficulty labels: 2-digit, 3-digit, 4-digit
+  - Correct digit count messages
+  - Room codes if they contain numbers
+  - Any validation messages containing numbers
+
+Important:
+- Internally, game logic must still use normal English digits 0-9 for calculations.
+- Convert numbers only for display.
+- When the player taps Arabic digits on the keypad, convert them back to English digits internally before validation.
+- Do not break number comparison logic.
+- Do not break Too High / Too Low feedback.
+
+Implementation:
+- Create a utility file:
+  - src/utils/numberLocalization.js
+
+Add functions:
+- toArabicDigits(value)
+- toEnglishDigits(value)
+- localizeNumber(value, language)
+
+Rules:
+- toArabicDigits should convert 0-9 to ٠-٩.
+- toEnglishDigits should convert ٠-٩ back to 0-9.
+- localizeNumber should return Arabic digits only when language === "ar", otherwise English digits.
+
+Refactor:
+- Use localizeNumber everywhere numbers are displayed.
+- Use toEnglishDigits before saving guesses or comparing numbers.
+- Make NumericKeypad display Arabic digits in Arabic mode but return English digits to the game logic.
+
+Testing:
+- Switch language to Arabic.
+- Confirm keypad shows ٠ ١ ٢ ٣ ٤ ٥ ٦ ٧ ٨ ٩.
+- Enter guesses using Arabic digits.
+- Confirm game logic still works.
+- Confirm feedback still works correctly.
+- Confirm records and timer show Arabic digits.
+- Switch back to English and confirm digits return to 0-9.
+
+Make the fix clean, reusable, and fully working in Expo/Replit.

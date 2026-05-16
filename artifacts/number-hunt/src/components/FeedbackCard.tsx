@@ -16,7 +16,7 @@ export function FeedbackCard({
   guess?: string;
 }) {
   const colors = useColors();
-  const { t, isRTL } = useT();
+  const { t, lz, isRTL } = useT();
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(8)).current;
   const wd = isRTL ? "rtl" : "ltr";
@@ -82,7 +82,7 @@ export function FeedbackCard({
       <View style={{ flex: 1 }}>
         <Text style={[styles.title, { color: colors.foreground, writingDirection: wd }]}>
           {label}
-          {guess ? ` — ${guess}` : ""}
+          {guess ? ` — ${lz(guess)}` : ""}
         </Text>
         {showCorrectCount && !feedback.correct ? (
           <Text style={[styles.sub, { color: colors.mutedForeground, writingDirection: wd }]}>

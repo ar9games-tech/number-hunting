@@ -12,6 +12,7 @@ import {
 
 import { useColors } from "@/hooks/useColors";
 import { useSettings } from "@/src/contexts/SettingsContext";
+import { useT } from "@/src/i18n/useT";
 
 type KeyValue = string | "back" | "submit";
 
@@ -44,7 +45,7 @@ export function NumericKeypad({
             if (k === "back") onBackspace();
             else if (k === "submit") {
               if (canSubmit) onSubmit();
-            } else onDigit(k);
+            } else onDigit(k); // always emit English digit to game logic
           }}
         />
       ))}
@@ -63,6 +64,7 @@ function Key({
 }) {
   const colors = useColors();
   const { settings } = useSettings();
+  const { lz } = useT();
   const scale = useRef(new Animated.Value(1)).current;
 
   const animateTo = (v: number) =>
@@ -109,7 +111,7 @@ function Key({
             color={fg}
           />
         ) : (
-          <Text style={[styles.label, { color: fg }]}>{value}</Text>
+          <Text style={[styles.label, { color: fg }]}>{lz(value)}</Text>
         )}
       </Pressable>
     </Animated.View>

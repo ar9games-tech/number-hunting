@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/src/i18n/useT";
 
 export function NumberDisplay({
   digits,
@@ -11,6 +12,7 @@ export function NumberDisplay({
   reveal?: string | null;
 }) {
   const colors = useColors();
+  const { lz } = useT();
   const slots = Array.from({ length: digits });
   return (
     <View style={styles.row}>
@@ -28,7 +30,7 @@ export function NumberDisplay({
             ]}
           >
             <Text style={[styles.text, { color: ch ? colors.accent : colors.mutedForeground }]}>
-              {ch ?? "X"}
+              {ch ? lz(ch) : "X"}
             </Text>
           </View>
         );

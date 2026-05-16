@@ -14,7 +14,7 @@ import { formatDate, formatTime } from "@/src/utils/scoring";
 export default function RecordsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t } = useT();
+  const { t, lz } = useT();
   const [records, setRecords] = useState<Records>({});
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
 
@@ -69,7 +69,7 @@ export default function RecordsScreen() {
               {r ? (
                 <>
                   <Text style={[styles.timeText, { color: colors.foreground }]}>
-                    {formatTime(r.bestTimeSec)}
+                    {lz(formatTime(r.bestTimeSec))}
                   </Text>
                   <View style={styles.metaRow}>
                     <Meta icon="hash" label={t("records.guesses", { n: r.guesses })} />

@@ -17,7 +17,7 @@ import { formatTime } from "@/src/utils/scoring";
 export default function ResultScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t } = useT();
+  const { t, lz } = useT();
   const params = useLocalSearchParams<{
     mode?: string;
     digits?: string;
@@ -119,9 +119,9 @@ export default function ResultScreen() {
           ) : null}
 
           <View style={styles.statsRow}>
-            {!isOnline ? <Stat label={t("result.time")} value={formatTime(timeSec)} icon="clock" /> : null}
-            <Stat label={t("result.guesses")} value={String(guesses)} icon="hash" />
-            <Stat label={t("result.digits")} value={String(digits)} icon="layers" />
+            {!isOnline ? <Stat label={t("result.time")} value={lz(formatTime(timeSec))} icon="clock" /> : null}
+            <Stat label={t("result.guesses")} value={lz(guesses)} icon="hash" />
+            <Stat label={t("result.digits")} value={lz(digits)} icon="layers" />
           </View>
         </Animated.View>
 
