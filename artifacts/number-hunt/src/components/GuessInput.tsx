@@ -8,7 +8,7 @@ export function GuessInput({ value, digits }: { value: string; digits: number })
   const colors = useColors();
   const { lz } = useT();
   return (
-    <View style={styles.row}>
+    <View style={styles.row} {...({ dir: "ltr" } as object)}>
       {Array.from({ length: digits }).map((_, i) => {
         const ch = value.charAt(i);
         const filled = !!ch;
@@ -44,9 +44,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     justifyContent: "center",
-    // Force LTR so slot 0 is always leftmost — multi-digit numbers read
-    // left-to-right even when the app is in Arabic/RTL mode.
-    direction: "ltr",
   },
   cell: {
     width: 48,
@@ -59,5 +56,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 28,
     fontFamily: "Inter_700Bold",
+    writingDirection: "ltr",
+    textAlign: "center",
   },
 });

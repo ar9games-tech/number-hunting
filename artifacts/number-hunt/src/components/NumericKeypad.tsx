@@ -35,7 +35,7 @@ export function NumericKeypad({
   canSubmit: boolean;
 }) {
   return (
-    <View style={styles.grid}>
+    <View style={styles.grid} {...({ dir: "ltr" } as object)}>
       {KEYS.map((k, i) => (
         <Key
           key={`${k}-${i}`}
@@ -123,9 +123,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
-    // Force LTR so the keypad keeps the standard 1-2-3 / 4-5-6 / 7-8-9
-    // order regardless of the app language.
-    direction: "ltr",
   },
   cell: {
     width: "31.5%",

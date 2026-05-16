@@ -15,7 +15,7 @@ export function NumberDisplay({
   const { lz } = useT();
   const slots = Array.from({ length: digits });
   return (
-    <View style={styles.row}>
+    <View style={styles.row} {...({ dir: "ltr" } as object)}>
       {slots.map((_, i) => {
         const ch = reveal && reveal.length === digits ? reveal.charAt(i) : null;
         return (
@@ -44,8 +44,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     justifyContent: "center",
-    // Force LTR so digit slots always read left-to-right, even in RTL mode.
-    direction: "ltr",
   },
   cell: {
     width: 56,
@@ -58,5 +56,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 36,
     fontFamily: "Inter_700Bold",
+    writingDirection: "ltr",
+    textAlign: "center",
   },
 });

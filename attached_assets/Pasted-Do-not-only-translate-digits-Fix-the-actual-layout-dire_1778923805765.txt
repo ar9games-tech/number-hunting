@@ -1,0 +1,64 @@
+Do not only translate digits. Fix the actual layout direction bug.
+
+In Arabic mode, Arabic text should remain RTL, but all number-only UI elements must be forced LTR.
+
+Apply this fix specifically:
+
+1. NumericKeypad:
+- Do NOT reverse the keypad order in Arabic.
+- Always render keys in this exact visual order:
+  Row 1: ١ ٢ ٣
+  Row 2: ٤ ٥ ٦
+  Row 3: ٧ ٨ ٩
+  Row 4: ٠
+- Use flexDirection: "row", not row-reverse, for keypad rows.
+- The pressed value should still be stored internally as English digits 0-9.
+
+2. Guess input:
+- Do NOT use RTL direction for the input slots.
+- Force the guess display container to:
+  writingDirection: "ltr"
+  direction: "ltr" if supported
+  flexDirection: "row"
+  textAlign: "center"
+- When user presses 1 then 2 then 3 then 4, display must be:
+  ١٢٣٤
+  not:
+  ٤٣٢١
+
+3. NumberDisplay / hidden number reveal:
+- Force digit slots to render left-to-right.
+- Use the internal English string order, then localize each digit visually.
+- Never reverse the digit array in Arabic mode.
+
+4. Home hero chips:
+- Keep the array order unchanged.
+- Force the chips container to LTR row layout.
+- Example chips must display:
+  ٧ ٣ ٩
+  not reversed.
+
+5. GuessHistory, Records, Timer, Score, Room Code:
+- Any number-only text must be wrapped in an LTR number component.
+- Create a reusable component:
+  src/components/LocalizedNumber.js
+
+LocalizedNumber requirements:
+- Converts English digits to Arabic glyphs when language is Arabic.
+- Forces LTR display for numbers.
+- Uses:
+  writingDirection: "ltr"
+  textAlign: "center"
+- For digit groups, render characters in original order.
+
+Important rule:
+- RTL should only affect Arabic words and screen layout.
+- Numbers and digit sequences must always stay left-to-right.
+
+Testing checklist:
+- Arabic keypad visual order is ١ ٢ ٣ / ٤ ٥ ٦ / ٧ ٨ ٩ / ٠.
+- Typing 1,2,3,4 displays ١٢٣٤.
+- Revealed hidden number 1234 displays ١٢٣٤.
+- Home chips [7,3,9] display ٧ ٣ ٩.
+- Guess history does not reverse numbers.
+- Switching English/Arabic does not break game logic.

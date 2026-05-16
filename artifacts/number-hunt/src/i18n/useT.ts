@@ -41,15 +41,24 @@ export function useT(): {
   const t = useCallback<TFn>(
     (key, params) => {
       const template = dict[key] ?? fallback[key] ?? key;
-      // Auto-localize numeric/digit params so callers don't have to wrap them.
+      // Auto-localize params:
+      //  - numbers / pure-digit strings → convert to active digit script and
+      //    wrap in LTR isolates so they read left-to-right inside RTL text.
+      //  - alphanumeric strings containing digits (e.g. room codes "AB12CD")
+      //    → wrap in LTR isolates without converting letters, to keep the
+      //    code rendered as a single LTR token in Arabic UI.
       const localized = params
         ? Object.fromEntries(
-            Object.entries(params).map(([k, v]) => [
-              k,
-              typeof v === "number" || /^[0-9]+$/.test(String(v))
-                ? localizeNumber(v, language)
-                : String(v),
-            ]),
+            Object.entries(params).map(([k, v]) => {
+              const s = String(v);
+              if (typeof v === "number" || /^[0-9]+$/.test(s)) {
+                return [k, localizeNumber(v, language)];
+              }
+              if (/[0-9]/.test(s)) {
+                return [k, `\u2066${s}\u2069`];
+              }
+              return [k, s];
+            }),
           )
         : undefined;
       return interpolate(template, localized);

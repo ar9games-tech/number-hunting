@@ -52,7 +52,7 @@ export default function HomeScreen() {
 
         <Animated.View style={[styles.hero, { opacity: fade, transform: [{ translateY: lift }] }]}>
           <Animated.View style={{ opacity: digitsAnim }}>
-            <View style={styles.digitsRow}>
+            <View style={styles.digitsRow} {...({ dir: "ltr" } as object)}>
               {["7", "3", "9"].map((d, i) => (
                 <View
                   key={i}
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   hero: { alignItems: "center", gap: 16 },
-  digitsRow: { flexDirection: "row", gap: 10, marginBottom: 8, direction: "ltr" },
+  digitsRow: { flexDirection: "row", gap: 10, marginBottom: 8 },
   digitChip: {
     width: 56, height: 72, borderRadius: 18, borderWidth: 2,
     alignItems: "center", justifyContent: "center",
