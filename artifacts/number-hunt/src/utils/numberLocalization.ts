@@ -25,10 +25,20 @@ export function toEnglishDigits(value: string | number): string {
   return String(value).replace(/[٠-٩]/g, (d) => AR_TO_EN[d] ?? d);
 }
 
+// Unicode bidi isolates — keep the wrapped run rendered left-to-right even
+// when embedded inside an RTL paragraph. Without this, multi-digit Arabic
+// numbers can appear reversed (e.g. ٤٣٢١ instead of ١٢٣٤) when the
+// surrounding container has dir="rtl".
+const LRI = "\u2066"; // Left-to-Right Isolate
+const PDI = "\u2069"; // Pop Directional Isolate
+
 /**
  * Format `value` for display in the active language. Returns Arabic-Indic
- * digits when the language is Arabic, otherwise English digits.
+ * digits when the language is Arabic, otherwise English digits. The result
+ * is wrapped in LTR isolates so multi-digit numbers always read
+ * left-to-right regardless of the surrounding text direction.
  */
 export function localizeNumber(value: string | number, language: Language): string {
-  return language === "ar" ? toArabicDigits(value) : toEnglishDigits(value);
+  const digits = language === "ar" ? toArabicDigits(value) : toEnglishDigits(value);
+  return `${LRI}${digits}${PDI}`;
 }
