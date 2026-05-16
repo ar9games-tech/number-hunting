@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
-import type { Feedback } from "@/src/utils/gameLogic";
+import { feedbackLabel, type Feedback } from "@/src/utils/gameLogic";
 
 export function FeedbackCard({
   feedback,
@@ -38,13 +38,17 @@ export function FeedbackCard({
     );
   }
 
+  const isHigh = feedback.level === "high" || feedback.level === "tooHigh";
+  const isExtreme = feedback.level === "tooHigh" || feedback.level === "tooLow";
   const tone = feedback.correct
     ? colors.success
-    : feedback.tooHigh
-      ? colors.warning
-      : colors.primary;
-  const label = feedback.correct ? "Correct!" : feedback.tooHigh ? "Too High" : "Too Low";
-  const icon = feedback.correct ? "check-circle" : feedback.tooHigh ? "arrow-down" : "arrow-up";
+    : isExtreme
+      ? colors.destructive
+      : isHigh
+        ? colors.warning
+        : colors.primary;
+  const label = feedbackLabel(feedback.level, feedback.correct);
+  const icon = feedback.correct ? "check-circle" : isHigh ? "arrow-down" : "arrow-up";
 
   return (
     <Animated.View

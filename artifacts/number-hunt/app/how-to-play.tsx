@@ -24,9 +24,13 @@ export default function HowToPlayScreen() {
           in as few guesses — and as fast — as you can.
         </Block>
         <Block icon="message-circle" title="Feedback">
-          After each guess you'll see Too High or Too Low. For 3 and 4-digit modes you'll
-          also see how many of your digits appear in the hidden number — but never which
-          ones or where.
+          Each guess is rated by how far it is from the hidden number:
+          {"\n\n"}• Within range → "Low" or "High"
+          {"\n"}• Far away → "Too Low" or "Too High"
+          {"\n"}• Exact match → "Correct!"
+          {"\n\n"}Range depends on difficulty: 2-digit ±10, 3-digit ±50, 4-digit ±200.
+          For 3 and 4-digit modes you'll also see how many of your digits appear in the
+          hidden number — but never which ones or where.
         </Block>
         <ExampleBlock />
         <Block icon="clock" title="Solo Mode">
@@ -77,8 +81,9 @@ export default function HowToPlayScreen() {
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>Examples</Text>
         </View>
         <View style={styles.examples}>
-          <ExampleRow hidden="482" guess="248" verdict="Too Low — 3 correct digits" />
-          <ExampleRow hidden="482" guess="471" verdict="Too High — 1 correct digit" />
+          <ExampleRow hidden="482" guess="250" verdict="Too Low — 1 correct digit" />
+          <ExampleRow hidden="482" guess="500" verdict="High — 0 correct digits" />
+          <ExampleRow hidden="482" guess="480" verdict="Low — 2 correct digits" />
           <ExampleRow hidden="482" guess="482" verdict="Correct!" />
         </View>
       </View>

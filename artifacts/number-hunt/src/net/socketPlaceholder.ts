@@ -91,7 +91,7 @@ export function setHidden(code: string, hidden: string): RoomState | null {
 export function submitGuess(code: string, by: Role, guess: string): RoomState | null {
   const state = rooms.get(code);
   if (!state || !state.hidden || state.status !== "guessing") return null;
-  const feedback = evaluateGuess(guess, state.hidden);
+  const feedback = evaluateGuess(guess, state.hidden, state.digits);
   state.history = [{ by, guess, feedback, at: Date.now() }, ...state.history];
   if (feedback.correct) {
     state.status = "won";

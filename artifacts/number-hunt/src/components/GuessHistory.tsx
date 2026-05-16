@@ -3,7 +3,7 @@ import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
-import type { Feedback } from "@/src/utils/gameLogic";
+import { feedbackLabel, type Feedback } from "@/src/utils/gameLogic";
 
 export type HistoryItem = {
   guess: string;
@@ -36,16 +36,17 @@ export function GuessHistory({
       showsVerticalScrollIndicator={false}
     >
       {items.map((it, idx) => {
+        const isHigh = it.feedback.level === "high" || it.feedback.level === "tooHigh";
+        const isExtreme =
+          it.feedback.level === "tooHigh" || it.feedback.level === "tooLow";
         const tone = it.feedback.correct
           ? colors.success
-          : it.feedback.tooHigh
-            ? colors.warning
-            : colors.primary;
-        const arrow = it.feedback.correct
-          ? "check"
-          : it.feedback.tooHigh
-            ? "arrow-down"
-            : "arrow-up";
+          : isExtreme
+            ? colors.destructive
+            : isHigh
+              ? colors.warning
+              : colors.primary;
+        const arrow = it.feedback.correct ? "check" : isHigh ? "arrow-down" : "arrow-up";
         return (
           <View
             key={idx}
@@ -58,11 +59,7 @@ export function GuessHistory({
             <View style={[styles.chip, { backgroundColor: tone + "22" }]}>
               <Feather name={arrow} size={14} color={tone} />
               <Text style={[styles.chipText, { color: tone }]}>
-                {it.feedback.correct
-                  ? "Correct"
-                  : it.feedback.tooHigh
-                    ? "Too High"
-                    : "Too Low"}
+                {feedbackLabel(it.feedback.level, it.feedback.correct)}
                 {showCorrectCount && !it.feedback.correct
                   ? ` · ${it.feedback.correctDigitCount}`
                   : ""}

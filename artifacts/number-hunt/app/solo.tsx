@@ -48,7 +48,7 @@ export default function SoloGameScreen() {
 
   const onSubmit = () => {
     if (!isValidGuess(input, digits) || finished.current) return;
-    const fb = evaluateGuess(input, hidden);
+    const fb = evaluateGuess(input, hidden, digits);
     const guess = input;
     const nextCount = history.length + 1;
     setLastGuess(guess);

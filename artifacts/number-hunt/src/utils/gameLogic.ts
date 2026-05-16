@@ -1,10 +1,17 @@
 export type Digits = 2 | 3 | 4;
 
+export type FeedbackLevel = "low" | "tooLow" | "high" | "tooHigh";
+
 export type Feedback = {
-  tooHigh: boolean;
-  tooLow: boolean;
   correct: boolean;
+  level: FeedbackLevel | null;
   correctDigitCount: number;
+};
+
+export const DISTANCE_THRESHOLDS: Record<Digits, number> = {
+  2: 10,
+  3: 50,
+  4: 200,
 };
 
 export function generateHidden(digits: Digits, allowLeadingZero: boolean): string {
@@ -39,16 +46,39 @@ function countSharedDigits(a: string, b: string): number {
   return shared;
 }
 
-export function evaluateGuess(guess: string, hidden: string): Feedback {
+export function evaluateGuess(guess: string, hidden: string, digits: Digits): Feedback {
   const g = parseInt(guess, 10);
   const h = parseInt(hidden, 10);
   const correct = guess === hidden;
-  return {
-    tooHigh: !correct && g > h,
-    tooLow: !correct && g < h,
-    correct,
-    correctDigitCount: countSharedDigits(guess, hidden),
-  };
+  const correctDigitCount = countSharedDigits(guess, hidden);
+  if (correct) {
+    return { correct: true, level: null, correctDigitCount };
+  }
+  const diff = Math.abs(g - h);
+  const threshold = DISTANCE_THRESHOLDS[digits];
+  let level: FeedbackLevel;
+  if (g < h) {
+    level = diff <= threshold ? "low" : "tooLow";
+  } else {
+    level = diff <= threshold ? "high" : "tooHigh";
+  }
+  return { correct: false, level, correctDigitCount };
+}
+
+export function feedbackLabel(level: FeedbackLevel | null, correct: boolean): string {
+  if (correct) return "Correct!";
+  switch (level) {
+    case "low":
+      return "Low";
+    case "tooLow":
+      return "Too Low";
+    case "high":
+      return "High";
+    case "tooHigh":
+      return "Too High";
+    default:
+      return "";
+  }
 }
 
 export function generateRoomCode(): string {
