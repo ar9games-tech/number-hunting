@@ -13,7 +13,7 @@ import { webBottomInset, webTopInset } from "@/src/theme/theme";
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t, isRTL } = useT();
+  const { t, lz, isRTL } = useT();
   const fade = useRef(new Animated.Value(0)).current;
   const lift = useRef(new Animated.Value(20)).current;
   const digitsAnim = useRef(new Animated.Value(0)).current;
@@ -58,7 +58,7 @@ export default function HomeScreen() {
                   key={i}
                   style={[styles.digitChip, { backgroundColor: colors.card, borderColor: colors.border }]}
                 >
-                  <Text style={[styles.digitText, { color: colors.primary }]}>{d}</Text>
+                  <Text style={[styles.digitText, { color: colors.primary }]}>{lz(d)}</Text>
                 </View>
               ))}
             </View>

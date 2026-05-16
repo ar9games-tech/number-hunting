@@ -11,7 +11,7 @@ import { webBottomInset } from "@/src/theme/theme";
 export default function HowToPlayScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t, isRTL } = useT();
+  const { t, lz, isRTL } = useT();
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
   const wd = isRTL ? "rtl" : "ltr";
 
@@ -74,7 +74,7 @@ export default function HowToPlayScreen() {
     return (
       <View style={[styles.exRow, { borderColor: colors.border }]}>
         <Text style={[styles.exMono, { color: colors.foreground, writingDirection: wd }]}>
-          {hidden} · {guess}
+          {lz(hidden)} · {lz(guess)}
         </Text>
         <Text style={[styles.exVerdict, { color: colors.mutedForeground, writingDirection: wd }]}>
           {verdict}
