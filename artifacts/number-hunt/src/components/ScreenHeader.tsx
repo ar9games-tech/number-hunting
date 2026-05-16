@@ -5,6 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/src/i18n/useT";
 import { webTopInset } from "@/src/theme/theme";
 
 export function ScreenHeader({
@@ -18,6 +19,7 @@ export function ScreenHeader({
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isRTL, t } = useT();
   const topPad = (Platform.OS === "web" ? webTopInset() : insets.top) + 6;
 
   return (
@@ -48,9 +50,13 @@ export function ScreenHeader({
                   opacity: pressed ? 0.7 : 1,
                 },
               ]}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t("misc.goBack")}
             >
-              <Feather name="chevron-left" size={22} color={colors.foreground} />
+              <Feather
+                name={isRTL ? "chevron-right" : "chevron-left"}
+                size={22}
+                color={colors.foreground}
+              />
             </Pressable>
           ) : null}
         </View>

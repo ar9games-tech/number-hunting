@@ -1,0 +1,76 @@
+Fix the Settings system in the Number Hunt mobile app.
+
+Current problems:
+1. Theme changing is not working.
+2. Arabic language switching is not working.
+3. Settings are not properly updating across the app.
+
+Requirements:
+
+Theme System Fix:
+- Fully implement working Light Mode and Dark Mode.
+- Theme changes must instantly update across all screens.
+- Save selected theme using AsyncStorage.
+- Restore the saved theme when reopening the app.
+- Create a centralized theme system using:
+  - ThemeContext
+  - useContext
+  - theme.js
+- Ensure all components use dynamic colors from the active theme.
+- Fix any hardcoded colors preventing theme switching.
+- Add smooth transition animations when changing themes.
+
+Language System Fix:
+- Fully implement working Arabic and English language switching.
+- Save selected language using AsyncStorage.
+- Restore selected language on app launch.
+- Create a centralized language system using:
+  - LanguageContext
+  - translations.js
+- All screens and buttons must update instantly when language changes.
+- Add complete Arabic translations for:
+  - Home screen
+  - Settings
+  - Game feedback
+  - Buttons
+  - Result messages
+  - Multiplayer labels
+  - Records screen
+  - Errors and validation messages
+
+Arabic UI Requirements:
+- Proper RTL (Right-to-Left) layout support.
+- Use I18nManager for RTL handling.
+- Align Arabic text correctly.
+- Mirror layouts where needed.
+- Ensure numeric keypad still works correctly in Arabic mode.
+- Use readable Arabic-friendly fonts.
+- Prevent text overflow or broken alignment.
+
+Settings Screen Improvements:
+- Add:
+  - Theme toggle
+  - Language selector
+  - Sound toggle
+  - Reset settings button
+- Show current selected language and theme visually.
+- Add animated switches/buttons.
+
+Architecture Requirements:
+- Create:
+  - src/context/ThemeContext.js
+  - src/context/LanguageContext.js
+  - src/localization/translations.js
+- Refactor all screens/components to use contexts instead of hardcoded text/colors.
+
+Testing Requirements:
+- Verify theme updates without restarting app.
+- Verify Arabic updates without restarting app.
+- Verify RTL layout works correctly.
+- Verify settings persist after app restart.
+
+Code Quality:
+- Write clean commented code.
+- Remove duplicated logic.
+- Keep the system scalable for future languages/themes.
+- Make the app fully functional on Replit with Expo.

@@ -1,0 +1,425 @@
+// Centralized translation table. Add a key here and it becomes available
+// everywhere via useT(). To add a new language, add another entry to
+// `translations` with the same key set.
+
+export type Language = "en" | "ar";
+
+export type TranslationKey =
+  // Common
+  | "common.cancel"
+  | "common.reset"
+  | "common.ok"
+  | "common.back"
+  // Home
+  | "home.title"
+  | "home.subtitle"
+  | "home.solo"
+  | "home.multiplayer"
+  | "home.records"
+  | "home.howto"
+  // Mode
+  | "mode.title"
+  | "mode.solo"
+  | "mode.soloDesc"
+  | "mode.multiplayer"
+  | "mode.mpDesc"
+  // Difficulty
+  | "diff.title"
+  | "diff.lead"
+  | "diff.label"
+  | "diff.2desc"
+  | "diff.3desc"
+  | "diff.4desc"
+  // Solo
+  | "solo.title"
+  | "solo.hidden"
+  | "solo.history"
+  // Lobby
+  | "lobby.title"
+  | "lobby.create"
+  | "lobby.createDesc"
+  | "lobby.createBtn"
+  | "lobby.join"
+  | "lobby.joinDesc"
+  | "lobby.joinBtn"
+  | "lobby.codePh"
+  | "lobby.invalidCode"
+  | "lobby.invalidCodeMsg"
+  | "lobby.notFound"
+  | "lobby.notFoundMsg"
+  | "lobby.note"
+  // Room
+  | "room.title"
+  | "room.simBanner"
+  | "room.host"
+  | "room.guest"
+  | "room.setHidden"
+  | "room.digitsHint"
+  | "room.digitsHintLZ"
+  | "room.yourHidden"
+  | "room.waitingForGuesser"
+  | "room.waitingFor"
+  | "room.picking"
+  | "room.guesses"
+  | "room.history"
+  | "room.notFound"
+  | "room.returningLobby"
+  // Result
+  | "result.solo"
+  | "result.online"
+  | "result.youGotIt"
+  | "result.someoneWon"
+  | "result.newRecord"
+  | "result.hidden"
+  | "result.time"
+  | "result.guesses"
+  | "result.digits"
+  | "result.playAgain"
+  | "result.viewRecords"
+  | "result.home"
+  | "result.switchAndPlay"
+  | "result.leaveRoom"
+  // Records
+  | "records.title"
+  | "records.label"
+  | "records.guesses"
+  | "records.empty"
+  | "records.reset"
+  | "records.resetTitle"
+  | "records.resetMsg"
+  // Settings
+  | "settings.title"
+  | "settings.profile"
+  | "settings.playerName"
+  | "settings.playerPh"
+  | "settings.appearance"
+  | "settings.theme"
+  | "settings.themeSystem"
+  | "settings.themeLight"
+  | "settings.themeDark"
+  | "settings.language"
+  | "settings.gameplay"
+  | "settings.allowLeading"
+  | "settings.haptics"
+  | "settings.sound"
+  | "settings.note"
+  | "settings.resetAll"
+  | "settings.resetAllConfirm"
+  | "settings.rtlNote"
+  // How to Play
+  | "howto.title"
+  | "howto.goal"
+  | "howto.goalText"
+  | "howto.feedback"
+  | "howto.feedbackText"
+  | "howto.examples"
+  | "howto.solo"
+  | "howto.soloText"
+  | "howto.mp"
+  | "howto.mpText"
+  // Feedback labels
+  | "fb.correct"
+  | "fb.tooHigh"
+  | "fb.tooLow"
+  | "fb.high"
+  | "fb.low"
+  | "fb.makeFirst"
+  | "fb.correctDigit"
+  | "fb.correctDigits"
+  // Misc
+  | "misc.noGuesses"
+  | "misc.player1"
+  | "misc.player2"
+  | "misc.host"
+  | "misc.guest"
+  | "misc.goBack";
+
+const en: Record<TranslationKey, string> = {
+  "common.cancel": "Cancel",
+  "common.reset": "Reset",
+  "common.ok": "OK",
+  "common.back": "Back",
+
+  "home.title": "Number Hunt",
+  "home.subtitle": "Crack the hidden number\nas fast as you can",
+  "home.solo": "Solo",
+  "home.multiplayer": "Multiplayer",
+  "home.records": "Records",
+  "home.howto": "How to Play",
+
+  "mode.title": "Choose Mode",
+  "mode.solo": "Solo",
+  "mode.soloDesc": "Race the clock. Beat your best time.",
+  "mode.multiplayer": "Multiplayer",
+  "mode.mpDesc": "Create or join a room. Play with a friend.",
+
+  "diff.title": "Choose Difficulty",
+  "diff.lead": "How long should the hidden number be?",
+  "diff.label": "{n}-digit",
+  "diff.2desc": "Quick warmup",
+  "diff.3desc": "Balanced",
+  "diff.4desc": "True challenge",
+
+  "solo.title": "{n}-Digit · Solo",
+  "solo.hidden": "HIDDEN NUMBER",
+  "solo.history": "HISTORY",
+
+  "lobby.title": "Multiplayer",
+  "lobby.create": "Create a Room",
+  "lobby.createDesc": "Pick a difficulty, get a code, and share it with a friend.",
+  "lobby.createBtn": "Create Room",
+  "lobby.join": "Join a Room",
+  "lobby.joinDesc": "Enter the 6-character code from the host.",
+  "lobby.joinBtn": "Join Room",
+  "lobby.codePh": "ABC123",
+  "lobby.invalidCode": "Invalid code",
+  "lobby.invalidCodeMsg": "Please enter a valid room code.",
+  "lobby.notFound": "Room not found",
+  "lobby.notFoundMsg": "Double-check the code with the host.",
+  "lobby.note":
+    "This is a local simulation. Real online multiplayer can be added by replacing the network placeholder with a socket.io connection.",
+
+  "room.title": "Room {code}",
+  "room.simBanner": "Local simulation — switch views to play both roles",
+  "room.host": "{name} (host)",
+  "room.guest": "{name} (guest)",
+  "room.setHidden": "SET A HIDDEN NUMBER",
+  "room.digitsHint": "{n} digits",
+  "room.digitsHintLZ": "{n} digits · no leading zero",
+  "room.yourHidden": "YOUR HIDDEN NUMBER",
+  "room.waitingForGuesser": "Waiting for the guesser…",
+  "room.waitingFor": "Waiting for {name}",
+  "room.picking": "They are picking a hidden {n}-digit number.",
+  "room.guesses": "GUESSES",
+  "room.history": "HISTORY",
+  "room.notFound": "Room not found",
+  "room.returningLobby": "Returning to lobby.",
+
+  "result.solo": "Solo Result",
+  "result.online": "Round Over",
+  "result.youGotIt": "You got it!",
+  "result.someoneWon": "{name} won!",
+  "result.newRecord": "New Record!",
+  "result.hidden": "HIDDEN NUMBER",
+  "result.time": "Time",
+  "result.guesses": "Guesses",
+  "result.digits": "Digits",
+  "result.playAgain": "Play Again",
+  "result.viewRecords": "View Records",
+  "result.home": "Home",
+  "result.switchAndPlay": "Switch Roles & Play Again",
+  "result.leaveRoom": "Leave Room",
+
+  "records.title": "Records",
+  "records.label": "{n}-digit",
+  "records.guesses": "{n} guesses",
+  "records.empty": "No record yet — play to set one",
+  "records.reset": "Reset all records",
+  "records.resetTitle": "Reset all records?",
+  "records.resetMsg": "This will erase all of your best times.",
+
+  "settings.title": "Settings",
+  "settings.profile": "Profile",
+  "settings.playerName": "Player name",
+  "settings.playerPh": "Your name",
+  "settings.appearance": "Appearance",
+  "settings.theme": "Theme",
+  "settings.themeSystem": "System",
+  "settings.themeLight": "Light",
+  "settings.themeDark": "Dark",
+  "settings.language": "Language",
+  "settings.gameplay": "Gameplay",
+  "settings.allowLeading": "Allow leading zero",
+  "settings.haptics": "Haptic feedback",
+  "settings.sound": "Sound effects",
+  "settings.note":
+    "Sound is a placeholder for a future update. Settings save automatically.",
+  "settings.resetAll": "Reset all settings",
+  "settings.resetAllConfirm": "This will restore all preferences to their defaults.",
+  "settings.rtlNote":
+    "Tip: switching language updates the layout direction immediately on web. On a real device, a full app reload may be required for native RTL.",
+
+  "howto.title": "How to Play",
+  "howto.goal": "The goal",
+  "howto.goalText":
+    "A hidden number is chosen with the length you select (2, 3, or 4 digits). Crack it in as few guesses — and as fast — as you can.",
+  "howto.feedback": "Feedback",
+  "howto.feedbackText":
+    "Each guess is rated by how far it is from the hidden number:\n\n• Within range → \"Low\" or \"High\"\n• Far away → \"Too Low\" or \"Too High\"\n• Exact match → \"Correct!\"\n\nRange depends on difficulty: 2-digit ±10, 3-digit ±50, 4-digit ±200. For 3 and 4-digit modes you'll also see how many of your digits appear in the hidden number — but never which ones or where.",
+  "howto.examples": "Examples",
+  "howto.solo": "Solo Mode",
+  "howto.soloText":
+    "A timer starts as soon as the round begins. There is no guess limit — beat your best time and earn a record.",
+  "howto.mp": "Multiplayer Mode",
+  "howto.mpText":
+    "Create a room and share the code. The host sets a hidden number, the guesser tries to crack it. Switch roles after each round.",
+
+  "fb.correct": "Correct!",
+  "fb.tooHigh": "Too High",
+  "fb.tooLow": "Too Low",
+  "fb.high": "High",
+  "fb.low": "Low",
+  "fb.makeFirst": "Make your first guess",
+  "fb.correctDigit": "{n} correct digit",
+  "fb.correctDigits": "{n} correct digits",
+
+  "misc.noGuesses": "No guesses yet",
+  "misc.player1": "Player 1",
+  "misc.player2": "Player 2",
+  "misc.host": "host",
+  "misc.guest": "guest",
+  "misc.goBack": "Go back",
+};
+
+const ar: Record<TranslationKey, string> = {
+  "common.cancel": "إلغاء",
+  "common.reset": "إعادة تعيين",
+  "common.ok": "حسناً",
+  "common.back": "رجوع",
+
+  "home.title": "صيد الأرقام",
+  "home.subtitle": "اكتشف الرقم المخفي\nبأسرع ما يمكن",
+  "home.solo": "فردي",
+  "home.multiplayer": "متعدد اللاعبين",
+  "home.records": "السجلات",
+  "home.howto": "طريقة اللعب",
+
+  "mode.title": "اختر الوضع",
+  "mode.solo": "فردي",
+  "mode.soloDesc": "تسابق مع الوقت. اكسر أفضل وقت لك.",
+  "mode.multiplayer": "متعدد اللاعبين",
+  "mode.mpDesc": "أنشئ غرفة أو انضم إليها. العب مع صديق.",
+
+  "diff.title": "اختر مستوى الصعوبة",
+  "diff.lead": "ما طول الرقم المخفي؟",
+  "diff.label": "{n} خانات",
+  "diff.2desc": "إحماء سريع",
+  "diff.3desc": "متوازن",
+  "diff.4desc": "تحدٍ حقيقي",
+
+  "solo.title": "{n} خانات · فردي",
+  "solo.hidden": "الرقم المخفي",
+  "solo.history": "السجل",
+
+  "lobby.title": "متعدد اللاعبين",
+  "lobby.create": "إنشاء غرفة",
+  "lobby.createDesc": "اختر مستوى الصعوبة، احصل على رمز، وشاركه مع صديق.",
+  "lobby.createBtn": "إنشاء الغرفة",
+  "lobby.join": "الانضمام إلى غرفة",
+  "lobby.joinDesc": "أدخل الرمز المكون من 6 أحرف من المضيف.",
+  "lobby.joinBtn": "انضم للغرفة",
+  "lobby.codePh": "ABC123",
+  "lobby.invalidCode": "رمز غير صالح",
+  "lobby.invalidCodeMsg": "يرجى إدخال رمز غرفة صالح.",
+  "lobby.notFound": "الغرفة غير موجودة",
+  "lobby.notFoundMsg": "تأكد من الرمز مع المضيف.",
+  "lobby.note":
+    "هذه محاكاة محلية. يمكن إضافة وضع متعدد اللاعبين الحقيقي عبر استبدال الواجهة الشبكية باتصال socket.io.",
+
+  "room.title": "الغرفة {code}",
+  "room.simBanner": "محاكاة محلية — بدّل العرض للعب كلا الدورين",
+  "room.host": "{name} (المضيف)",
+  "room.guest": "{name} (الضيف)",
+  "room.setHidden": "اختر الرقم المخفي",
+  "room.digitsHint": "{n} خانات",
+  "room.digitsHintLZ": "{n} خانات · بدون صفر في البداية",
+  "room.yourHidden": "رقمك المخفي",
+  "room.waitingForGuesser": "بانتظار المخمن…",
+  "room.waitingFor": "بانتظار {name}",
+  "room.picking": "يقومون باختيار رقم مخفي مكون من {n} خانات.",
+  "room.guesses": "التخمينات",
+  "room.history": "السجل",
+  "room.notFound": "الغرفة غير موجودة",
+  "room.returningLobby": "العودة إلى الردهة.",
+
+  "result.solo": "النتيجة الفردية",
+  "result.online": "انتهت الجولة",
+  "result.youGotIt": "أحسنت!",
+  "result.someoneWon": "فاز {name}!",
+  "result.newRecord": "رقم قياسي جديد!",
+  "result.hidden": "الرقم المخفي",
+  "result.time": "الوقت",
+  "result.guesses": "التخمينات",
+  "result.digits": "الخانات",
+  "result.playAgain": "العب مرة أخرى",
+  "result.viewRecords": "عرض السجلات",
+  "result.home": "الرئيسية",
+  "result.switchAndPlay": "بدّل الأدوار والعب",
+  "result.leaveRoom": "مغادرة الغرفة",
+
+  "records.title": "السجلات",
+  "records.label": "{n} خانات",
+  "records.guesses": "{n} تخمينات",
+  "records.empty": "لا يوجد سجل بعد — العب لتسجيل واحد",
+  "records.reset": "إعادة تعيين كل السجلات",
+  "records.resetTitle": "إعادة تعيين كل السجلات؟",
+  "records.resetMsg": "سيؤدي هذا إلى مسح جميع أفضل أوقاتك.",
+
+  "settings.title": "الإعدادات",
+  "settings.profile": "الملف الشخصي",
+  "settings.playerName": "اسم اللاعب",
+  "settings.playerPh": "اسمك",
+  "settings.appearance": "المظهر",
+  "settings.theme": "السمة",
+  "settings.themeSystem": "النظام",
+  "settings.themeLight": "فاتح",
+  "settings.themeDark": "داكن",
+  "settings.language": "اللغة",
+  "settings.gameplay": "اللعب",
+  "settings.allowLeading": "السماح بصفر في البداية",
+  "settings.haptics": "اهتزاز اللمس",
+  "settings.sound": "المؤثرات الصوتية",
+  "settings.note": "الصوت محجوز لتحديث مستقبلي. يتم حفظ الإعدادات تلقائياً.",
+  "settings.resetAll": "إعادة تعيين كل الإعدادات",
+  "settings.resetAllConfirm": "سيؤدي هذا إلى استعادة جميع التفضيلات إلى قيمها الافتراضية.",
+  "settings.rtlNote":
+    "ملاحظة: يتم تغيير اتجاه التخطيط فوراً على الويب. على الجهاز الفعلي، قد يلزم إعادة تشغيل التطبيق لتطبيق RTL بالكامل.",
+
+  "howto.title": "طريقة اللعب",
+  "howto.goal": "الهدف",
+  "howto.goalText":
+    "يتم اختيار رقم مخفي بالطول الذي تختاره (2 أو 3 أو 4 خانات). حاول كشفه بأقل عدد من التخمينات وبأسرع وقت ممكن.",
+  "howto.feedback": "التغذية الراجعة",
+  "howto.feedbackText":
+    "يتم تقييم كل تخمين بحسب مدى بعده عن الرقم المخفي:\n\n• ضمن النطاق → \"منخفض\" أو \"مرتفع\"\n• بعيد جداً → \"منخفض جداً\" أو \"مرتفع جداً\"\n• مطابقة تامة → \"صحيح!\"\n\nالنطاق يعتمد على الصعوبة: خانتان ±10، ثلاث ±50، أربع ±200. في وضعَي 3 و4 خانات، يظهر أيضاً عدد الأرقام الصحيحة دون مواقعها.",
+  "howto.examples": "أمثلة",
+  "howto.solo": "الوضع الفردي",
+  "howto.soloText":
+    "يبدأ العداد بمجرد بدء الجولة. لا يوجد حد للتخمينات — اكسر أفضل وقت لك واحصل على سجل.",
+  "howto.mp": "وضع متعدد اللاعبين",
+  "howto.mpText":
+    "أنشئ غرفة وشارك الرمز. يحدد المضيف رقماً مخفياً، ويحاول المخمن كشفه. بدّلوا الأدوار بعد كل جولة.",
+
+  "fb.correct": "صحيح!",
+  "fb.tooHigh": "مرتفع جداً",
+  "fb.tooLow": "منخفض جداً",
+  "fb.high": "مرتفع",
+  "fb.low": "منخفض",
+  "fb.makeFirst": "ابدأ بأول تخمين",
+  "fb.correctDigit": "{n} رقم صحيح",
+  "fb.correctDigits": "{n} أرقام صحيحة",
+
+  "misc.noGuesses": "لا توجد تخمينات بعد",
+  "misc.player1": "اللاعب 1",
+  "misc.player2": "اللاعب 2",
+  "misc.host": "المضيف",
+  "misc.guest": "الضيف",
+  "misc.goBack": "رجوع",
+};
+
+export const translations: Record<Language, Record<TranslationKey, string>> = {
+  en,
+  ar,
+};
+
+/** Simple {placeholder} interpolation. */
+export function interpolate(template: string, params?: Record<string, string | number>): string {
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (_, k) => {
+    const v = params[k];
+    return v == null ? `{${k}}` : String(v);
+  });
+}
+
+/** Languages where the script flows right-to-left. */
+export const RTL_LANGUAGES: ReadonlySet<Language> = new Set(["ar"]);

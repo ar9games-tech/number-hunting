@@ -1,5 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useColorScheme } from "react-native";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { I18nManager, Platform, useColorScheme } from "react-native";
 
 import {
   DEFAULT_SETTINGS,
@@ -12,7 +19,9 @@ type SettingsContextValue = {
   settings: Settings;
   ready: boolean;
   effectiveScheme: "light" | "dark";
+  isRTL: boolean;
   update: (patch: Partial<Settings>) => Promise<void>;
+  resetAll: () => Promise<void>;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -22,6 +31,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState<boolean>(false);
   const systemScheme = useColorScheme();
 
+  // Load persisted settings
   useEffect(() => {
     let mounted = true;
     void (async () => {
@@ -45,21 +55,69 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [settings],
   );
 
+  const resetAll = useCallback(async () => {
+    setSettings(DEFAULT_SETTINGS);
+    await saveSettings(DEFAULT_SETTINGS);
+  }, []);
+
   const effectiveScheme: "light" | "dark" = useMemo(() => {
-    if (settings.themeMode === "system") return (systemScheme ?? "light") as "light" | "dark";
+    if (settings.themeMode === "system") {
+      return (systemScheme ?? "light") as "light" | "dark";
+    }
     return settings.themeMode;
   }, [settings.themeMode, systemScheme]);
 
+  const isRTL = settings.language === "ar";
+
+  // Apply layout direction on web instantly. On native, I18nManager.forceRTL
+  // requires a full app reload to take effect — we set it so that next
+  // launch picks up the new direction.
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      if (typeof document !== "undefined") {
+        document.documentElement.setAttribute("dir", isRTL ? "rtl" : "ltr");
+        document.documentElement.setAttribute("lang", settings.language);
+      }
+    } else {
+      try {
+        I18nManager.allowRTL(isRTL);
+        if (I18nManager.isRTL !== isRTL) {
+          I18nManager.forceRTL(isRTL);
+        }
+      } catch {
+        // I18nManager may be unavailable in some test environments.
+      }
+    }
+  }, [isRTL, settings.language]);
+
   const value = useMemo(
-    () => ({ settings, ready, effectiveScheme, update }),
-    [settings, ready, effectiveScheme, update],
+    () => ({ settings, ready, effectiveScheme, isRTL, update, resetAll }),
+    [settings, ready, effectiveScheme, isRTL, update, resetAll],
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
+/** Consumer hook. Throws if used outside the provider. */
 export function useSettings(): SettingsContextValue {
   const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error("useSettings must be used within SettingsProvider");
   return ctx;
+}
+
+/**
+ * Safe variant for components rendered outside the provider tree
+ * (e.g. ErrorBoundary fallback). Returns sensible defaults.
+ */
+export function useSettingsOrDefault(): SettingsContextValue {
+  const ctx = useContext(SettingsContext);
+  if (ctx) return ctx;
+  return {
+    settings: DEFAULT_SETTINGS,
+    ready: false,
+    effectiveScheme: "light",
+    isRTL: false,
+    update: async () => {},
+    resetAll: async () => {},
+  };
 }

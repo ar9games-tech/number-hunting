@@ -1,24 +1,17 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { Button } from "@/src/components/Button";
 import { GuessHistory, type HistoryItem } from "@/src/components/GuessHistory";
 import { GuessInput } from "@/src/components/GuessInput";
 import { NumberDisplay } from "@/src/components/NumberDisplay";
 import { NumericKeypad } from "@/src/components/NumericKeypad";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
+import { useT } from "@/src/i18n/useT";
 import {
   createRoom,
   getRoom,
@@ -27,7 +20,6 @@ import {
   onUpdate,
   setHidden,
   submitGuess,
-  switchRoles,
   type RoomState,
 } from "@/src/net/socketPlaceholder";
 import { webBottomInset } from "@/src/theme/theme";
@@ -39,6 +31,7 @@ export default function RoomScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
+  const { t, isRTL } = useT();
   const params = useLocalSearchParams<{ code?: string; role?: string; digits?: string }>();
 
   const initialRole = (params.role as ViewRole) ?? "host";
@@ -49,24 +42,21 @@ export default function RoomScreen() {
   const [hiddenInput, setHiddenInput] = useState("");
   const [guessInput, setGuessInput] = useState("");
 
-  // Initialize room
   useEffect(() => {
     const incomingCode = (params.code ?? "").toUpperCase();
     if (initialRole === "host") {
-      // If a code was passed (e.g. after switchRoles), reuse the existing room.
       const existing = incomingCode ? getRoom(incomingCode) : null;
       if (existing) {
         setState(existing);
       } else {
-        const room = createRoom(digits, settings.playerName || "Player 1");
-        // Auto-mark guest joined for local simulation, with default name
-        joinRoom(room.code, "Player 2");
+        const room = createRoom(digits, settings.playerName || t("misc.player1"));
+        joinRoom(room.code, t("misc.player2"));
         setState(room);
       }
     } else {
-      const room = joinRoom(incomingCode, settings.playerName || "Player 2");
+      const room = joinRoom(incomingCode, settings.playerName || t("misc.player2"));
       if (!room) {
-        Alert.alert("Room not found", "Returning to lobby.");
+        Alert.alert(t("room.notFound"), t("room.returningLobby"));
         router.replace("/lobby");
         return;
       }
@@ -75,14 +65,12 @@ export default function RoomScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Subscribe to updates
   useEffect(() => {
     if (!state?.code) return;
     const unsub = onUpdate(state.code, (s) => setState(s));
     return unsub;
   }, [state?.code]);
 
-  // Handle win → result screen
   useEffect(() => {
     if (state?.status === "won") {
       const winnerName = state.winner === "host" ? state.hostName : state.guestName;
@@ -103,11 +91,12 @@ export default function RoomScreen() {
 
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 12;
   const showCount = digits >= 3;
+  const wd = isRTL ? "rtl" : "ltr";
 
   if (!state) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <ScreenHeader title="Room" />
+        <ScreenHeader title={t("room.title", { code: "…" })} />
       </View>
     );
   }
@@ -121,7 +110,7 @@ export default function RoomScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
-        title={`Room ${state.code}`}
+        title={t("room.title", { code: state.code })}
         rightSlot={
           <Pressable
             onPress={() => {
@@ -137,34 +126,31 @@ export default function RoomScreen() {
       <View style={[styles.container, { paddingBottom: bottomPad }]}>
         <View style={[styles.simBanner, { backgroundColor: colors.secondary }]}>
           <Feather name="info" size={14} color={colors.secondaryForeground} />
-          <Text style={[styles.simText, { color: colors.secondaryForeground }]}>
-            Local simulation — switch views to play both roles
+          <Text
+            style={[styles.simText, { color: colors.secondaryForeground, writingDirection: wd }]}
+          >
+            {t("room.simBanner")}
           </Text>
         </View>
 
         <View style={[styles.tabs, { backgroundColor: colors.muted }]}>
           {(["host", "guest"] as const).map((r) => {
             const active = r === activeView;
+            const name = r === "host" ? state.hostName : state.guestName;
+            const labelKey = r === "host" ? "room.host" : "room.guest";
             return (
               <Pressable
                 key={r}
                 onPress={() => setActiveView(r)}
-                style={[
-                  styles.tab,
-                  {
-                    backgroundColor: active ? colors.card : "transparent",
-                  },
-                ]}
+                style={[styles.tab, { backgroundColor: active ? colors.card : "transparent" }]}
               >
                 <Text
                   style={[
                     styles.tabText,
-                    {
-                      color: active ? colors.foreground : colors.mutedForeground,
-                    },
+                    { color: active ? colors.foreground : colors.mutedForeground },
                   ]}
                 >
-                  {r === "host" ? `${state.hostName} (host)` : `${state.guestName} (guest)`}
+                  {t(labelKey, { name })}
                 </Text>
               </Pressable>
             );
@@ -197,23 +183,15 @@ export default function RoomScreen() {
 }
 
 function HostView({
-  state,
-  digits,
-  hiddenInput,
-  setHiddenInput,
-  allowLeadingZero,
-  history,
-  showCount,
+  state, digits, hiddenInput, setHiddenInput, allowLeadingZero, history, showCount,
 }: {
-  state: RoomState;
-  digits: Digits;
-  hiddenInput: string;
-  setHiddenInput: (v: string) => void;
+  state: RoomState; digits: Digits;
+  hiddenInput: string; setHiddenInput: (v: string) => void;
   allowLeadingZero: boolean;
-  history: HistoryItem[];
-  showCount: boolean;
+  history: HistoryItem[]; showCount: boolean;
 }) {
   const colors = useColors();
+  const { t } = useT();
   const valid = useMemo(() => {
     if (hiddenInput.length !== digits) return false;
     if (!/^[0-9]+$/.test(hiddenInput)) return false;
@@ -225,9 +203,13 @@ function HostView({
     return (
       <View style={styles.flex}>
         <View style={styles.top}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>SET A HIDDEN NUMBER</Text>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>
+            {t("room.setHidden")}
+          </Text>
           <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-            {digits} digits{!allowLeadingZero ? " · no leading zero" : ""}
+            {allowLeadingZero
+              ? t("room.digitsHint", { n: digits })
+              : t("room.digitsHintLZ", { n: digits })}
           </Text>
           <View style={{ marginTop: 8 }}>
             <GuessInput value={hiddenInput} digits={digits} />
@@ -235,7 +217,9 @@ function HostView({
         </View>
         <View style={styles.bottom}>
           <NumericKeypad
-            onDigit={(d) => setHiddenInput(hiddenInput.length < digits ? hiddenInput + d : hiddenInput)}
+            onDigit={(d) =>
+              setHiddenInput(hiddenInput.length < digits ? hiddenInput + d : hiddenInput)
+            }
             onBackspace={() => setHiddenInput(hiddenInput.slice(0, -1))}
             onSubmit={() => {
               if (valid) {
@@ -250,18 +234,21 @@ function HostView({
     );
   }
 
-  // Guessing or won — host watches
   return (
     <View style={styles.flex}>
       <View style={styles.top}>
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>YOUR HIDDEN NUMBER</Text>
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>
+          {t("room.yourHidden")}
+        </Text>
         <NumberDisplay digits={digits} reveal={state.hidden} />
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          Waiting for the guesser…
+          {t("room.waitingForGuesser")}
         </Text>
       </View>
       <View style={styles.historyWrap}>
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>GUESSES</Text>
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>
+          {t("room.guesses")}
+        </Text>
         <GuessHistory items={history} showCorrectCount={showCount} />
       </View>
     </View>
@@ -269,31 +256,24 @@ function HostView({
 }
 
 function GuestView({
-  state,
-  digits,
-  guessInput,
-  setGuessInput,
-  history,
-  showCount,
+  state, digits, guessInput, setGuessInput, history, showCount,
 }: {
-  state: RoomState;
-  digits: Digits;
-  guessInput: string;
-  setGuessInput: (v: string) => void;
-  history: HistoryItem[];
-  showCount: boolean;
+  state: RoomState; digits: Digits;
+  guessInput: string; setGuessInput: (v: string) => void;
+  history: HistoryItem[]; showCount: boolean;
 }) {
   const colors = useColors();
+  const { t } = useT();
 
   if (state.status === "setup") {
     return (
       <View style={[styles.flex, styles.center]}>
         <Feather name="clock" size={32} color={colors.mutedForeground} />
         <Text style={[styles.waitTitle, { color: colors.foreground }]}>
-          Waiting for {state.hostName}
+          {t("room.waitingFor", { name: state.hostName })}
         </Text>
         <Text style={[styles.waitSub, { color: colors.mutedForeground }]}>
-          They are picking a hidden {digits}-digit number.
+          {t("room.picking", { n: digits })}
         </Text>
       </View>
     );
@@ -302,17 +282,23 @@ function GuestView({
   return (
     <View style={styles.flex}>
       <View style={styles.top}>
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>HIDDEN NUMBER</Text>
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>
+          {t("solo.hidden")}
+        </Text>
         <NumberDisplay digits={digits} reveal={state.status === "won" ? state.hidden : null} />
       </View>
       <View style={styles.historyWrap}>
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>HISTORY</Text>
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>
+          {t("room.history")}
+        </Text>
         <GuessHistory items={history} showCorrectCount={showCount} />
       </View>
       <View style={styles.bottom}>
         <GuessInput value={guessInput} digits={digits} />
         <NumericKeypad
-          onDigit={(d) => setGuessInput(guessInput.length < digits ? guessInput + d : guessInput)}
+          onDigit={(d) =>
+            setGuessInput(guessInput.length < digits ? guessInput + d : guessInput)
+          }
           onBackspace={() => setGuessInput(guessInput.slice(0, -1))}
           onSubmit={() => {
             if (isValidGuess(guessInput, digits)) {
@@ -327,76 +313,25 @@ function GuestView({
   );
 }
 
-// Exported helper kept for reference; switching is handled from the result screen.
-export function _switchRolesFromResult(code: string) {
-  switchRoles(code);
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
+  container: { flex: 1, paddingHorizontal: 16, gap: 12 },
   flex: { flex: 1, gap: 16 },
   center: { alignItems: "center", justifyContent: "center", gap: 12 },
   simBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    alignSelf: "center",
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, alignSelf: "center",
   },
-  simText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-  },
-  tabs: {
-    flexDirection: "row",
-    padding: 4,
-    borderRadius: 14,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  tabText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  top: {
-    alignItems: "center",
-    gap: 10,
-    paddingTop: 4,
-  },
-  label: {
-    fontSize: 11,
-    letterSpacing: 1.2,
-    fontFamily: "Inter_600SemiBold",
-  },
-  hint: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  historyWrap: {
-    flex: 1,
-    gap: 8,
-  },
-  bottom: {
-    gap: 12,
-  },
-  waitTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-  },
+  simText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  tabs: { flexDirection: "row", padding: 4, borderRadius: 14 },
+  tab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center" },
+  tabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  top: { alignItems: "center", gap: 10, paddingTop: 4 },
+  label: { fontSize: 11, letterSpacing: 1.2, fontFamily: "Inter_600SemiBold" },
+  hint: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  historyWrap: { flex: 1, gap: 8 },
+  bottom: { gap: 12 },
+  waitTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   waitSub: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    paddingHorizontal: 24,
+    fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingHorizontal: 24,
   },
 });

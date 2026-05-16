@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import {
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -13,30 +14,41 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { Button } from "@/src/components/Button";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
+import { useT } from "@/src/i18n/useT";
 import type { Language, ThemeMode } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { settings, update } = useSettings();
+  const { settings, update, resetAll } = useSettings();
+  const { t, isRTL } = useT();
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
+  const writingDirection = isRTL ? "rtl" : "ltr";
+
+  const onResetAll = () => {
+    Alert.alert(t("settings.resetAll"), t("settings.resetAllConfirm"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("common.reset"), style: "destructive", onPress: () => void resetAll() },
+    ]);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScreenHeader title="Settings" />
+      <ScreenHeader title={t("settings.title")} />
       <ScrollView
         contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
       >
-        <Section title="Profile">
-          <Row label="Player name" icon="user">
+        <Section title={t("settings.profile")}>
+          <Row label={t("settings.playerName")} icon="user">
             <TextInput
               value={settings.playerName}
-              onChangeText={(t) => void update({ playerName: t.slice(0, 24) })}
-              placeholder="Your name"
+              onChangeText={(v) => void update({ playerName: v.slice(0, 24) })}
+              placeholder={t("settings.playerPh")}
               placeholderTextColor={colors.mutedForeground}
               style={[
                 styles.input,
@@ -44,52 +56,54 @@ export default function SettingsScreen() {
                   color: colors.foreground,
                   backgroundColor: colors.background,
                   borderColor: colors.border,
+                  textAlign: isRTL ? "left" : "right",
+                  writingDirection,
                 },
               ]}
             />
           </Row>
         </Section>
 
-        <Section title="Appearance">
-          <Row label="Theme" icon="moon">
-            <Segmented
+        <Section title={t("settings.appearance")}>
+          <Row label={t("settings.theme")} icon="moon">
+            <Segmented<ThemeMode>
               value={settings.themeMode}
               options={[
-                { value: "system", label: "System" },
-                { value: "light", label: "Light" },
-                { value: "dark", label: "Dark" },
+                { value: "system", label: t("settings.themeSystem") },
+                { value: "light", label: t("settings.themeLight") },
+                { value: "dark", label: t("settings.themeDark") },
               ]}
-              onChange={(v) => void update({ themeMode: v as ThemeMode })}
+              onChange={(v) => void update({ themeMode: v })}
             />
           </Row>
-          <Row label="Language" icon="globe">
-            <Segmented
+          <Row label={t("settings.language")} icon="globe">
+            <Segmented<Language>
               value={settings.language}
               options={[
                 { value: "en", label: "English" },
                 { value: "ar", label: "العربية" },
               ]}
-              onChange={(v) => void update({ language: v as Language })}
+              onChange={(v) => void update({ language: v })}
             />
           </Row>
         </Section>
 
-        <Section title="Gameplay">
-          <Row label="Allow leading zero" icon="hash">
+        <Section title={t("settings.gameplay")}>
+          <Row label={t("settings.allowLeading")} icon="hash">
             <Switch
               value={settings.allowLeadingZero}
               onValueChange={(v) => void update({ allowLeadingZero: v })}
               trackColor={{ true: colors.primary }}
             />
           </Row>
-          <Row label="Haptic feedback" icon="zap">
+          <Row label={t("settings.haptics")} icon="zap">
             <Switch
               value={settings.hapticsOn}
               onValueChange={(v) => void update({ hapticsOn: v })}
               trackColor={{ true: colors.primary }}
             />
           </Row>
-          <Row label="Sound effects" icon="volume-2">
+          <Row label={t("settings.sound")} icon="volume-2">
             <Switch
               value={settings.soundOn}
               onValueChange={(v) => void update({ soundOn: v })}
@@ -98,8 +112,18 @@ export default function SettingsScreen() {
           </Row>
         </Section>
 
-        <Text style={[styles.note, { color: colors.mutedForeground }]}>
-          Sound and Arabic translation are placeholders for future updates.
+        <Button
+          title={t("settings.resetAll")}
+          variant="ghost"
+          fullWidth
+          onPress={onResetAll}
+        />
+
+        <Text style={[styles.note, { color: colors.mutedForeground, writingDirection }]}>
+          {t("settings.note")}
+        </Text>
+        <Text style={[styles.note, { color: colors.mutedForeground, writingDirection }]}>
+          {t("settings.rtlNote")}
         </Text>
       </ScrollView>
     </View>
@@ -108,16 +132,19 @@ export default function SettingsScreen() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const colors = useColors();
+  const { isRTL } = useT();
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+      <Text
+        style={[
+          styles.sectionTitle,
+          { color: colors.mutedForeground, writingDirection: isRTL ? "rtl" : "ltr" },
+        ]}
+      >
         {title.toUpperCase()}
       </Text>
       <View
-        style={[
-          styles.sectionCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
+        style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       >
         {children}
       </View>
@@ -164,12 +191,7 @@ function Segmented<T extends string>({
           <Pressable
             key={o.value}
             onPress={() => onChange(o.value)}
-            style={[
-              styles.segItem,
-              {
-                backgroundColor: active ? colors.card : "transparent",
-              },
-            ]}
+            style={[styles.segItem, { backgroundColor: active ? colors.card : "transparent" }]}
           >
             <Text
               style={[
@@ -187,78 +209,29 @@ function Segmented<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    gap: 18,
-  },
-  section: {
-    gap: 8,
-  },
+  container: { paddingHorizontal: 20, paddingTop: 8, gap: 18 },
+  section: { gap: 8 },
   sectionTitle: {
-    fontSize: 11,
-    letterSpacing: 1.2,
-    fontFamily: "Inter_600SemiBold",
-    paddingHorizontal: 4,
+    fontSize: 11, letterSpacing: 1.2, fontFamily: "Inter_600SemiBold", paddingHorizontal: 4,
   },
-  sectionCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
+  sectionCard: { borderRadius: 18, borderWidth: 1, overflow: "hidden" },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    minHeight: 56,
-    gap: 12,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth, minHeight: 56, gap: 12,
   },
-  rowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flexShrink: 1,
-  },
-  rowRight: {
-    flexShrink: 0,
-    maxWidth: "60%",
-  },
-  rowLabel: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
-  segmented: {
-    flexDirection: "row",
-    padding: 3,
-    borderRadius: 10,
-  },
-  segItem: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  segText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
+  rowLeft: { flexDirection: "row", alignItems: "center", gap: 12, flexShrink: 1 },
+  rowRight: { flexShrink: 0, maxWidth: "60%" },
+  rowLabel: { fontSize: 15, fontFamily: "Inter_500Medium" },
+  segmented: { flexDirection: "row", padding: 3, borderRadius: 10 },
+  segItem: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  segText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   input: {
-    minWidth: 140,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    textAlign: "right",
+    minWidth: 140, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1,
+    fontSize: 14, fontFamily: "Inter_500Medium",
   },
   note: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    paddingHorizontal: 16,
-    marginTop: 4,
+    fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center",
+    paddingHorizontal: 16, lineHeight: 18,
   },
 });

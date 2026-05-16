@@ -3,7 +3,8 @@ import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
-import { feedbackLabel, type Feedback } from "@/src/utils/gameLogic";
+import { useT } from "@/src/i18n/useT";
+import { type Feedback } from "@/src/utils/gameLogic";
 
 export function FeedbackCard({
   feedback,
@@ -15,8 +16,10 @@ export function FeedbackCard({
   guess?: string;
 }) {
   const colors = useColors();
+  const { t, isRTL } = useT();
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(8)).current;
+  const wd = isRTL ? "rtl" : "ltr";
 
   useEffect(() => {
     if (!feedback) return;
@@ -31,8 +34,10 @@ export function FeedbackCard({
   if (!feedback) {
     return (
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.placeholder, { color: colors.mutedForeground }]}>
-          Make your first guess
+        <Text
+          style={[styles.placeholder, { color: colors.mutedForeground, writingDirection: wd }]}
+        >
+          {t("fb.makeFirst")}
         </Text>
       </View>
     );
@@ -47,7 +52,16 @@ export function FeedbackCard({
       : isHigh
         ? colors.warning
         : colors.primary;
-  const label = feedbackLabel(feedback.level, feedback.correct);
+  const labelKey = feedback.correct
+    ? "fb.correct"
+    : feedback.level === "tooHigh"
+      ? "fb.tooHigh"
+      : feedback.level === "tooLow"
+        ? "fb.tooLow"
+        : feedback.level === "high"
+          ? "fb.high"
+          : "fb.low";
+  const label = t(labelKey);
   const icon = feedback.correct ? "check-circle" : isHigh ? "arrow-down" : "arrow-up";
 
   return (
@@ -66,14 +80,15 @@ export function FeedbackCard({
         <Feather name={icon} size={22} color={tone} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
+        <Text style={[styles.title, { color: colors.foreground, writingDirection: wd }]}>
           {label}
           {guess ? ` — ${guess}` : ""}
         </Text>
         {showCorrectCount && !feedback.correct ? (
-          <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-            {feedback.correctDigitCount} correct{" "}
-            {feedback.correctDigitCount === 1 ? "digit" : "digits"}
+          <Text style={[styles.sub, { color: colors.mutedForeground, writingDirection: wd }]}>
+            {feedback.correctDigitCount === 1
+              ? t("fb.correctDigit", { n: feedback.correctDigitCount })
+              : t("fb.correctDigits", { n: feedback.correctDigitCount })}
           </Text>
         ) : null}
       </View>
@@ -83,32 +98,13 @@ export function FeedbackCard({
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    minHeight: 64,
+    flexDirection: "row", alignItems: "center", gap: 12,
+    padding: 14, borderRadius: 18, borderWidth: 1.5, minHeight: 64,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center",
   },
-  title: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-  },
-  sub: {
-    marginTop: 2,
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  placeholder: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-  },
+  title: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  sub: { marginTop: 2, fontSize: 13, fontFamily: "Inter_400Regular" },
+  placeholder: { fontSize: 14, fontFamily: "Inter_500Medium" },
 });

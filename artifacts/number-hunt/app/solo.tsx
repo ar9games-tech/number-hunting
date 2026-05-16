@@ -12,6 +12,7 @@ import { NumericKeypad } from "@/src/components/NumericKeypad";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { Timer } from "@/src/components/Timer";
 import { useSettings } from "@/src/contexts/SettingsContext";
+import { useT } from "@/src/i18n/useT";
 import { saveRecordIfBest } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import {
@@ -26,6 +27,7 @@ export default function SoloGameScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
+  const { t } = useT();
   const params = useLocalSearchParams<{ digits?: string }>();
   const digits = (Math.min(4, Math.max(2, parseInt(params.digits ?? "3", 10))) || 3) as Digits;
 
@@ -58,7 +60,6 @@ export default function SoloGameScreen() {
 
     if (fb.correct) {
       finished.current = true;
-      // Compute final elapsed precisely from start time, ignoring tick latency.
       const finalElapsed = Math.max(
         elapsedRef.current,
         Math.floor((Date.now() - startedAt.current) / 1000),
@@ -85,7 +86,7 @@ export default function SoloGameScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
-        title={`${digits}-Digit · Solo`}
+        title={t("solo.title", { n: digits })}
         rightSlot={
           <Timer
             running={running}
@@ -97,14 +98,18 @@ export default function SoloGameScreen() {
       />
       <View style={[styles.container, { paddingBottom: bottomPad }]}>
         <View style={styles.top}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>HIDDEN NUMBER</Text>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>
+            {t("solo.hidden")}
+          </Text>
           <NumberDisplay digits={digits} reveal={lastFeedback?.correct ? hidden : null} />
         </View>
 
         <FeedbackCard feedback={lastFeedback} guess={lastGuess} showCorrectCount={showCount} />
 
         <View style={styles.historyWrap}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>HISTORY</Text>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>
+            {t("solo.history")}
+          </Text>
           <GuessHistory items={history} showCorrectCount={showCount} />
         </View>
 
@@ -123,26 +128,9 @@ export default function SoloGameScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-    gap: 16,
-  },
-  top: {
-    alignItems: "center",
-    gap: 10,
-    paddingTop: 8,
-  },
-  label: {
-    fontSize: 11,
-    letterSpacing: 1.2,
-    fontFamily: "Inter_600SemiBold",
-  },
-  historyWrap: {
-    flex: 1,
-    gap: 8,
-  },
-  bottom: {
-    gap: 12,
-  },
+  container: { flex: 1, paddingHorizontal: 16, gap: 16 },
+  top: { alignItems: "center", gap: 10, paddingTop: 8 },
+  label: { fontSize: 11, letterSpacing: 1.2, fontFamily: "Inter_600SemiBold" },
+  historyWrap: { flex: 1, gap: 8 },
+  bottom: { gap: 12 },
 });

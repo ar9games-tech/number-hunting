@@ -7,11 +7,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
+import { useT } from "@/src/i18n/useT";
 import { webBottomInset, webTopInset } from "@/src/theme/theme";
 
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t, isRTL } = useT();
   const fade = useRef(new Animated.Value(0)).current;
   const lift = useRef(new Animated.Value(20)).current;
   const digitsAnim = useRef(new Animated.Value(0)).current;
@@ -26,6 +28,7 @@ export default function HomeScreen() {
 
   const topPad = (Platform.OS === "web" ? webTopInset() : insets.top) + 24;
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
+  const writingDirection = isRTL ? "rtl" : "ltr";
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -53,34 +56,30 @@ export default function HomeScreen() {
               {["7", "3", "9"].map((d, i) => (
                 <View
                   key={i}
-                  style={[
-                    styles.digitChip,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                    },
-                  ]}
+                  style={[styles.digitChip, { backgroundColor: colors.card, borderColor: colors.border }]}
                 >
                   <Text style={[styles.digitText, { color: colors.primary }]}>{d}</Text>
                 </View>
               ))}
             </View>
           </Animated.View>
-          <Text style={[styles.title, { color: colors.foreground }]}>Number Hunt</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Crack the hidden number{"\n"}as fast as you can
+          <Text style={[styles.title, { color: colors.foreground, writingDirection }]}>
+            {t("home.title")}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground, writingDirection }]}>
+            {t("home.subtitle")}
           </Text>
         </Animated.View>
 
         <Animated.View style={[styles.actions, { opacity: fade }]}>
           <Button
-            title="Solo"
+            title={t("home.solo")}
             fullWidth
             size="lg"
             onPress={() => router.push({ pathname: "/difficulty", params: { mode: "solo" } })}
           />
           <Button
-            title="Multiplayer"
+            title={t("home.multiplayer")}
             fullWidth
             size="lg"
             variant="secondary"
@@ -89,12 +88,16 @@ export default function HomeScreen() {
           <View style={styles.linksRow}>
             <Pressable onPress={() => router.push("/records")} style={styles.linkBtn}>
               <Feather name="award" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.linkText, { color: colors.mutedForeground }]}>Records</Text>
+              <Text style={[styles.linkText, { color: colors.mutedForeground }]}>
+                {t("home.records")}
+              </Text>
             </Pressable>
             <View style={[styles.dot, { backgroundColor: colors.border }]} />
             <Pressable onPress={() => router.push("/how-to-play")} style={styles.linkBtn}>
               <Feather name="book-open" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.linkText, { color: colors.mutedForeground }]}>How to Play</Text>
+              <Text style={[styles.linkText, { color: colors.mutedForeground }]}>
+                {t("home.howto")}
+              </Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -105,80 +108,28 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: "space-between",
-  },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
+  container: { flex: 1, paddingHorizontal: 24, justifyContent: "space-between" },
+  topBar: { flexDirection: "row", justifyContent: "space-between" },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
   },
-  hero: {
-    alignItems: "center",
-    gap: 16,
-  },
-  digitsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 8,
-  },
+  hero: { alignItems: "center", gap: 16 },
+  digitsRow: { flexDirection: "row", gap: 10, marginBottom: 8 },
   digitChip: {
-    width: 56,
-    height: 72,
-    borderRadius: 18,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 56, height: 72, borderRadius: 18, borderWidth: 2,
+    alignItems: "center", justifyContent: "center",
   },
-  digitText: {
-    fontSize: 32,
-    fontFamily: "Inter_700Bold",
-  },
-  title: {
-    fontSize: 44,
-    fontFamily: "Inter_700Bold",
-    textAlign: "center",
-    letterSpacing: -1,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: "center",
-    fontFamily: "Inter_400Regular",
-    lineHeight: 22,
-  },
-  actions: {
-    gap: 12,
-  },
+  digitText: { fontSize: 32, fontFamily: "Inter_700Bold" },
+  title: { fontSize: 44, fontFamily: "Inter_700Bold", textAlign: "center", letterSpacing: -1 },
+  subtitle: { fontSize: 16, textAlign: "center", fontFamily: "Inter_400Regular", lineHeight: 22 },
+  actions: { gap: 12 },
   linksRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 14,
-    marginTop: 12,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 12,
   },
   linkBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8, paddingHorizontal: 8,
   },
-  linkText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
+  linkText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  dot: { width: 4, height: 4, borderRadius: 2 },
 });

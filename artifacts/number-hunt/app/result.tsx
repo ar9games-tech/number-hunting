@@ -9,6 +9,7 @@ import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
 import { NumberDisplay } from "@/src/components/NumberDisplay";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { useT } from "@/src/i18n/useT";
 import { switchRoles } from "@/src/net/socketPlaceholder";
 import { webBottomInset } from "@/src/theme/theme";
 import { formatTime } from "@/src/utils/scoring";
@@ -16,6 +17,7 @@ import { formatTime } from "@/src/utils/scoring";
 export default function ResultScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const params = useLocalSearchParams<{
     mode?: string;
     digits?: string;
@@ -64,15 +66,18 @@ export default function ResultScreen() {
         colors={[colors.gradientSoftFrom, colors.background]}
         style={StyleSheet.absoluteFill}
       />
-      <ScreenHeader title={isOnline ? "Round Over" : "Solo Result"} />
+      <ScreenHeader title={isOnline ? t("result.online") : t("result.solo")} />
       <View style={[styles.container, { paddingBottom: bottomPad }]}>
         <Animated.View
-          style={[styles.card, {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            opacity: fade,
-            transform: [{ translateY: lift }],
-          }]}
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              opacity: fade,
+              transform: [{ translateY: lift }],
+            },
+          ]}
         >
           {isNewRecord ? (
             <Animated.View
@@ -90,7 +95,7 @@ export default function ResultScreen() {
             >
               <Feather name="award" size={16} color={colors.accentForeground} />
               <Text style={[styles.recordText, { color: colors.accentForeground }]}>
-                New Record!
+                {t("result.newRecord")}
               </Text>
             </Animated.View>
           ) : null}
@@ -99,22 +104,24 @@ export default function ResultScreen() {
             <Feather name="check-circle" size={36} color={colors.success} />
           </View>
           <Text style={[styles.title, { color: colors.foreground }]}>
-            {isOnline ? `${params.winnerName ?? "Player"} won!` : "You got it!"}
+            {isOnline
+              ? t("result.someoneWon", { name: params.winnerName ?? "Player" })
+              : t("result.youGotIt")}
           </Text>
 
           {hidden ? (
             <View style={{ alignItems: "center", gap: 8, marginTop: 8 }}>
-              <Text style={[styles.label, { color: colors.mutedForeground }]}>HIDDEN NUMBER</Text>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>
+                {t("result.hidden")}
+              </Text>
               <NumberDisplay digits={digits} reveal={hidden} />
             </View>
           ) : null}
 
           <View style={styles.statsRow}>
-            {!isOnline ? (
-              <Stat label="Time" value={formatTime(timeSec)} icon="clock" />
-            ) : null}
-            <Stat label="Guesses" value={String(guesses)} icon="hash" />
-            <Stat label="Digits" value={String(digits)} icon="layers" />
+            {!isOnline ? <Stat label={t("result.time")} value={formatTime(timeSec)} icon="clock" /> : null}
+            <Stat label={t("result.guesses")} value={String(guesses)} icon="hash" />
+            <Stat label={t("result.digits")} value={String(digits)} icon="layers" />
           </View>
         </Animated.View>
 
@@ -122,7 +129,7 @@ export default function ResultScreen() {
           {isOnline ? (
             <>
               <Button
-                title="Switch Roles & Play Again"
+                title={t("result.switchAndPlay")}
                 fullWidth
                 onPress={() => {
                   if (code) switchRoles(code);
@@ -133,7 +140,7 @@ export default function ResultScreen() {
                 }}
               />
               <Button
-                title="Leave Room"
+                title={t("result.leaveRoom")}
                 fullWidth
                 variant="ghost"
                 onPress={() => router.replace("/lobby")}
@@ -142,20 +149,20 @@ export default function ResultScreen() {
           ) : (
             <>
               <Button
-                title="Play Again"
+                title={t("result.playAgain")}
                 fullWidth
                 onPress={() =>
                   router.replace({ pathname: "/solo", params: { digits: String(digits) } })
                 }
               />
               <Button
-                title="View Records"
+                title={t("result.viewRecords")}
                 fullWidth
                 variant="secondary"
                 onPress={() => router.replace("/records")}
               />
               <Button
-                title="Home"
+                title={t("result.home")}
                 fullWidth
                 variant="ghost"
                 onPress={() => router.replace("/")}
@@ -169,14 +176,8 @@ export default function ResultScreen() {
 }
 
 function Stat({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: keyof typeof Feather.glyphMap;
-}) {
+  label, value, icon,
+}: { label: string; value: string; icon: keyof typeof Feather.glyphMap }) {
   const colors = useColors();
   return (
     <View style={[styles.stat, { backgroundColor: colors.background, borderColor: colors.border }]}>
@@ -189,76 +190,30 @@ function Stat({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    gap: 18,
-    justifyContent: "space-between",
+    flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 18, justifyContent: "space-between",
   },
   card: {
-    padding: 24,
-    borderRadius: 24,
-    borderWidth: 1,
-    alignItems: "center",
-    gap: 14,
-    position: "relative",
+    padding: 24, borderRadius: 24, borderWidth: 1,
+    alignItems: "center", gap: 14, position: "relative",
   },
   recordBadge: {
-    position: "absolute",
-    top: -14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
+    position: "absolute", top: -14,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
   },
-  recordText: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.4,
-  },
+  recordText: { fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.4 },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 80, height: 80, borderRadius: 40,
+    alignItems: "center", justifyContent: "center",
   },
-  title: {
-    fontSize: 24,
-    fontFamily: "Inter_700Bold",
-    textAlign: "center",
-  },
-  label: {
-    fontSize: 11,
-    letterSpacing: 1.2,
-    fontFamily: "Inter_600SemiBold",
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 10,
-    width: "100%",
-  },
+  title: { fontSize: 24, fontFamily: "Inter_700Bold", textAlign: "center" },
+  label: { fontSize: 11, letterSpacing: 1.2, fontFamily: "Inter_600SemiBold" },
+  statsRow: { flexDirection: "row", gap: 10, marginTop: 10, width: "100%" },
   stat: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 4,
+    flex: 1, alignItems: "center", paddingVertical: 12,
+    borderRadius: 14, borderWidth: 1, gap: 4,
   },
-  statValue: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    fontVariant: ["tabular-nums"],
-  },
-  statLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-  },
-  actions: {
-    gap: 10,
-  },
+  statValue: { fontSize: 18, fontFamily: "Inter_700Bold", fontVariant: ["tabular-nums"] },
+  statLabel: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  actions: { gap: 10 },
 });
