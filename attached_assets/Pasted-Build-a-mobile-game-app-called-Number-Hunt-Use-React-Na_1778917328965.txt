@@ -1,0 +1,145 @@
+Build a mobile game app called “Number Hunt”.
+
+Use React Native with Expo so the app can run on Android and iOS.
+
+Game concept:
+Number Hunt is a number guessing game where the player tries to guess a hidden number. The game has Solo Mode and Online Multiplayer Mode.
+
+Tech stack:
+- React Native
+- Expo
+- JavaScript
+- AsyncStorage
+- React Navigation
+- Socket.io placeholders for online multiplayer
+- Must run on Replit
+
+Game modes:
+1. Solo Mode
+2. Online Multiplayer Mode
+
+Solo Mode:
+- The player chooses the challenge:
+  - 2-digit number
+  - 3-digit number
+  - 4-digit number
+- The bot randomly chooses a hidden number.
+- The hidden number is displayed as X marks:
+  - 2 digits: X X
+  - 3 digits: X X X
+  - 4 digits: X X X X
+- There is NO guess limit.
+- Add a timer that starts when the round begins.
+- The goal is to guess the correct number as fast as possible.
+- Save best records locally using AsyncStorage:
+  - Best time for 2-digit mode
+  - Best time for 3-digit mode
+  - Best time for 4-digit mode
+  - Number of guesses used
+  - Date of record
+- Show “New Record!” if the player beats their best time.
+
+Solo feedback rules:
+- For 2-digit mode:
+  - Show “Too High” if the guess is higher than the hidden number
+  - Show “Too Low” if the guess is lower than the hidden number
+  - Show “Correct!” if the guess is exactly right
+- For 3-digit and 4-digit modes:
+  - Show “Too High” or “Too Low”
+  - Also show how many digits are correct
+  - Do not reveal which digit is correct
+  - Do not reveal the digit position
+  - Example: “Too Low — 2 correct digits”
+
+Online Multiplayer Mode:
+- Two players can play against each other.
+- No guess limit.
+- No timer records.
+- No high score records for online mode.
+- Player 1 creates a room code.
+- Player 2 joins using the room code.
+- One player sets a hidden number based on the selected difficulty.
+- The other player guesses.
+- After the round ends, roles can switch.
+- Show:
+  - Player names
+  - Room code
+  - Current turn/status
+  - Guess history
+- Multiplayer feedback:
+  - Too High / Too Low
+  - Correct digit count for 3-digit and 4-digit numbers
+  - Win message when the opponent guesses the correct number
+- If full real online multiplayer is complex, build a local multiplayer simulation first and add clear Socket.io placeholders for real Replit multiplayer.
+
+Important rules:
+- There must be no guess limit in any mode.
+- Solo Mode uses timer and saves best records.
+- Online Multiplayer Mode has no timer records and no guess limit.
+- Generate hidden numbers with exactly the selected digit length.
+- Do not allow leading zero unless enabled in settings.
+- Validate guesses:
+  - Guess must match selected digit length
+  - Only numbers are allowed
+- Correct digit count must handle repeated digits correctly.
+- Never reveal correct digit positions.
+
+UI/UX:
+- Beautiful eye-friendly mobile design.
+- Modern casual puzzle game style.
+- Soft gradients.
+- Rounded buttons.
+- Large readable numbers.
+- Smooth animations.
+- Custom numeric keypad.
+- Guess history cards.
+- Feedback cards.
+- Timer display only in Solo Mode.
+- Records screen for Solo Mode only.
+- Sound effects placeholders.
+- Haptic feedback placeholders.
+- Dark mode support.
+- Arabic and English language placeholders.
+
+Screens:
+1. Splash Screen
+2. Home Screen
+3. Mode Selection Screen
+4. Difficulty Selection Screen
+5. Solo Game Screen
+6. Multiplayer Lobby Screen
+7. Room Screen
+8. Result Screen
+9. Records Screen
+10. Settings Screen
+11. How to Play Screen
+
+Required files:
+- App.js
+- package.json
+- app.json
+- README.md
+- src/screens/SplashScreen.js
+- src/screens/HomeScreen.js
+- src/screens/ModeSelectionScreen.js
+- src/screens/DifficultyScreen.js
+- src/screens/SoloGameScreen.js
+- src/screens/MultiplayerLobbyScreen.js
+- src/screens/RoomScreen.js
+- src/screens/ResultScreen.js
+- src/screens/RecordsScreen.js
+- src/screens/SettingsScreen.js
+- src/screens/HowToPlayScreen.js
+- src/components/NumberDisplay.js
+- src/components/NumericKeypad.js
+- src/components/GuessHistory.js
+- src/components/FeedbackCard.js
+- src/components/Timer.js
+- src/storage/storage.js
+- src/utils/gameLogic.js
+- src/utils/scoring.js
+- src/theme/theme.js
+
+Make the app fully playable on Replit with Expo.
+Write clean, commented code.
+Include clear setup instructions in README.md.
