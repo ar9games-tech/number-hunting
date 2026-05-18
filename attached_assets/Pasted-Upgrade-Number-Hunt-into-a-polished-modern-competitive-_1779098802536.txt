@@ -1,0 +1,167 @@
+Upgrade “Number Hunt” into a polished modern competitive mobile game inspired by successful casual puzzle games like Bulls & Cows and Mastermind, but with a cleaner, faster, more mobile-friendly experience.
+
+Goal:
+Make the game feel addictive, modern, social, and visually satisfying while keeping gameplay simple and easy to understand.
+
+Main Improvements:
+
+1. Modern Casual Game Feel
+- Make the game feel like a premium mobile puzzle app.
+- Fast navigation.
+- Smooth animations.
+- Satisfying button presses.
+- Responsive UI.
+- Clean minimalist layouts.
+- Soft gradients and glowing highlights.
+- Rounded modern cards/buttons.
+
+2. Competitive Online Experience
+Add:
+- Ranked Mode
+- Casual Online Mode
+- Private Friend Rooms
+- Matchmaking screen
+- Player usernames
+- Win/Loss statistics
+- Rank points system
+- Rank tiers:
+  - Bronze
+  - Silver
+  - Gold
+  - Platinum
+  - Diamond
+- Victory animations.
+- Defeat screen.
+- Rematch button.
+
+3. Daily Challenge System
+- Add a Daily Number Challenge.
+- All players get the same hidden number each day.
+- Track:
+  - Fastest solve time
+  - Fewest guesses
+- Add daily leaderboard.
+
+4. Better Guess Feedback UX
+Keep the existing system:
+- Low
+- Too Low
+- High
+- Too High
+- Correct
+
+But improve the presentation:
+- Animated feedback cards.
+- Green glow for close guesses.
+- Red glow for far guesses.
+- Small vibration placeholder on wrong guesses.
+- Success animation on correct answer.
+
+5. Improved Correct Digit System
+For 3-digit and 4-digit modes:
+- Show:
+  “2 Correct Digits”
+- Display it beautifully with icons and animations.
+- Never reveal positions.
+
+6. Multiplayer Social Features
+Add:
+- Emoji reactions during matches.
+- Quick chat messages:
+  - “Close!”
+  - “No way!”
+  - “You’re lucky!”
+  - “Almost!”
+- Friend invite codes.
+- Online player indicator.
+
+7. Statistics System
+Track locally:
+- Games played
+- Wins
+- Losses
+- Fastest solve
+- Average guesses
+- Best streak
+- Daily challenge wins
+
+8. Visual Improvements
+Style:
+- Modern puzzle aesthetic
+- Neon gradient backgrounds
+- Glassmorphism cards
+- Animated particles
+- Number glow effects
+- Smooth transitions
+- Premium mobile game feel
+
+9. Sound & Feedback
+Add placeholders for:
+- Tap sounds
+- Success sounds
+- Countdown sounds
+- Win fanfare
+- Soft background music
+- Haptic feedback
+
+10. Arabic & English Support
+Fully polished bilingual support:
+- Instant switching
+- Proper RTL/LTR handling
+- Arabic numbers displayed correctly left-to-right
+- Beautiful Arabic typography
+- English numbers preserved internally
+
+11. Records & Leaderboards
+Add:
+- Solo records
+- Online rankings
+- Daily challenge leaderboard
+- Top players screen
+
+12. Polish Requirements
+- Add loading animations.
+- Add animated splash screen.
+- Add page transitions.
+- Add button press animations.
+- Add empty-state illustrations.
+
+13. Architecture Improvements
+Use:
+- ThemeContext
+- LanguageContext
+- Reusable UI components
+- Centralized game logic
+- Clean scalable folder structure
+
+14. Important Gameplay Rules
+- Solo Mode:
+  - Unlimited guesses
+  - Timer enabled
+  - Save records
+- Online Mode:
+  - Unlimited guesses
+  - No timer records
+  - Real-time multiplayer placeholders
+- 2-digit mode:
+  - High / Too High
+  - Low / Too Low
+- 3-digit & 4-digit modes:
+  - High / Too High
+  - Low / Too Low
+  - Correct digit count only
+
+15. Final Goal
+The game should feel like:
+- A real App Store / Play Store puzzle game
+- Addictive
+- Competitive
+- Beautiful
+- Fast
+- Social
+- Mobile optimized
+- Easy to understand
+- Hard to master
+
+Keep the project fully compatible with React Native + Expo + Replit.
+Write clean commented code and organize everything professionally.
