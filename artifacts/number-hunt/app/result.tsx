@@ -13,8 +13,18 @@ import { NumberDisplay } from "@/src/components/NumberDisplay";
 import { ParticleBurst } from "@/src/components/ParticleBurst";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
+import { PunishmentButton } from "@/src/components/PunishmentButton";
+import { PunishmentCardModal } from "@/src/components/PunishmentCardModal";
 import { useT } from "@/src/i18n/useT";
-import { leaveRoom, requestRematch } from "@/src/net/socketPlaceholder";
+import {
+  leaveRoom,
+  onPunishmentError,
+  onPunishmentRevealed,
+  requestPunishmentCard,
+  requestRematch,
+  type PunishmentReveal,
+} from "@/src/net/socketPlaceholder";
+import { playPunishmentReveal } from "@/src/services/soundManager";
 import { recordLoss, recordWin, saveRecordIfBest } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { errorHaptic, playLose, playWin, successHaptic } from "@/src/utils/sound";
@@ -93,6 +103,31 @@ export default function ResultScreen() {
   // Outcome side-effects: lifetime stats + sound + haptic. Runs once per
   // mount, only for online (solo already persisted in the solo screen so we
   // don't double-count).
+  // Punishment state. The winner sees a button until they tap once; everyone
+  // (winner + losers) sees the reveal modal when the server broadcasts.
+  const [punishment, setPunishment] = React.useState<PunishmentReveal | null>(null);
+  const [punishmentVisible, setPunishmentVisible] = React.useState(false);
+  const [punishmentUsed, setPunishmentUsed] = React.useState(false);
+
+  useEffect(() => {
+    if (!isOnline || !code) return;
+    const unsubReveal = onPunishmentRevealed(code, (reveal) => {
+      setPunishment(reveal);
+      setPunishmentVisible(true);
+      setPunishmentUsed(true);
+      playPunishmentReveal(settings.soundOn);
+    });
+    const unsubErr = onPunishmentError(code, (reason) => {
+      if (reason === "alreadyUsed") setPunishmentUsed(true);
+      // For the other reasons (notWinner, notWon, notInRoom) the button
+      // simply wouldn't render — but if it ever fires, surface a soft error.
+    });
+    return () => {
+      unsubReveal();
+      unsubErr();
+    };
+  }, [isOnline, code, settings.soundOn]);
+
   const persistedRef = useRef(false);
   useEffect(() => {
     if (persistedRef.current) return;
@@ -235,6 +270,14 @@ export default function ResultScreen() {
         <View style={styles.actions}>
           {isOnline ? (
             <>
+              {youWon ? (
+                <PunishmentButton
+                  used={punishmentUsed}
+                  onPress={() => {
+                    if (code && !punishmentUsed) requestPunishmentCard(code);
+                  }}
+                />
+              ) : null}
               <Button
                 title={t("result.rematch")}
                 fullWidth
@@ -287,6 +330,12 @@ export default function ResultScreen() {
           )}
         </View>
       </View>
+      <PunishmentCardModal
+        reveal={punishment}
+        visible={punishmentVisible}
+        isWinner={youWon}
+        onClose={() => setPunishmentVisible(false)}
+      />
     </View>
   );
 }

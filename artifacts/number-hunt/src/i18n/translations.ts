@@ -210,13 +210,12 @@ export type TranslationKey =
   | "punishment.refuse"
   | "punishment.refused"
   | "punishment.refusedBody"
-  | "punishment.cooldownTitle"
-  | "punishment.cooldownBody"
-  | "punishment.notEnoughTitle"
-  | "punishment.notEnoughBody"
+  | "punishment.alreadyUsed"
   | "punishment.errorTitle"
-  | "punishment.tapToOpen"
+  | "punishment.notWinnerBody"
+  | "punishment.notWonBody"
   | "punishment.close"
+  | "punishment.watching"
   | "punishment.card.directElimination.title"
   | "punishment.card.directElimination.body"
   | "punishment.card.vote.title"
@@ -490,13 +489,12 @@ const en: Record<TranslationKey, string> = {
   "punishment.refuse": "Refuse",
   "punishment.refused": "Direct Elimination",
   "punishment.refusedBody": "Refusing the card means you're eliminated.",
-  "punishment.cooldownTitle": "Cooling down",
-  "punishment.cooldownBody": "Another card was just opened. Try again in a moment.",
-  "punishment.notEnoughTitle": "Need more players",
-  "punishment.notEnoughBody": "Punishment cards need at least 2 players in the room.",
+  "punishment.alreadyUsed": "Punishment already used",
   "punishment.errorTitle": "Can't open right now",
-  "punishment.tapToOpen": "Tap to open",
+  "punishment.notWinnerBody": "Only the winner can draw the punishment card.",
+  "punishment.notWonBody": "The match hasn't ended yet.",
   "punishment.close": "Close",
+  "punishment.watching": "Watching the punishment reveal…",
   "punishment.card.directElimination.title": "Direct Elimination",
   "punishment.card.directElimination.body": "The chosen player is eliminated immediately.",
   "punishment.card.vote.title": "Vote",
@@ -767,13 +765,12 @@ const ar: Record<TranslationKey, string> = {
   "punishment.refuse": "أرفض",
   "punishment.refused": "خروج مباشر",
   "punishment.refusedBody": "رفض البطاقة يعني خروجك من اللعبة.",
-  "punishment.cooldownTitle": "انتظر قليلاً",
-  "punishment.cooldownBody": "تم فتح بطاقة للتو. أعد المحاولة بعد قليل.",
-  "punishment.notEnoughTitle": "تحتاج لاعبين أو أكثر",
-  "punishment.notEnoughBody": "بطاقات العقاب تحتاج لاعبَين على الأقل في الغرفة.",
+  "punishment.alreadyUsed": "تم استخدام العقاب",
   "punishment.errorTitle": "تعذّر الفتح الآن",
-  "punishment.tapToOpen": "اضغط لفتح البطاقة",
+  "punishment.notWinnerBody": "الفائز فقط يمكنه سحب بطاقة العقاب.",
+  "punishment.notWonBody": "لم تنتهِ المباراة بعد.",
   "punishment.close": "إغلاق",
+  "punishment.watching": "بانتظار كشف العقاب…",
   "punishment.card.directElimination.title": "خروج مباشر",
   "punishment.card.directElimination.body": "يخرج اللاعب المختار فوراً.",
   "punishment.card.vote.title": "تصويت",

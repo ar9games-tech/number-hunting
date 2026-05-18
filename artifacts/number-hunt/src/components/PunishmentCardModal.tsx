@@ -40,10 +40,16 @@ export function PunishmentCardModal({
   reveal,
   visible,
   onClose,
+  /**
+   * Only the winner who drew the card can Accept/Refuse it; everyone else
+   * is in watch-only mode and just sees a Close button after the reveal.
+   */
+  isWinner = true,
 }: {
   reveal: PunishmentReveal | null;
   visible: boolean;
   onClose: () => void;
+  isWinner?: boolean;
 }) {
   const colors = useColors();
   const { t, isRTL } = useT();
@@ -174,11 +180,8 @@ export function PunishmentCardModal({
       shakeLoop.stop();
       sparkleLoops.forEach((l) => l.stop());
     };
-    // Re-run the timeline on every distinct reveal — `cooldownUntil` is
-    // server-issued and unique per draw, so it doubles as a reveal nonce
-    // even when the same cardId is drawn twice in a row.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, reveal?.cardId, reveal?.cooldownUntil]);
+  }, [visible, reveal?.cardId, reveal?.drawnBy]);
 
   if (!reveal) return null;
   const card = getPunishmentCard(reveal.cardId);
@@ -349,17 +352,27 @@ export function PunishmentCardModal({
               <Animated.View
                 style={[styles.actions, { opacity: buttonsOpacity }]}
               >
-                <Button
-                  title={t("punishment.accept")}
-                  fullWidth
-                  onPress={onClose}
-                />
-                <Button
-                  title={t("punishment.refuse")}
-                  fullWidth
-                  variant="ghost"
-                  onPress={() => setPhase("refused")}
-                />
+                {isWinner ? (
+                  <>
+                    <Button
+                      title={t("punishment.accept")}
+                      fullWidth
+                      onPress={onClose}
+                    />
+                    <Button
+                      title={t("punishment.refuse")}
+                      fullWidth
+                      variant="ghost"
+                      onPress={() => setPhase("refused")}
+                    />
+                  </>
+                ) : (
+                  <Button
+                    title={t("punishment.close")}
+                    fullWidth
+                    onPress={onClose}
+                  />
+                )}
               </Animated.View>
             ) : null}
           </View>

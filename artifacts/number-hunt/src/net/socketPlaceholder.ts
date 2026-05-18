@@ -69,17 +69,14 @@ export type PunishmentCardId =
 
 export type PunishmentErrorReason =
   | "notInRoom"
-  | "notEnoughPlayers"
-  | "notPlaying"
-  | "cooldown";
+  | "notWinner"
+  | "notWon"
+  | "alreadyUsed";
 
 export type PunishmentReveal = {
   cardId: PunishmentCardId;
   drawnBy: string;
-  cooldownUntil: number;
 };
-
-export const PUNISHMENT_MIN_PLAYERS = 2;
 
 export type JoinOutcome =
   | { ok: true; state: RoomState }
@@ -122,7 +119,6 @@ type ServerResponse = {
   // Punishment events
   cardId?: PunishmentCardId;
   drawnBy?: string;
-  cooldownUntil?: number;
   reason?: PunishmentErrorReason;
 };
 
@@ -134,6 +130,13 @@ const listeners = new Map<string, Set<Listener>>();
 const closeListeners = new Map<string, Set<CloseListener>>();
 const punishmentRevealListeners = new Map<string, Set<PunishmentRevealListener>>();
 const punishmentErrorListeners = new Map<string, Set<PunishmentErrorListener>>();
+/**
+ * Last punishment reveal per room. Used to "replay" the reveal to listeners
+ * that attach *after* the broadcast (e.g. a losing player still navigating
+ * from /room to /result when the winner taps the button). Cleared on
+ * rematch (state.status flips back to "waiting") and on leaveRoom.
+ */
+const lastPunishmentReveal = new Map<string, PunishmentReveal>();
 const lastState = new Map<string, RoomState>();
 const activeSubs = new Set<string>();
 
@@ -187,6 +190,13 @@ function connect(): Promise<WebSocket> {
       if (msg.type === "state" && msg.state) {
         const state = msg.state;
         lastState.set(state.code, state);
+        // Once the room cycles back to "waiting" (rematch armed) the
+        // previous match's reveal is no longer relevant — drop it so a
+        // late /result mount in the *next* match doesn't replay an old
+        // card.
+        if (state.status === "waiting") {
+          lastPunishmentReveal.delete(state.code);
+        }
         listeners.get(state.code)?.forEach((l) => l(state));
         return;
       }
@@ -202,8 +212,8 @@ function connect(): Promise<WebSocket> {
         const reveal: PunishmentReveal = {
           cardId: msg.cardId,
           drawnBy: msg.drawnBy ?? "",
-          cooldownUntil: msg.cooldownUntil ?? 0,
         };
+        lastPunishmentReveal.set(code, reveal);
         punishmentRevealListeners.get(code)?.forEach((l) => l(reveal));
         // Fall through so any reqId on the requester also resolves below.
       }
@@ -338,6 +348,7 @@ export function leaveRoom(code: string): void {
   closeListeners.delete(upper);
   punishmentRevealListeners.delete(upper);
   punishmentErrorListeners.delete(upper);
+  lastPunishmentReveal.delete(upper);
   lastState.delete(upper);
   fire("leave", { code: upper });
 }
@@ -358,6 +369,14 @@ export function onPunishmentRevealed(
     punishmentRevealListeners.set(upper, set);
   }
   set.add(cb);
+  // Replay the most recent reveal to late subscribers (e.g. losers still
+  // navigating to /result when the winner's broadcast lands).
+  const cached = lastPunishmentReveal.get(upper);
+  if (cached) {
+    // Defer one tick so the callback runs after the caller's setState
+    // cycle completes — matches typical subscribe semantics.
+    Promise.resolve().then(() => cb(cached));
+  }
   return () => {
     const s = punishmentRevealListeners.get(upper);
     if (s) {

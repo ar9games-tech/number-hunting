@@ -52,10 +52,15 @@ type RoomInternal = {
   histories: Map<string, GuessEntry[]>;
   /**
    * Punishment-card mutex: timestamp (ms) until which no new card may be
-   * drawn. Covers both "already opening" and "cooldown after reveal" with
-   * a single value — much simpler than two flags.
+   * drawn. Acts as a brief "already opening" guard against concurrent
+   * requests; the real once-per-match gate is `punishmentUsed`.
    */
   punishmentLockUntil: number;
+  /**
+   * True once the winner has drawn their punishment card for this round.
+   * Reset on `rematch`. The button only fires once per match.
+   */
+  punishmentUsed: boolean;
 };
 
 /** Punishment cards. IDs match what the client renders in its modal. */
@@ -66,8 +71,8 @@ const PUNISHMENT_CARDS: PunishmentCardId[] = [
   "sandal",
   "animalSound",
 ];
-const PUNISHMENT_MIN_PLAYERS = 2;
-const PUNISHMENT_COOLDOWN_MS = 10_000;
+/** Brief mutex so two concurrent winner taps still produce one reveal. */
+const PUNISHMENT_LOCK_MS = 2_000;
 
 type OpponentSummary = {
   name: string;
@@ -282,9 +287,9 @@ type ClientMessage =
 
 type PunishmentErrorReason =
   | "notInRoom"
-  | "notEnoughPlayers"
-  | "notPlaying"
-  | "cooldown";
+  | "notWinner"
+  | "notWon"
+  | "alreadyUsed";
 
 // Public room metadata returned by getRoom (no privileged data).
 type PublicRoomMeta = {
@@ -326,8 +331,10 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         hidden: null,
         status: "waiting",
         winnerId: null,
+        punishmentUsed: false,
         histories: new Map(),
         punishmentLockUntil: 0,
+        // (punishmentUsed initialized above)
       };
       rooms.set(code, { room, updatedAt: Date.now() });
       socketIdentity.set(ws, { code, socketId: hostId });
@@ -479,6 +486,8 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       room.winnerId = null;
       room.histories = new Map();
       room.status = "waiting";
+      room.punishmentUsed = false;
+      room.punishmentLockUntil = 0;
       broadcast(code);
       logger.info({ code }, "ws: rematch armed (awaiting digits)");
       break;
@@ -498,14 +507,15 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       const room = getRoom(code);
       if (!room) return sendErr("notInRoom");
       if (!playerById(room, id.socketId)) return sendErr("notInRoom");
-      if (room.status !== "playing") return sendErr("notPlaying");
-      if (room.players.length < PUNISHMENT_MIN_PLAYERS)
-        return sendErr("notEnoughPlayers");
+      if (room.status !== "won") return sendErr("notWon");
+      if (room.winnerId !== id.socketId) return sendErr("notWinner");
+      if (room.punishmentUsed) return sendErr("alreadyUsed");
       const now = Date.now();
-      if (now < room.punishmentLockUntil) return sendErr("cooldown");
-      // Lock immediately so a flood of concurrent taps from different
-      // players still produces exactly one reveal.
-      room.punishmentLockUntil = now + PUNISHMENT_COOLDOWN_MS;
+      // Brief mutex against double-tap; the real once-per-match gate is
+      // `punishmentUsed` which we flip below before broadcasting.
+      if (now < room.punishmentLockUntil) return sendErr("alreadyUsed");
+      room.punishmentLockUntil = now + PUNISHMENT_LOCK_MS;
+      room.punishmentUsed = true;
       const cardId =
         PUNISHMENT_CARDS[Math.floor(Math.random() * PUNISHMENT_CARDS.length)]!;
       const requester = playerById(room, id.socketId)!;
@@ -517,7 +527,6 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
             code,
             cardId,
             drawnBy: requester.name,
-            cooldownUntil: room.punishmentLockUntil,
           });
         }
       }

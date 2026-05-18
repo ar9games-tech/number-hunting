@@ -8,8 +8,6 @@ import { useColors } from "@/hooks/useColors";
 import { GuessHistory, type HistoryItem } from "@/src/components/GuessHistory";
 import { GuessInput } from "@/src/components/GuessInput";
 import { NumericKeypad } from "@/src/components/NumericKeypad";
-import { PunishmentButton } from "@/src/components/PunishmentButton";
-import { PunishmentCardModal } from "@/src/components/PunishmentCardModal";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
@@ -17,18 +15,12 @@ import {
   getCachedRoom,
   joinRoom,
   leaveRoom,
-  onPunishmentError,
-  onPunishmentRevealed,
   onRoomClosed,
   onUpdate,
-  PUNISHMENT_MIN_PLAYERS,
-  requestPunishmentCard,
   setRoomDigits,
   submitGuess as sendGuess,
-  type PunishmentReveal,
   type RoomState,
 } from "@/src/net/socketPlaceholder";
-import { playPunishmentReveal } from "@/src/services/soundManager";
 import { formatPlayerIdentity } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { isValidGuess, normalizeDigits } from "@/src/utils/gameLogic";
@@ -59,12 +51,6 @@ export default function RoomScreen() {
   const pendingHistoryLenRef = useRef(-1);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [locked, setLocked] = useState(false);
-
-  // Punishment card state.
-  const [punishment, setPunishment] = useState<PunishmentReveal | null>(null);
-  const [punishmentVisible, setPunishmentVisible] = useState(false);
-  const [cooldownUntil, setCooldownUntil] = useState(0);
-  const [, setNow] = useState(0); // re-render tick for cooldown countdown
 
   const releaseLock = () => {
     submittingRef.current = false;
@@ -140,36 +126,11 @@ export default function RoomScreen() {
       Alert.alert(t("room.closedTitle"), t("room.closedMsg"));
       router.replace("/lobby");
     });
-    const unsubPunishment = onPunishmentRevealed(code, (reveal) => {
-      setCooldownUntil(reveal.cooldownUntil);
-      setPunishment(reveal);
-      setPunishmentVisible(true);
-      playPunishmentReveal(settings.soundOn);
-    });
-    const unsubPunishmentErr = onPunishmentError(code, (reason) => {
-      if (reason === "cooldown") {
-        Alert.alert(t("punishment.cooldownTitle"), t("punishment.cooldownBody"));
-      } else if (reason === "notEnoughPlayers") {
-        Alert.alert(t("punishment.notEnoughTitle"), t("punishment.notEnoughBody"));
-      } else {
-        Alert.alert(t("punishment.errorTitle"), "");
-      }
-    });
     return () => {
       unsubState();
       unsubClosed();
-      unsubPunishment();
-      unsubPunishmentErr();
     };
-  }, [state?.code, t, settings.soundOn]);
-
-  // Tick once a second while a cooldown is active so the button countdown
-  // updates without burning CPU when no cooldown is running.
-  useEffect(() => {
-    if (cooldownUntil <= Date.now()) return;
-    const id = setInterval(() => setNow((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [cooldownUntil]);
+  }, [state?.code, t]);
 
   // Track round start / end for the online timer.
   useEffect(() => {
@@ -306,12 +267,6 @@ export default function RoomScreen() {
   const playerCount = state.players.length;
   const isFull = playerCount >= state.maxPlayers;
   const inLobby = state.status === "waiting";
-  const canUsePunishment =
-    state.status === "playing" && playerCount >= PUNISHMENT_MIN_PLAYERS;
-  const cooldownRemainingSec = Math.max(
-    0,
-    Math.ceil((cooldownUntil - Date.now()) / 1000),
-  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -515,12 +470,6 @@ export default function RoomScreen() {
               </Text>
               <GuessHistory items={historyItems} showCorrectCount={showCount} />
             </View>
-            {canUsePunishment ? (
-              <PunishmentButton
-                onPress={() => requestPunishmentCard(state.code)}
-                cooldownRemainingSec={cooldownRemainingSec}
-              />
-            ) : null}
             <View style={styles.bottom}>
               <GuessInput value={guessInput} digits={digits} />
               <NumericKeypad
@@ -533,11 +482,6 @@ export default function RoomScreen() {
           </>
         ) : null}
       </ScrollView>
-      <PunishmentCardModal
-        reveal={punishment}
-        visible={punishmentVisible}
-        onClose={() => setPunishmentVisible(false)}
-      />
     </View>
   );
 }
