@@ -37,31 +37,52 @@ export default function RoomScreen() {
   const initialRole = (params.role as ViewRole) ?? "host";
   const digits = (Math.min(4, Math.max(2, parseInt(params.digits ?? "3", 10))) || 3) as Digits;
 
-  const [activeView, setActiveView] = useState<ViewRole>(initialRole);
   const [state, setState] = useState<RoomState | null>(null);
   const [hiddenInput, setHiddenInput] = useState("");
   const [guessInput, setGuessInput] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     const incomingCode = (params.code ?? "").toUpperCase();
-    if (initialRole === "host") {
-      const existing = incomingCode ? getRoom(incomingCode) : null;
-      if (existing) {
-        setState(existing);
-      } else {
-        const room = createRoom(digits, settings.playerName || t("misc.player1"));
-        joinRoom(room.code, t("misc.player2"));
-        setState(room);
-      }
-    } else {
-      const room = joinRoom(incomingCode, settings.playerName || t("misc.player2"));
-      if (!room) {
+
+    (async () => {
+      try {
+        if (initialRole === "host") {
+          const existing = incomingCode ? await getRoom(incomingCode) : null;
+          if (cancelled) return;
+          if (existing) {
+            setState(existing);
+          } else {
+            const room = await createRoom(
+              digits,
+              settings.playerName || t("misc.player1"),
+            );
+            if (cancelled) return;
+            setState(room);
+          }
+        } else {
+          const room = await joinRoom(
+            incomingCode,
+            settings.playerName || t("misc.player2"),
+          );
+          if (cancelled) return;
+          if (!room) {
+            Alert.alert(t("room.notFound"), t("room.returningLobby"));
+            router.replace("/lobby");
+            return;
+          }
+          setState(room);
+        }
+      } catch {
+        if (cancelled) return;
         Alert.alert(t("room.notFound"), t("room.returningLobby"));
         router.replace("/lobby");
-        return;
       }
-      setState(room);
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -133,31 +154,15 @@ export default function RoomScreen() {
           </Text>
         </View>
 
-        <View style={[styles.tabs, { backgroundColor: colors.muted }]}>
-          {(["host", "guest"] as const).map((r) => {
-            const active = r === activeView;
-            const name = r === "host" ? state.hostName : state.guestName;
-            const labelKey = r === "host" ? "room.host" : "room.guest";
-            return (
-              <Pressable
-                key={r}
-                onPress={() => setActiveView(r)}
-                style={[styles.tab, { backgroundColor: active ? colors.card : "transparent" }]}
-              >
-                <Text
-                  style={[
-                    styles.tabText,
-                    { color: active ? colors.foreground : colors.mutedForeground },
-                  ]}
-                >
-                  {t(labelKey, { name })}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View style={[styles.roleChip, { backgroundColor: colors.muted }]}>
+          <Text style={[styles.roleText, { color: colors.mutedForeground }]}>
+            {t(initialRole === "host" ? "room.host" : "room.guest", {
+              name: initialRole === "host" ? state.hostName : state.guestName,
+            })}
+          </Text>
         </View>
 
-        {activeView === "host" ? (
+        {initialRole === "host" ? (
           <HostView
             state={state}
             digits={digits}
@@ -322,9 +327,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, alignSelf: "center",
   },
   simText: { fontSize: 12, fontFamily: "Inter_500Medium" },
-  tabs: { flexDirection: "row", padding: 4, borderRadius: 14 },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center" },
-  tabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  roleChip: {
+    alignSelf: "center", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999,
+  },
+  roleText: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
   top: { alignItems: "center", gap: 10, paddingTop: 4 },
   label: { fontSize: 11, letterSpacing: 1.2, fontFamily: "Inter_600SemiBold" },
   hint: { fontSize: 13, fontFamily: "Inter_400Regular" },

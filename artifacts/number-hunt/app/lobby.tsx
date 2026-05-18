@@ -19,21 +19,30 @@ export default function MultiplayerLobbyScreen() {
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
   const wd = isRTL ? "rtl" : "ltr";
 
-  const handleJoin = () => {
+  const [joining, setJoining] = useState(false);
+
+  const handleJoin = async () => {
     const trimmed = code.trim().toUpperCase();
     if (trimmed.length < 4) {
       Alert.alert(t("lobby.invalidCode"), t("lobby.invalidCodeMsg"));
       return;
     }
-    const room = getRoom(trimmed);
-    if (!room) {
+    setJoining(true);
+    try {
+      const room = await getRoom(trimmed);
+      if (!room) {
+        Alert.alert(t("lobby.notFound"), t("lobby.notFoundMsg"));
+        return;
+      }
+      router.push({
+        pathname: "/room",
+        params: { role: "guest", code: trimmed, digits: String(room.digits) },
+      });
+    } catch {
       Alert.alert(t("lobby.notFound"), t("lobby.notFoundMsg"));
-      return;
+    } finally {
+      setJoining(false);
     }
-    router.push({
-      pathname: "/room",
-      params: { role: "guest", code: trimmed, digits: String(room.digits) },
-    });
   };
 
   return (
@@ -86,7 +95,15 @@ export default function MultiplayerLobbyScreen() {
               },
             ]}
           />
-          <Button title={t("lobby.joinBtn")} fullWidth variant="secondary" onPress={handleJoin} />
+          <Button
+            title={joining ? t("lobby.joinBtn") + "…" : t("lobby.joinBtn")}
+            fullWidth
+            variant="secondary"
+            disabled={joining}
+            onPress={() => {
+              void handleJoin();
+            }}
+          />
         </View>
 
         <Text style={[styles.note, { color: colors.mutedForeground, writingDirection: wd }]}>

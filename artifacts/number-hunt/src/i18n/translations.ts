@@ -180,7 +180,7 @@ const en: Record<TranslationKey, string> = {
     "This is a local simulation. Real online multiplayer can be added by replacing the network placeholder with a socket.io connection.",
 
   "room.title": "Room {code}",
-  "room.simBanner": "Local simulation — switch views to play both roles",
+  "room.simBanner": "Connected — share the room code with a friend",
   "room.host": "{name} (host)",
   "room.guest": "{name} (guest)",
   "room.setHidden": "SET A HIDDEN NUMBER",
@@ -317,7 +317,7 @@ const ar: Record<TranslationKey, string> = {
     "هذه محاكاة محلية. يمكن إضافة وضع متعدد اللاعبين الحقيقي عبر استبدال الواجهة الشبكية باتصال socket.io.",
 
   "room.title": "الغرفة {code}",
-  "room.simBanner": "محاكاة محلية — بدّل العرض للعب كلا الدورين",
+  "room.simBanner": "متصل — شارك رمز الغرفة مع صديق",
   "room.host": "{name} (المضيف)",
   "room.guest": "{name} (الضيف)",
   "room.setHidden": "اختر الرقم المخفي",
