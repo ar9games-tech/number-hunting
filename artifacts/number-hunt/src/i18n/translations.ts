@@ -141,6 +141,46 @@ export type TranslationKey =
   | "result.youLost"
   | "result.opponentWon"
   | "result.defeat"
+  | "result.newAchievements"
+  // Welcome / first-run nickname
+  | "welcome.title"
+  | "welcome.subtitle"
+  | "welcome.nickname"
+  | "welcome.nicknamePh"
+  | "welcome.hint"
+  | "welcome.continue"
+  | "welcome.regenerate"
+  | "welcome.serialPrefix"
+  // Home
+  | "home.achievements"
+  // Achievements screen
+  | "ach.title"
+  | "ach.progress"
+  | "ach.empty"
+  | "ach.unlocked"
+  | "ach.unlockedOn"
+  | "ach.first_win.title"
+  | "ach.first_win.desc"
+  | "ach.online_win.title"
+  | "ach.online_win.desc"
+  | "ach.streak_5.title"
+  | "ach.streak_5.desc"
+  | "ach.streak_10.title"
+  | "ach.streak_10.desc"
+  | "ach.wins_25.title"
+  | "ach.wins_25.desc"
+  | "ach.wins_100.title"
+  | "ach.wins_100.desc"
+  | "ach.fast_2.title"
+  | "ach.fast_2.desc"
+  | "ach.fast_3.title"
+  | "ach.fast_3.desc"
+  | "ach.fast_4.title"
+  | "ach.fast_4.desc"
+  | "ach.sniper_3.title"
+  | "ach.sniper_3.desc"
+  | "ach.sniper_4.title"
+  | "ach.sniper_4.desc"
   // Misc
   | "misc.noGuesses"
   | "misc.player1"
@@ -161,6 +201,7 @@ const en: Record<TranslationKey, string> = {
   "home.multiplayer": "Multiplayer",
   "home.records": "Records",
   "home.howto": "How to Play",
+  "home.achievements": "Achievements",
 
   "mode.title": "Choose Mode",
   "mode.solo": "Solo",
@@ -292,6 +333,44 @@ const en: Record<TranslationKey, string> = {
   "result.youLost": "So close!",
   "result.opponentWon": "{name} cracked it first",
   "result.defeat": "Defeat",
+  "result.newAchievements": "NEW UNLOCKS",
+
+  "welcome.title": "Welcome to Number Hunt",
+  "welcome.subtitle": "Pick a nickname so we can show it next to your scores. You can change it anytime in Settings.",
+  "welcome.nickname": "NICKNAME",
+  "welcome.nicknamePh": "Your nickname",
+  "welcome.hint": "We picked a random one for you — keep it, or type your own.",
+  "welcome.continue": "Continue",
+  "welcome.regenerate": "Generate a new name",
+  "welcome.serialPrefix": "Player",
+
+  "ach.title": "Achievements",
+  "ach.progress": "PROGRESS",
+  "ach.empty": "No badges yet. Win a game to unlock your first.",
+  "ach.unlocked": "ACHIEVEMENT UNLOCKED",
+  "ach.unlockedOn": "Unlocked {date}",
+  "ach.first_win.title": "First Hunt",
+  "ach.first_win.desc": "Win your very first game.",
+  "ach.online_win.title": "Trash Talker",
+  "ach.online_win.desc": "Win a multiplayer round.",
+  "ach.streak_5.title": "On Fire",
+  "ach.streak_5.desc": "Win 5 games in a row.",
+  "ach.streak_10.title": "Unstoppable",
+  "ach.streak_10.desc": "Win 10 games in a row.",
+  "ach.wins_25.title": "Veteran",
+  "ach.wins_25.desc": "Win 25 games in total.",
+  "ach.wins_100.title": "Master Hunter",
+  "ach.wins_100.desc": "Win 100 games in total.",
+  "ach.fast_2.title": "Quick Draw",
+  "ach.fast_2.desc": "Crack a 2-digit number in under 15 seconds.",
+  "ach.fast_3.title": "Sharp Mind",
+  "ach.fast_3.desc": "Crack a 3-digit number in under 30 seconds.",
+  "ach.fast_4.title": "Genius",
+  "ach.fast_4.desc": "Crack a 4-digit number in under 60 seconds.",
+  "ach.sniper_3.title": "Sniper",
+  "ach.sniper_3.desc": "Solve a 3-digit round in 5 guesses or fewer.",
+  "ach.sniper_4.title": "Eagle Eye",
+  "ach.sniper_4.desc": "Solve a 4-digit round in 8 guesses or fewer.",
 
   "misc.noGuesses": "No guesses yet",
   "misc.player1": "Player 1",
@@ -313,6 +392,7 @@ const ar: Record<TranslationKey, string> = {
   "home.multiplayer": "متعدد اللاعبين",
   "home.records": "السجلات",
   "home.howto": "طريقة اللعب",
+  "home.achievements": "الإنجازات",
 
   "mode.title": "اختر الوضع",
   "mode.solo": "فردي",
@@ -443,6 +523,44 @@ const ar: Record<TranslationKey, string> = {
   "result.youLost": "كان وشيكاً!",
   "result.opponentWon": "{name} كشفه أولاً",
   "result.defeat": "هزيمة",
+  "result.newAchievements": "إنجازات جديدة",
+
+  "welcome.title": "أهلاً بك في صيد الأرقام",
+  "welcome.subtitle": "اختر اسماً مستعاراً ليظهر بجانب نتائجك. يمكنك تغييره لاحقاً من الإعدادات.",
+  "welcome.nickname": "الاسم المستعار",
+  "welcome.nicknamePh": "اسمك المستعار",
+  "welcome.hint": "اخترنا لك اسماً عشوائياً — احتفظ به أو اكتب اسمك.",
+  "welcome.continue": "متابعة",
+  "welcome.regenerate": "توليد اسم جديد",
+  "welcome.serialPrefix": "اللاعب",
+
+  "ach.title": "الإنجازات",
+  "ach.progress": "التقدّم",
+  "ach.empty": "لا توجد إنجازات بعد. اربح مباراة لفتح أول إنجاز.",
+  "ach.unlocked": "إنجاز جديد",
+  "ach.unlockedOn": "فُتح في {date}",
+  "ach.first_win.title": "أول صيد",
+  "ach.first_win.desc": "اربح أول مباراة لك.",
+  "ach.online_win.title": "متحدّي اللاعبين",
+  "ach.online_win.desc": "اربح جولة متعدد اللاعبين.",
+  "ach.streak_5.title": "مشتعل",
+  "ach.streak_5.desc": "اربح 5 مباريات متتالية.",
+  "ach.streak_10.title": "لا يُوقَف",
+  "ach.streak_10.desc": "اربح 10 مباريات متتالية.",
+  "ach.wins_25.title": "محنّك",
+  "ach.wins_25.desc": "اربح 25 مباراة في المجموع.",
+  "ach.wins_100.title": "صيّاد محترف",
+  "ach.wins_100.desc": "اربح 100 مباراة في المجموع.",
+  "ach.fast_2.title": "سحب سريع",
+  "ach.fast_2.desc": "اكشف رقماً من خانتين في أقل من 15 ثانية.",
+  "ach.fast_3.title": "ذهن حاد",
+  "ach.fast_3.desc": "اكشف رقماً من 3 خانات في أقل من 30 ثانية.",
+  "ach.fast_4.title": "عبقري",
+  "ach.fast_4.desc": "اكشف رقماً من 4 خانات في أقل من 60 ثانية.",
+  "ach.sniper_3.title": "قنّاص",
+  "ach.sniper_3.desc": "حلّ جولة من 3 خانات بـ 5 تخمينات أو أقل.",
+  "ach.sniper_4.title": "عين النسر",
+  "ach.sniper_4.desc": "حلّ جولة من 4 خانات بـ 8 تخمينات أو أقل.",
 
   "misc.noGuesses": "لا توجد تخمينات بعد",
   "misc.player1": "اللاعب 1",

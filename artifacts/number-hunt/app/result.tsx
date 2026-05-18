@@ -6,6 +6,7 @@ import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { AchievementBanner } from "@/src/components/AchievementBanner";
 import { Button } from "@/src/components/Button";
 import { GlassCard } from "@/src/components/GlassCard";
 import { NumberDisplay } from "@/src/components/NumberDisplay";
@@ -36,6 +37,8 @@ export default function ResultScreen() {
     code?: string;
     hidden?: string;
     role?: string;
+    /** Comma-joined achievement IDs unlocked by the just-finished solo game. */
+    unlocks?: string;
   }>();
 
   const mode = params.mode ?? "solo";
@@ -80,6 +83,14 @@ export default function ResultScreen() {
     return undefined;
   }, [fade, lift, burst, isNewRecord, showVictory]);
 
+  // Solo unlocks are computed in solo.tsx and arrive via params. Online
+  // unlocks are computed here when we record the win. Defensive dedupe
+  // in case the param ever round-trips with duplicates (e.g. rematch
+  // navigation reusing the param).
+  const [unlocks, setUnlocks] = React.useState<string[]>(() =>
+    Array.from(new Set((params.unlocks ?? "").split(",").filter(Boolean))),
+  );
+
   // Outcome side-effects: lifetime stats + sound + haptic. Runs once per
   // mount, only for online (solo already persisted in the solo screen so we
   // don't double-count).
@@ -90,9 +101,10 @@ export default function ResultScreen() {
 
     if (isOnline) {
       if (youWon) {
-        // Online digits come from the same param so safely narrow.
         const d = (Math.min(4, Math.max(2, digits)) || 3) as Digits;
-        void recordWin(d, guesses);
+        void recordWin({ mode: "online", digits: d, guesses, timeSec: null }).then((r) => {
+          if (r.newUnlocks.length > 0) setUnlocks(r.newUnlocks);
+        });
       } else {
         void recordLoss();
       }
@@ -196,6 +208,19 @@ export default function ResultScreen() {
           </Animated.View>
         </View>
 
+        {unlocks.length > 0 ? (
+          <View style={styles.unlocks}>
+            <Text
+              style={[styles.unlocksHead, { color: colors.mutedForeground }]}
+            >
+              {t("result.newAchievements")}
+            </Text>
+            {unlocks.map((id, i) => (
+              <AchievementBanner key={id} id={id} index={i} />
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.actions}>
           {isOnline ? (
             <>
@@ -292,4 +317,11 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontFamily: "Inter_700Bold", fontVariant: ["tabular-nums"] },
   statLabel: { fontSize: 11, fontFamily: "Inter_500Medium" },
   actions: { gap: 10 },
+  unlocks: { gap: 8 },
+  unlocksHead: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontFamily: "Inter_700Bold",
+    paddingHorizontal: 4,
+  },
 });

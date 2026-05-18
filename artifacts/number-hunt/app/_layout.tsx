@@ -28,6 +28,7 @@ function RootLayoutNav() {
       <StatusBar style={effectiveScheme === "dark" ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="welcome" options={{ animation: "fade" }} />
         <Stack.Screen name="mode" />
         <Stack.Screen name="difficulty" />
         <Stack.Screen name="solo" />
@@ -35,6 +36,7 @@ function RootLayoutNav() {
         <Stack.Screen name="room" />
         <Stack.Screen name="result" />
         <Stack.Screen name="records" />
+        <Stack.Screen name="achievements" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="how-to-play" />
       </Stack>

@@ -67,15 +67,23 @@ export default function SoloGameScreen() {
       setRunning(false);
       void (async () => {
         // Persist both the single-best snapshot (records) and the lifetime
-        // aggregate (stats). Running in parallel so navigation isn't blocked.
-        const [{ wasBest }] = await Promise.all([
+        // aggregate (stats) + evaluate achievements. Running in parallel
+        // so navigation isn't blocked.
+        const [{ wasBest }, { newUnlocks }] = await Promise.all([
           saveRecordIfBest(digits, finalElapsed, nextCount),
-          recordWin(digits, nextCount),
+          recordWin({
+            mode: "solo",
+            digits,
+            guesses: nextCount,
+            timeSec: finalElapsed,
+          }),
         ]);
         router.replace({
           pathname: "/result",
           params: {
             mode: "solo",
+            // Comma-joined IDs; result.tsx splits and renders banners.
+            unlocks: newUnlocks.join(","),
             digits: String(digits),
             timeSec: String(finalElapsed),
             guesses: String(nextCount),

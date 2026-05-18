@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
+import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
 import { webBottomInset, webTopInset } from "@/src/theme/theme";
 
@@ -15,9 +16,21 @@ const HERO_DIGITS = ["7", "3", "9"] as const;
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { settings, ready } = useSettings();
   const { t, lz, isRTL } = useT();
   const fade = useRef(new Animated.Value(0)).current;
   const lift = useRef(new Animated.Value(20)).current;
+
+  // First-launch gate: brand-new installs land on /welcome to pick a
+  // nickname. We wait for `ready` so we don't redirect on the default
+  // (pre-load) settings snapshot. Migration in getSettings() flags
+  // existing installs as already onboarded so they never see this.
+  const needsOnboarding = ready && !settings.hasOnboarded;
+  useEffect(() => {
+    if (needsOnboarding) {
+      router.replace("/welcome");
+    }
+  }, [needsOnboarding]);
   // One animated value per hero digit so we can stagger their entry —
   // this gives the home screen its "animated splash" feel without
   // needing a separate splash route.
@@ -47,6 +60,13 @@ export default function HomeScreen() {
   const topPad = (Platform.OS === "web" ? webTopInset() : insets.top) + 24;
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
   const writingDirection = isRTL ? "rtl" : "ltr";
+
+  // While settings load (or while we're redirecting an un-onboarded user
+  // off this screen), render a plain background — no flash of the full
+  // home content before the navigation happens.
+  if (!ready || needsOnboarding) {
+    return <View style={[styles.root, { backgroundColor: colors.background }]} />;
+  }
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -129,9 +149,16 @@ export default function HomeScreen() {
           />
           <View style={styles.linksRow}>
             <Pressable onPress={() => router.push("/records")} style={styles.linkBtn}>
-              <Feather name="award" size={16} color={colors.mutedForeground} />
+              <Feather name="bar-chart-2" size={16} color={colors.mutedForeground} />
               <Text style={[styles.linkText, { color: colors.mutedForeground }]}>
                 {t("home.records")}
+              </Text>
+            </Pressable>
+            <View style={[styles.dot, { backgroundColor: colors.border }]} />
+            <Pressable onPress={() => router.push("/achievements")} style={styles.linkBtn}>
+              <Feather name="award" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.linkText, { color: colors.mutedForeground }]}>
+                {t("home.achievements")}
               </Text>
             </Pressable>
             <View style={[styles.dot, { backgroundColor: colors.border }]} />
