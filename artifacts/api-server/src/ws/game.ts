@@ -61,6 +61,21 @@ type RoomInternal = {
    * Reset on `rematch`. The button only fires once per match.
    */
   punishmentUsed: boolean;
+  /**
+   * Display name of the loser the winner chose. Broadcast to peers for UI
+   * use only — NEVER used as the authorization key (names aren't
+   * guaranteed unique within a room).
+   */
+  punishmentTargetName: string | null;
+  /**
+   * Stable per-connection id of the chosen target. This is the authority
+   * key — only the socket whose id matches may Accept/Refuse.
+   */
+  punishmentTargetSocketId: string | null;
+  /** Card drawn for this match, or null until used. */
+  punishmentCardId: PunishmentCardId | null;
+  /** Final Accept/Refuse decision from the target, or null until they pick. */
+  punishmentResolution: { accepted: boolean } | null;
 };
 
 /** Punishment cards. IDs match what the client renders in its modal. */
@@ -80,6 +95,13 @@ type OpponentSummary = {
 };
 
 type PlayerSummary = {
+  /**
+   * Stable per-connection id (the player's socketId). Opaque to clients,
+   * but stable enough to use as an identity key (e.g. punishment target).
+   * Display names aren't guaranteed unique within a room, so anything
+   * identity-sensitive must use `id`, not `name`.
+   */
+  id: string;
   name: string;
   isHost: boolean;
 };
@@ -92,10 +114,14 @@ type PlayerView = {
   digits: Digits | null;
   players: PlayerSummary[];
   isHost: boolean;
+  /** Stable per-connection id for *this* viewer. */
+  yourId: string;
   yourName: string;
   yourHistory: GuessEntry[];
   opponents: OpponentSummary[];
   status: Status;
+  /** Stable id of the winner, or null. Identity authority. */
+  winnerId: string | null;
   /** Display name of the winner, or null. Only set when status === "won". */
   winnerName: string | null;
   /** Only populated when status === "won". */
@@ -207,12 +233,18 @@ function buildView(room: RoomInternal, socketId: string): PlayerView {
     code: room.code,
     maxPlayers: room.maxPlayers,
     digits: room.digits,
-    players: room.players.map((p, i) => ({ name: p.name, isHost: i === 0 })),
+    players: room.players.map((p, i) => ({
+      id: p.socketId,
+      name: p.name,
+      isHost: i === 0,
+    })),
     isHost: isHost(room, socketId),
+    yourId: socketId,
     yourName: me?.name ?? "",
     yourHistory,
     opponents,
     status: room.status,
+    winnerId: room.winnerId,
     winnerName: winner?.name ?? null,
     revealedHidden: room.status === "won" ? room.hidden : null,
   };
@@ -282,14 +314,20 @@ type ClientMessage =
   | { type: "guess"; code: string; guess: string }
   | { type: "rematch"; code: string }
   | { type: "leave"; code: string }
-  | { type: "requestPunishment"; reqId?: string; code: string }
+  | { type: "requestPunishment"; reqId?: string; code: string; targetId: string }
+  | { type: "respondPunishment"; reqId?: string; code: string; accepted: boolean }
   | { type: "ping"; reqId?: string };
 
 type PunishmentErrorReason =
   | "notInRoom"
   | "notWinner"
   | "notWon"
-  | "alreadyUsed";
+  | "alreadyUsed"
+  | "noTarget"
+  | "invalidTarget"
+  | "notTarget"
+  | "noPunishment"
+  | "alreadyResolved";
 
 // Public room metadata returned by getRoom (no privileged data).
 type PublicRoomMeta = {
@@ -332,9 +370,12 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         status: "waiting",
         winnerId: null,
         punishmentUsed: false,
+        punishmentTargetName: null,
+        punishmentTargetSocketId: null,
+        punishmentCardId: null,
+        punishmentResolution: null,
         histories: new Map(),
         punishmentLockUntil: 0,
-        // (punishmentUsed initialized above)
       };
       rooms.set(code, { room, updatedAt: Date.now() });
       socketIdentity.set(ws, { code, socketId: hostId });
@@ -486,8 +527,14 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       room.winnerId = null;
       room.histories = new Map();
       room.status = "waiting";
+      // Reset all punishment state — rematch must NEVER replay or carry
+      // over a previous match's draw/decision.
       room.punishmentUsed = false;
       room.punishmentLockUntil = 0;
+      room.punishmentTargetName = null;
+      room.punishmentTargetSocketId = null;
+      room.punishmentCardId = null;
+      room.punishmentResolution = null;
       broadcast(code);
       logger.info({ code }, "ws: rematch armed (awaiting digits)");
       break;
@@ -495,9 +542,10 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
 
     case "requestPunishment": {
       const code = String(raw.code).toUpperCase();
+      const targetId = String(raw.targetId ?? "").trim();
       const id = socketIdentity.get(ws);
       logger.info(
-        { code, socketId: id?.socketId ?? null },
+        { code, socketId: id?.socketId ?? null, targetId },
         "ws: requestPunishment received",
       );
       const sendErr = (reason: PunishmentErrorReason) => {
@@ -512,19 +560,29 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       if (!id || id.code !== code) return sendErr("notInRoom");
       const room = getRoom(code);
       if (!room) return sendErr("notInRoom");
-      if (!playerById(room, id.socketId)) return sendErr("notInRoom");
+      const requester = playerById(room, id.socketId);
+      if (!requester) return sendErr("notInRoom");
       if (room.status !== "won") return sendErr("notWon");
       if (room.winnerId !== id.socketId) return sendErr("notWinner");
       if (room.punishmentUsed) return sendErr("alreadyUsed");
+      if (!targetId) return sendErr("noTarget");
+      // Target is keyed by stable per-connection id — names aren't
+      // guaranteed unique. Target must (a) exist in the room and (b) not
+      // be the winner themselves.
+      const target = playerById(room, targetId);
+      if (!target || target.socketId === room.winnerId) {
+        return sendErr("invalidTarget");
+      }
       const now = Date.now();
-      // Brief mutex against double-tap; the real once-per-match gate is
-      // `punishmentUsed` which we flip below before broadcasting.
       if (now < room.punishmentLockUntil) return sendErr("alreadyUsed");
       room.punishmentLockUntil = now + PUNISHMENT_LOCK_MS;
       room.punishmentUsed = true;
       const cardId =
         PUNISHMENT_CARDS[Math.floor(Math.random() * PUNISHMENT_CARDS.length)]!;
-      const requester = playerById(room, id.socketId)!;
+      room.punishmentCardId = cardId;
+      room.punishmentTargetName = target.name;
+      room.punishmentTargetSocketId = target.socketId;
+      room.punishmentResolution = null;
       const subs = subscribers.get(code);
       const peerCount = subs ? subs.size : 0;
       if (subs) {
@@ -534,13 +592,83 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
             code,
             cardId,
             drawnBy: requester.name,
+            targetId: target.socketId,
+            targetName: target.name,
           });
         }
       }
       touch(code);
       logger.info(
-        { code, cardId, drawnBy: requester.name, peerCount },
+        {
+          code,
+          cardId,
+          drawnBy: requester.name,
+          targetId: target.socketId,
+          targetName: target.name,
+          peerCount,
+        },
         "ws: punishment drawn + broadcast",
+      );
+      break;
+    }
+
+    case "respondPunishment": {
+      const code = String(raw.code).toUpperCase();
+      const accepted = !!raw.accepted;
+      const id = socketIdentity.get(ws);
+      logger.info(
+        { code, socketId: id?.socketId ?? null, accepted },
+        "ws: respondPunishment received",
+      );
+      const sendErr = (reason: PunishmentErrorReason) => {
+        logger.info({ code, reason }, "ws: punishment response rejected");
+        safeSend(ws, {
+          type: "punishmentError",
+          reqId: raw.reqId,
+          code,
+          reason,
+        });
+      };
+      if (!id || id.code !== code) return sendErr("notInRoom");
+      const room = getRoom(code);
+      if (!room) return sendErr("notInRoom");
+      const responder = playerById(room, id.socketId);
+      if (!responder) return sendErr("notInRoom");
+      if (
+        !room.punishmentUsed ||
+        !room.punishmentCardId ||
+        !room.punishmentTargetSocketId
+      ) {
+        return sendErr("noPunishment");
+      }
+      if (room.punishmentResolution) return sendErr("alreadyResolved");
+      // Authority key is the stored socketId, NOT the display name —
+      // display names aren't guaranteed unique within a room.
+      if (id.socketId !== room.punishmentTargetSocketId) return sendErr("notTarget");
+      room.punishmentResolution = { accepted };
+      const subs = subscribers.get(code);
+      const peerCount = subs ? subs.size : 0;
+      if (subs) {
+        for (const peer of subs) {
+          safeSend(peer, {
+            type: "punishmentResolved",
+            code,
+            accepted,
+            targetId: responder.socketId,
+            targetName: responder.name,
+          });
+        }
+      }
+      touch(code);
+      logger.info(
+        {
+          code,
+          accepted,
+          targetId: responder.socketId,
+          targetName: responder.name,
+          peerCount,
+        },
+        "ws: punishment resolved + broadcast",
       );
       break;
     }
@@ -584,6 +712,36 @@ function removePlayer(
   if (room.players.length === 0) {
     closeRoom(code, `${reason} (empty)`);
     return;
+  }
+
+  // If the chosen punishment target left before responding, auto-resolve
+  // as "refused" so the rest of the table isn't stuck on "Waiting for X
+  // to decide…" forever. The result of refusing is direct elimination,
+  // which is the obvious interpretation of "the target left mid-decision".
+  if (
+    room.punishmentUsed &&
+    room.punishmentTargetSocketId === socketId &&
+    !room.punishmentResolution
+  ) {
+    const targetName = room.punishmentTargetName ?? "";
+    const targetId = room.punishmentTargetSocketId ?? "";
+    room.punishmentResolution = { accepted: false };
+    const subs = subscribers.get(code);
+    if (subs) {
+      for (const peer of subs) {
+        safeSend(peer, {
+          type: "punishmentResolved",
+          code,
+          accepted: false,
+          targetId,
+          targetName,
+        });
+      }
+    }
+    logger.info(
+      { code, targetId, targetName, reason },
+      "ws: punishment auto-refused (target left)",
+    );
   }
 
   // Mid-game leaves are tolerated — the remaining players keep racing.

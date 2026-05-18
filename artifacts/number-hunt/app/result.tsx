@@ -2,7 +2,15 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import { Animated, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
@@ -17,11 +25,15 @@ import { PunishmentButton } from "@/src/components/PunishmentButton";
 import { PunishmentCardModal } from "@/src/components/PunishmentCardModal";
 import { useT } from "@/src/i18n/useT";
 import {
+  getCachedRoom,
   leaveRoom,
   onPunishmentError,
+  onPunishmentResolved,
   onPunishmentRevealed,
   requestPunishmentCard,
   requestRematch,
+  respondPunishment,
+  type PunishmentResolved,
   type PunishmentReveal,
 } from "@/src/net/socketPlaceholder";
 import { playPunishmentReveal } from "@/src/services/soundManager";
@@ -103,24 +115,55 @@ export default function ResultScreen() {
   // Outcome side-effects: lifetime stats + sound + haptic. Runs once per
   // mount, only for online (solo already persisted in the solo screen so we
   // don't double-count).
-  // Punishment state. The winner sees a button until they tap once; everyone
-  // (winner + losers) sees the reveal modal when the server broadcasts.
+  // Punishment state. The winner picks a target → server broadcasts the
+  // reveal → only the target's device can Accept/Refuse → server
+  // broadcasts the resolution to everyone.
   const [punishment, setPunishment] = React.useState<PunishmentReveal | null>(null);
+  const [punishmentResolved, setPunishmentResolved] = React.useState<PunishmentResolved | null>(null);
   const [punishmentVisible, setPunishmentVisible] = React.useState(false);
   const [punishmentUsed, setPunishmentUsed] = React.useState(false);
   const [punishmentLoading, setPunishmentLoading] = React.useState(false);
   const [punishmentError, setPunishmentError] = React.useState<string | null>(null);
+  const [targetPickerVisible, setTargetPickerVisible] = React.useState(false);
+
+  // Pull the live room snapshot so we know our own stable id and the
+  // opponent list. We identify the target by id, not name, because
+  // display names aren't guaranteed unique within a room.
+  const cachedRoom = isOnline && code ? getCachedRoom(code) : null;
+  const yourId = cachedRoom?.yourId ?? "";
+  const opponents = React.useMemo(
+    () =>
+      (cachedRoom?.players ?? []).filter((p) => p.id && p.id !== yourId),
+    [cachedRoom?.players, yourId],
+  );
+  const youAreTarget = !!punishment && !!yourId && punishment.targetId === yourId;
 
   useEffect(() => {
     if (!isOnline || !code) return;
     const unsubReveal = onPunishmentRevealed(code, (reveal) => {
-      if (__DEV__) console.log("[punishment] modal opened", { cardId: reveal.cardId });
+      if (__DEV__) {
+        console.log("[punishment] modal opened", {
+          cardId: reveal.cardId,
+          targetName: reveal.targetName,
+        });
+      }
       setPunishment(reveal);
+      setPunishmentResolved(null);
       setPunishmentVisible(true);
       setPunishmentUsed(true);
       setPunishmentLoading(false);
       setPunishmentError(null);
+      setTargetPickerVisible(false);
       playPunishmentReveal(settings.soundOn);
+    });
+    const unsubResolved = onPunishmentResolved(code, (resolved) => {
+      if (__DEV__) {
+        console.log("[punishment] resolution received", {
+          accepted: resolved.accepted,
+          targetName: resolved.targetName,
+        });
+      }
+      setPunishmentResolved(resolved);
     });
     const unsubErr = onPunishmentError(code, (reason) => {
       setPunishmentLoading(false);
@@ -128,18 +171,21 @@ export default function ResultScreen() {
         setPunishmentUsed(true);
         return;
       }
-      // Surface friendly copy for the rare cases the button shouldn't have
-      // been pressable (e.g. status drifted just before the request landed).
+      // Surface friendly copy for the rare cases the request shouldn't
+      // have been allowed (e.g. status drifted just before it landed).
       const body =
         reason === "notWinner"
           ? t("punishment.notWinnerBody")
           : reason === "notWon"
             ? t("punishment.notWonBody")
-            : t("punishment.errorTitle");
+            : reason === "noTarget" || reason === "invalidTarget"
+              ? t("punishment.invalidTargetBody")
+              : t("punishment.errorTitle");
       setPunishmentError(body);
     });
     return () => {
       unsubReveal();
+      unsubResolved();
       unsubErr();
     };
   }, [isOnline, code, settings.soundOn, t]);
@@ -303,9 +349,11 @@ export default function ResultScreen() {
                       if (__DEV__) {
                         console.log("[punishment] button pressed", { code });
                       }
-                      setPunishmentLoading(true);
                       setPunishmentError(null);
-                      requestPunishmentCard(code);
+                      // Open the target picker FIRST. The actual request
+                      // is fired only once the winner taps a specific
+                      // opponent in the picker.
+                      setTargetPickerVisible(true);
                     }}
                   />
                   {punishmentError ? (
@@ -370,12 +418,177 @@ export default function ResultScreen() {
       <PunishmentCardModal
         reveal={punishment}
         visible={punishmentVisible}
-        isWinner={youWon}
+        resolved={punishmentResolved}
+        isTarget={youAreTarget}
+        onAccept={() => {
+          if (code) respondPunishment(code, true);
+        }}
+        onRefuse={() => {
+          if (code) respondPunishment(code, false);
+        }}
         onClose={() => setPunishmentVisible(false)}
+      />
+      <TargetPickerModal
+        visible={targetPickerVisible}
+        opponents={opponents}
+        onCancel={() => setTargetPickerVisible(false)}
+        onPick={(opp) => {
+          if (!code) return;
+          if (__DEV__) {
+            console.log("[punishment] target picked", {
+              code,
+              id: opp.id,
+              name: opp.name,
+            });
+          }
+          setTargetPickerVisible(false);
+          setPunishmentLoading(true);
+          requestPunishmentCard(code, opp.id);
+        }}
       />
     </View>
   );
 }
+
+/**
+ * Lightweight modal that lists the losing players and lets the winner pick
+ * exactly one as the punishment target. The actual request fires only when
+ * a name is tapped — closing the modal does nothing.
+ */
+function TargetPickerModal({
+  visible,
+  opponents,
+  onCancel,
+  onPick,
+}: {
+  visible: boolean;
+  opponents: { id: string; name: string }[];
+  onCancel: () => void;
+  onPick: (opp: { id: string; name: string }) => void;
+}) {
+  const colors = useColors();
+  const { t, isRTL } = useT();
+  const wd = isRTL ? "rtl" : "ltr";
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onCancel}
+    >
+      <View
+        style={[
+          targetStyles.backdrop,
+          { backgroundColor: "rgba(0,0,0,0.7)" },
+        ]}
+      >
+        <View
+          style={[
+            targetStyles.sheet,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text
+            style={[
+              targetStyles.title,
+              { color: colors.foreground, writingDirection: wd },
+            ]}
+          >
+            {t("punishment.pickTarget")}
+          </Text>
+          <Text
+            style={[
+              targetStyles.body,
+              { color: colors.mutedForeground, writingDirection: wd },
+            ]}
+          >
+            {t("punishment.pickTargetBody")}
+          </Text>
+          <View style={targetStyles.list}>
+            {opponents.map((opp) => (
+              <Pressable
+                key={opp.id}
+                onPress={() => onPick(opp)}
+                style={({ pressed }) => [
+                  targetStyles.row,
+                  {
+                    backgroundColor: colors.muted,
+                    borderColor: colors.border,
+                    opacity: pressed ? 0.75 : 1,
+                  },
+                ]}
+              >
+                <Feather name="user" size={16} color={colors.foreground} />
+                <Text
+                  style={[
+                    targetStyles.rowLabel,
+                    { color: colors.foreground, writingDirection: wd },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {opp.name}
+                </Text>
+                <Feather
+                  name={isRTL ? "chevron-left" : "chevron-right"}
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+            ))}
+          </View>
+          <Button
+            title={t("common.cancel")}
+            fullWidth
+            variant="ghost"
+            onPress={onCancel}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const targetStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  sheet: {
+    width: "100%",
+    maxWidth: 400,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    gap: 12,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  body: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+  },
+  list: { gap: 8, marginVertical: 4 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  rowLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+  },
+});
 
 function Stat({
   label, value, icon,

@@ -216,6 +216,14 @@ export type TranslationKey =
   | "punishment.notWonBody"
   | "punishment.close"
   | "punishment.watching"
+  | "punishment.pickTarget"
+  | "punishment.pickTargetBody"
+  | "punishment.targetLabel"
+  | "punishment.waitingDecision"
+  | "punishment.accepted"
+  | "punishment.acceptedBody"
+  | "punishment.refusedShort"
+  | "punishment.invalidTargetBody"
   | "punishment.card.directElimination.title"
   | "punishment.card.directElimination.body"
   | "punishment.card.vote.title"
@@ -495,6 +503,14 @@ const en: Record<TranslationKey, string> = {
   "punishment.notWonBody": "The match hasn't ended yet.",
   "punishment.close": "Close",
   "punishment.watching": "Watching the punishment reveal…",
+  "punishment.pickTarget": "Choose who gets punished",
+  "punishment.pickTargetBody": "Pick one opponent. The card is then revealed to everyone.",
+  "punishment.targetLabel": "Target: {name}",
+  "punishment.waitingDecision": "Waiting for {name} to decide…",
+  "punishment.accepted": "Accepted the punishment",
+  "punishment.acceptedBody": "{name} accepted the punishment.",
+  "punishment.refusedShort": "Refused punishment — Direct elimination",
+  "punishment.invalidTargetBody": "That target isn't valid anymore.",
   "punishment.card.directElimination.title": "Direct Elimination",
   "punishment.card.directElimination.body": "The chosen player is eliminated immediately.",
   "punishment.card.vote.title": "Vote",
@@ -771,6 +787,14 @@ const ar: Record<TranslationKey, string> = {
   "punishment.notWonBody": "لم تنتهِ المباراة بعد.",
   "punishment.close": "إغلاق",
   "punishment.watching": "بانتظار كشف العقاب…",
+  "punishment.pickTarget": "اختر من سيُعاقب",
+  "punishment.pickTargetBody": "اختر لاعباً خاسراً واحداً، ثم تُكشف البطاقة للجميع.",
+  "punishment.targetLabel": "المستهدف: {name}",
+  "punishment.waitingDecision": "بانتظار قرار {name}…",
+  "punishment.accepted": "قبل العقاب",
+  "punishment.acceptedBody": "{name} قبل العقاب.",
+  "punishment.refusedShort": "رفض العقاب — خروج مباشر",
+  "punishment.invalidTargetBody": "الهدف المحدد لم يعد متاحاً.",
   "punishment.card.directElimination.title": "خروج مباشر",
   "punishment.card.directElimination.body": "يخرج اللاعب المختار فوراً.",
   "punishment.card.vote.title": "تصويت",

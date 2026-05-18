@@ -161,7 +161,8 @@ export default function RoomScreen() {
           guesses: String(state.yourHistory.length),
           // Only meaningful (and only saved) when the player won.
           timeSec: String(elapsed),
-          won: state.winnerName === state.yourName ? "1" : "0",
+          // Identity is id-based: names aren't unique within a room.
+          won: state.winnerId && state.winnerId === state.yourId ? "1" : "0",
           winnerName: state.winnerName ?? "",
           code: state.code,
           hidden: state.revealedHidden,

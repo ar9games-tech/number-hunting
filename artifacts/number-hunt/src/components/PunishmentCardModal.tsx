@@ -6,7 +6,6 @@ import {
   Easing,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -16,46 +15,54 @@ import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
 import { useT } from "@/src/i18n/useT";
 import { getPunishmentCard } from "@/src/data/punishmentCards";
-import type { PunishmentReveal } from "@/src/net/socketPlaceholder";
+import type {
+  PunishmentResolved,
+  PunishmentReveal,
+} from "@/src/net/socketPlaceholder";
 
 /**
  * Full-screen pack-opening reveal for a punishment card.
  *
- * Animation phases (driven by a single timeline so nothing race-conditions):
+ * Animation phases:
  *   1. SHAKING — sealed pack jitters with a glow halo and floating sparkles.
  *   2. REVEALING — pack scales away; card slides up + scales in with glow.
- *   3. READY — Accept / Refuse buttons fade in. Refuse switches to a
- *      "Direct Elimination" confirmation screen before letting the user
- *      close. Accept just closes.
- *
- * Uses the built-in `Animated` API (not Reanimated) for maximum web
- * compatibility — the room screen runs on Expo Web too.
+ *   3. READY — Accept / Refuse buttons fade in *for the target only*.
+ *      Everyone else sees "Waiting for {target} to decide…".
+ *   4. RESOLVED — once the target's Accept/Refuse broadcast lands, the
+ *      modal flips to the final outcome panel for everyone.
  */
 const SHAKE_MS = 1100;
 const REVEAL_MS = 650;
 
-type Phase = "shaking" | "revealing" | "ready" | "refused";
+type Phase = "shaking" | "revealing" | "ready";
 
 export function PunishmentCardModal({
   reveal,
   visible,
+  resolved,
+  isTarget,
+  onAccept,
+  onRefuse,
   onClose,
-  /**
-   * Only the winner who drew the card can Accept/Refuse it; everyone else
-   * is in watch-only mode and just sees a Close button after the reveal.
-   */
-  isWinner = true,
 }: {
   reveal: PunishmentReveal | null;
   visible: boolean;
+  /** Final Accept/Refuse decision, or null while we're still waiting. */
+  resolved: PunishmentResolved | null;
+  /** True only on the device of the player the winner picked. */
+  isTarget: boolean;
+  onAccept: () => void;
+  onRefuse: () => void;
   onClose: () => void;
-  isWinner?: boolean;
 }) {
   const colors = useColors();
   const { t, isRTL } = useT();
   const wd = isRTL ? "rtl" : "ltr";
 
   const [phase, setPhase] = useState<Phase>("shaking");
+  // Local "I already tapped Accept/Refuse" guard so a double-tap doesn't
+  // fire two ws events. Reset whenever a new reveal starts.
+  const [responded, setResponded] = useState(false);
 
   // Pack animations.
   const shake = useRef(new Animated.Value(0)).current;
@@ -76,6 +83,7 @@ export function PunishmentCardModal({
     if (!visible || !reveal) return;
     // Reset state for every fresh reveal.
     setPhase("shaking");
+    setResponded(false);
     shake.setValue(0);
     packScale.setValue(1);
     packOpacity.setValue(1);
@@ -104,15 +112,11 @@ export function PunishmentCardModal({
     );
     shakeLoop.start();
 
-    // Glow ramp + sparkle bursts in parallel.
     Animated.timing(glow, {
       toValue: 1,
       duration: SHAKE_MS,
       useNativeDriver: false,
     }).start();
-    // Retain every sparkle loop handle so we can stop them on cleanup —
-    // otherwise they keep running after the modal closes and leak across
-    // subsequent reveals.
     const sparkleLoops = sparkles.map((s, i) =>
       Animated.loop(
         Animated.sequence([
@@ -129,7 +133,6 @@ export function PunishmentCardModal({
     );
     sparkleLoops.forEach((l) => l.start());
 
-    // After suspense: pack fades/scales away, card swoops in.
     const t1 = setTimeout(() => {
       shakeLoop.stop();
       setPhase("revealing");
@@ -181,7 +184,7 @@ export function PunishmentCardModal({
       sparkleLoops.forEach((l) => l.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, reveal?.cardId, reveal?.drawnBy]);
+  }, [visible, reveal?.cardId, reveal?.drawnBy, reveal?.targetName]);
 
   if (!reveal) return null;
   const card = getPunishmentCard(reveal.cardId);
@@ -207,13 +210,15 @@ export function PunishmentCardModal({
     outputRange: [0.2, 0.9],
   });
 
+  const showResolution = phase === "ready" && resolved !== null;
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       onRequestClose={() => {
-        if (phase === "ready" || phase === "refused") onClose();
+        if (phase === "ready") onClose();
       }}
     >
       <View style={[styles.backdrop, { backgroundColor: "rgba(0,0,0,0.78)" }]}>
@@ -251,12 +256,13 @@ export function PunishmentCardModal({
           })}
         </View>
 
-        {phase === "refused" ? (
-          <RefusedPanel
+        {showResolution ? (
+          <ResolutionPanel
+            resolved={resolved!}
             colors={colors}
-            onClose={onClose}
             wd={wd}
             t={t}
+            onClose={onClose}
           />
         ) : (
           <View style={styles.stage}>
@@ -335,6 +341,16 @@ export function PunishmentCardModal({
                 >
                   {t(card.bodyKey)}
                 </Text>
+                {reveal.targetName ? (
+                  <Text
+                    style={[
+                      styles.targetLabel,
+                      { color: accent, writingDirection: wd },
+                    ]}
+                  >
+                    {t("punishment.targetLabel", { name: reveal.targetName })}
+                  </Text>
+                ) : null}
                 {reveal.drawnBy ? (
                   <Text
                     style={[
@@ -352,26 +368,44 @@ export function PunishmentCardModal({
               <Animated.View
                 style={[styles.actions, { opacity: buttonsOpacity }]}
               >
-                {isWinner ? (
+                {isTarget ? (
                   <>
                     <Button
                       title={t("punishment.accept")}
                       fullWidth
-                      onPress={onClose}
+                      // Disable both buttons the moment one is tapped so a
+                      // jittery double-tap can't send two events. The
+                      // server is also guarded via `alreadyResolved`.
+                      disabled={responded}
+                      onPress={() => {
+                        if (responded) return;
+                        setResponded(true);
+                        onAccept();
+                      }}
                     />
                     <Button
                       title={t("punishment.refuse")}
                       fullWidth
                       variant="ghost"
-                      onPress={() => setPhase("refused")}
+                      disabled={responded}
+                      onPress={() => {
+                        if (responded) return;
+                        setResponded(true);
+                        onRefuse();
+                      }}
                     />
                   </>
                 ) : (
-                  <Button
-                    title={t("punishment.close")}
-                    fullWidth
-                    onPress={onClose}
-                  />
+                  <Text
+                    style={[
+                      styles.watching,
+                      { color: colors.mutedForeground, writingDirection: wd },
+                    ]}
+                  >
+                    {t("punishment.waitingDecision", {
+                      name: reveal.targetName,
+                    })}
+                  </Text>
                 )}
               </Animated.View>
             ) : null}
@@ -382,32 +416,39 @@ export function PunishmentCardModal({
   );
 }
 
-function RefusedPanel({
+function ResolutionPanel({
+  resolved,
   colors,
-  onClose,
   wd,
   t,
+  onClose,
 }: {
+  resolved: PunishmentResolved;
   colors: ReturnType<typeof useColors>;
-  onClose: () => void;
   wd: "ltr" | "rtl";
   t: ReturnType<typeof useT>["t"];
+  onClose: () => void;
 }) {
+  const accent = resolved.accepted ? colors.success : colors.destructive;
+  const icon = resolved.accepted ? "check-circle" : "x-octagon";
+  const title = resolved.accepted
+    ? t("punishment.accepted")
+    : t("punishment.refused");
+  const body = resolved.accepted
+    ? t("punishment.acceptedBody", { name: resolved.targetName })
+    : t("punishment.refusedShort");
   return (
     <View
       style={[
         styles.card,
-        { backgroundColor: colors.card, borderColor: colors.destructive },
+        { backgroundColor: colors.card, borderColor: accent },
       ]}
     >
-      <Feather name="x-octagon" size={56} color={colors.destructive} />
+      <Feather name={icon} size={56} color={accent} />
       <Text
-        style={[
-          styles.cardTitle,
-          { color: colors.destructive, writingDirection: wd },
-        ]}
+        style={[styles.cardTitle, { color: accent, writingDirection: wd }]}
       >
-        {t("punishment.refused")}
+        {title}
       </Text>
       <Text
         style={[
@@ -415,7 +456,7 @@ function RefusedPanel({
           { color: colors.mutedForeground, writingDirection: wd },
         ]}
       >
-        {t("punishment.refusedBody")}
+        {body}
       </Text>
       <View style={styles.actions}>
         <Button title={t("punishment.close")} fullWidth onPress={onClose} />
@@ -490,11 +531,23 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
+  targetLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    marginTop: 4,
+    letterSpacing: 0.3,
+  },
   drawnBy: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
-    marginTop: 6,
+    marginTop: 2,
     fontStyle: "italic",
+  },
+  watching: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    paddingVertical: 6,
   },
   actions: { width: "100%", gap: 8, marginTop: 6 },
   sparkle: {

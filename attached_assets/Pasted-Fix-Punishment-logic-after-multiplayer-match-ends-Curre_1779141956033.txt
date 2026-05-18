@@ -1,0 +1,94 @@
+Fix Punishment logic after multiplayer match ends.
+
+Current bug:
+- When a non-winner presses “New Match”, the punishment card appears.
+- This is wrong.
+
+Correct rules:
+1. Punishment card must appear ONLY when the winner presses the Punishment button.
+2. Rematch / New Match must NEVER trigger punishment.
+3. Non-winners must not be able to trigger punishment.
+4. Punishment is NOT applied to the winner.
+5. Winner must choose which opponent receives the punishment.
+
+Winner screen flow:
+- After match ends, only the winner sees:
+  - Punishment button
+  - New Match button
+  - Leave Room button
+- Non-winners see only:
+  - Waiting / New Match
+  - Leave Room
+- When winner taps Punishment:
+  1. Show list of opponents only.
+  2. Winner selects one opponent.
+  3. Then reveal random punishment card.
+  4. Broadcast card reveal to all players.
+
+Target rules:
+- Winner cannot select himself.
+- Target must be one of the losing players.
+- Server validates targetPlayerId.
+- Broadcast:
+  - revealed punishment card
+  - selected target player name
+  - selected target serial
+
+Punishment decision buttons:
+- After the card is revealed, only the selected target player sees:
+  - Accept
+  - Refuse
+- Arabic:
+  - موافق
+  - رفض
+- English:
+  - Accept
+  - Refuse
+- Other players only watch the result.
+
+If target accepts:
+- Show:
+  - Arabic: قبل العقاب
+  - English: Accepted the punishment
+
+If target refuses:
+- Show:
+  - Arabic: رفض العقاب — خروج مباشر
+  - English: Refused punishment — Direct elimination
+
+Server rules:
+- Separate rematch event from punishment event.
+- Rematch event must never open PunishmentCardModal.
+- Only event “requestPunishmentCard” can reveal punishment.
+- Only winner can emit requestPunishmentCard.
+- requestPunishmentCard must include:
+  - roomCode
+  - winnerPlayerId
+  - targetPlayerId
+- Store:
+  - punishmentUsed = true
+  - punishmentTargetId
+  - revealedPunishmentCard
+- Prevent duplicate punishment reveals.
+
+Client fixes:
+- Remove any punishment modal trigger from:
+  - New Match button
+  - Rematch button
+  - Room reset logic
+  - GameOver reset logic
+- Punishment modal opens only when receiving:
+  - punishmentCardRevealed
+- Non-winners must not see Punishment button.
+- Winner must choose target before reveal.
+- Target player sees Accept/Refuse buttons.
+- Winner and other players do not see Accept/Refuse buttons.
+
+Testing:
+- Non-winner presses New Match → no punishment appears.
+- Winner presses New Match → no punishment appears.
+- Winner presses Punishment → opponent list appears.
+- Winner selects opponent → punishment card reveals.
+- Selected opponent sees Accept/Refuse.
+- Non-selected players only watch.
+- Winner cannot be selected as target.

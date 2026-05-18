@@ -25,6 +25,12 @@ export type GuessEntry = {
 export type Status = "waiting" | "playing" | "won";
 
 export type PlayerSummary = {
+  /**
+   * Stable per-connection id assigned by the server. Use this — not
+   * `name` — whenever you need an identity key (e.g. selecting a
+   * punishment target). Display names aren't unique within a room.
+   */
+  id: string;
   name: string;
   isHost: boolean;
 };
@@ -41,11 +47,15 @@ export type RoomState = {
   digits: 2 | 3 | 4 | null;
   players: PlayerSummary[];
   isHost: boolean;
+  /** Stable per-connection id for *this* viewer. */
+  yourId: string;
   yourName: string;
   yourHistory: GuessEntry[];
   opponents: OpponentSummary[];
   status: Status;
-  /** Set only when status === "won". */
+  /** Stable id of the winner — identity authority. Set when status === "won". */
+  winnerId: string | null;
+  /** Display name of the winner. Set when status === "won". UI only. */
   winnerName: string | null;
   /** Set only when status === "won". */
   revealedHidden: string | null;
@@ -71,11 +81,28 @@ export type PunishmentErrorReason =
   | "notInRoom"
   | "notWinner"
   | "notWon"
-  | "alreadyUsed";
+  | "alreadyUsed"
+  | "noTarget"
+  | "invalidTarget"
+  | "notTarget"
+  | "noPunishment"
+  | "alreadyResolved";
 
 export type PunishmentReveal = {
   cardId: PunishmentCardId;
   drawnBy: string;
+  /** Stable id of the chosen target — identity authority. */
+  targetId: string;
+  /** Display name of the chosen target — UI only. */
+  targetName: string;
+};
+
+export type PunishmentResolved = {
+  accepted: boolean;
+  /** Stable id of the resolving target. */
+  targetId: string;
+  /** Display name of the resolving target — UI only. */
+  targetName: string;
 };
 
 export type JoinOutcome =
@@ -119,16 +146,21 @@ type ServerResponse = {
   // Punishment events
   cardId?: PunishmentCardId;
   drawnBy?: string;
+  targetId?: string;
+  targetName?: string;
+  accepted?: boolean;
   reason?: PunishmentErrorReason;
 };
 
 type PunishmentRevealListener = (reveal: PunishmentReveal) => void;
+type PunishmentResolvedListener = (resolved: PunishmentResolved) => void;
 type PunishmentErrorListener = (reason: PunishmentErrorReason) => void;
 
 const pending = new Map<string, Pending>();
 const listeners = new Map<string, Set<Listener>>();
 const closeListeners = new Map<string, Set<CloseListener>>();
 const punishmentRevealListeners = new Map<string, Set<PunishmentRevealListener>>();
+const punishmentResolvedListeners = new Map<string, Set<PunishmentResolvedListener>>();
 const punishmentErrorListeners = new Map<string, Set<PunishmentErrorListener>>();
 /**
  * Last punishment reveal per room. Used to "replay" the reveal to listeners
@@ -137,6 +169,7 @@ const punishmentErrorListeners = new Map<string, Set<PunishmentErrorListener>>()
  * rematch (state.status flips back to "waiting") and on leaveRoom.
  */
 const lastPunishmentReveal = new Map<string, PunishmentReveal>();
+const lastPunishmentResolved = new Map<string, PunishmentResolved>();
 const lastState = new Map<string, RoomState>();
 const activeSubs = new Set<string>();
 
@@ -196,6 +229,7 @@ function connect(): Promise<WebSocket> {
         // card.
         if (state.status === "waiting") {
           lastPunishmentReveal.delete(state.code);
+          lastPunishmentResolved.delete(state.code);
         }
         listeners.get(state.code)?.forEach((l) => l(state));
         return;
@@ -212,6 +246,8 @@ function connect(): Promise<WebSocket> {
         const reveal: PunishmentReveal = {
           cardId: msg.cardId,
           drawnBy: msg.drawnBy ?? "",
+          targetId: msg.targetId ?? "",
+          targetName: msg.targetName ?? "",
         };
         const listenerCount = punishmentRevealListeners.get(code)?.size ?? 0;
         if (__DEV__) {
@@ -219,12 +255,35 @@ function connect(): Promise<WebSocket> {
             code,
             cardId: reveal.cardId,
             drawnBy: reveal.drawnBy,
+            targetName: reveal.targetName,
             listenerCount,
           });
         }
         lastPunishmentReveal.set(code, reveal);
+        // A fresh reveal supersedes any stale resolution from a previous
+        // (or aborted) flow — defensively clear so listeners don't replay
+        // an old Accept/Refuse on top of the new card.
+        lastPunishmentResolved.delete(code);
         punishmentRevealListeners.get(code)?.forEach((l) => l(reveal));
         // Fall through so any reqId on the requester also resolves below.
+      }
+
+      if (msg.type === "punishmentResolved" && msg.code && typeof msg.accepted === "boolean") {
+        const code = msg.code;
+        const resolved: PunishmentResolved = {
+          accepted: msg.accepted,
+          targetId: msg.targetId ?? "",
+          targetName: msg.targetName ?? "",
+        };
+        if (__DEV__) {
+          console.log("[punishment] punishmentResolved received", {
+            code,
+            accepted: resolved.accepted,
+            targetName: resolved.targetName,
+          });
+        }
+        lastPunishmentResolved.set(code, resolved);
+        punishmentResolvedListeners.get(code)?.forEach((l) => l(resolved));
       }
 
       if (msg.type === "punishmentError" && msg.code && msg.reason) {
@@ -350,7 +409,13 @@ export function submitGuess(code: string, guess: string): void {
 }
 
 export function requestRematch(code: string): void {
-  fire("rematch", { code: code.toUpperCase() });
+  const upper = code.toUpperCase();
+  // Defensive: a rematch must NEVER replay a previous match's punishment
+  // to a late-mounting /result. Drop both caches the instant we ask for
+  // a rematch, even before the server's state echo lands.
+  lastPunishmentReveal.delete(upper);
+  lastPunishmentResolved.delete(upper);
+  fire("rematch", { code: upper });
 }
 
 export function leaveRoom(code: string): void {
@@ -359,17 +424,37 @@ export function leaveRoom(code: string): void {
   listeners.delete(upper);
   closeListeners.delete(upper);
   punishmentRevealListeners.delete(upper);
+  punishmentResolvedListeners.delete(upper);
   punishmentErrorListeners.delete(upper);
   lastPunishmentReveal.delete(upper);
+  lastPunishmentResolved.delete(upper);
   lastState.delete(upper);
   fire("leave", { code: upper });
 }
 
-/** Fire-and-forget — server broadcasts `punishmentRevealed` to all peers. */
-export function requestPunishmentCard(code: string): void {
+/**
+ * Winner-only — picks `targetId` (a losing player's stable id) and asks
+ * the server to draw + broadcast a card. Server validates that the
+ * target exists in the room and isn't the winner.
+ */
+export function requestPunishmentCard(code: string, targetId: string): void {
   const upper = code.toUpperCase();
-  if (__DEV__) console.log("[punishment] emit requestPunishment", { code: upper });
-  fire("requestPunishment", { code: upper });
+  if (__DEV__) {
+    console.log("[punishment] emit requestPunishment", { code: upper, targetId });
+  }
+  fire("requestPunishment", { code: upper, targetId });
+}
+
+/**
+ * Target-only — Accept / Refuse the punishment. Server validates that the
+ * caller is the chosen target and broadcasts `punishmentResolved`.
+ */
+export function respondPunishment(code: string, accepted: boolean): void {
+  const upper = code.toUpperCase();
+  if (__DEV__) {
+    console.log("[punishment] emit respondPunishment", { code: upper, accepted });
+  }
+  fire("respondPunishment", { code: upper, accepted });
 }
 
 export function onPunishmentRevealed(
@@ -396,6 +481,30 @@ export function onPunishmentRevealed(
     if (s) {
       s.delete(cb);
       if (s.size === 0) punishmentRevealListeners.delete(upper);
+    }
+  };
+}
+
+export function onPunishmentResolved(
+  code: string,
+  cb: PunishmentResolvedListener,
+): () => void {
+  const upper = code.toUpperCase();
+  let set = punishmentResolvedListeners.get(upper);
+  if (!set) {
+    set = new Set();
+    punishmentResolvedListeners.set(upper, set);
+  }
+  set.add(cb);
+  const cached = lastPunishmentResolved.get(upper);
+  if (cached) {
+    Promise.resolve().then(() => cb(cached));
+  }
+  return () => {
+    const s = punishmentResolvedListeners.get(upper);
+    if (s) {
+      s.delete(cb);
+      if (s.size === 0) punishmentResolvedListeners.delete(upper);
     }
   };
 }
