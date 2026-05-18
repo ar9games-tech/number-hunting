@@ -1,11 +1,9 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { Button } from "@/src/components/Button";
 import { GlassCard } from "@/src/components/GlassCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { StatsOverview } from "@/src/components/StatsOverview";
@@ -26,9 +24,13 @@ import { formatTime } from "@/src/utils/scoring";
 const DIGITS_LIST = [2, 3, 4] as const;
 
 /**
- * Profile dashboard. Compact summary of who the player is and how
- * they've been doing. Lifetime stats here are ONLINE ONLY by design —
- * solo runs only show up under "best solo times".
+ * Profile dashboard — the single home for everything record/stat related
+ * now that the standalone Records screen has been removed.
+ *
+ * Shows: identity, online-only lifetime stats, best solo times, best
+ * online times, and the online totals/averages aggregated across all
+ * digit lengths. Solo runs deliberately never appear in the lifetime
+ * stats — that surface is online-only by product spec.
  */
 export default function ProfileScreen() {
   const colors = useColors();
@@ -51,6 +53,16 @@ export default function ProfileScreen() {
   }, [load]);
 
   const identity = formatPlayerIdentity(settings.playerName, settings.playerSerial);
+
+  // Aggregate online totals across every digit length so we can surface
+  // "Total online guesses" and "Avg online guesses" — required by spec.
+  const totalGuesses = DIGITS_LIST.reduce(
+    (sum, d) => sum + onlineStats.perDigit[d].totalGuessesWon,
+    0,
+  );
+  const totalWins = onlineStats.wins;
+  const avgGuesses =
+    totalWins > 0 ? Math.round((totalGuesses / totalWins) * 10) / 10 : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -81,6 +93,30 @@ export default function ProfileScreen() {
         </Text>
         <StatsOverview stats={onlineStats} />
 
+        {/* Totals row — explicitly requested in the spec ("Total online
+            guesses" + "Average online guesses"). Renders even with zero
+            so the user can see the surface exists. */}
+        <View style={styles.totalsRow}>
+          <View style={[styles.totalCell, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Feather name="hash" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>
+              {t("stats.totalGuesses")}
+            </Text>
+            <Text style={[styles.totalValue, { color: colors.foreground }]}>
+              {lz(totalGuesses)}
+            </Text>
+          </View>
+          <View style={[styles.totalCell, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Feather name="activity" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>
+              {t("stats.avgGuessesAll")}
+            </Text>
+            <Text style={[styles.totalValue, { color: colors.foreground }]}>
+              {avgGuesses != null ? lz(avgGuesses) : t("profile.noTime")}
+            </Text>
+          </View>
+        </View>
+
         <Text style={[styles.sectionHeading, { color: colors.mutedForeground, writingDirection: wd }]}>
           {t("profile.bestSoloTimes")}
         </Text>
@@ -90,13 +126,6 @@ export default function ProfileScreen() {
           {t("profile.bestOnlineTimes")}
         </Text>
         <BestTimesRow modeRecords={records.online} lz={lz} t={t} />
-
-        <Button
-          title={t("profile.viewFullRecords")}
-          variant="secondary"
-          fullWidth
-          onPress={() => router.push("/records")}
-        />
       </ScrollView>
     </View>
   );
@@ -162,6 +191,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_500Medium",
     marginTop: 2,
+    fontVariant: ["tabular-nums"],
+  },
+  totalsRow: { flexDirection: "row", gap: 8 },
+  totalCell: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+  },
+  totalLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.4 },
+  totalValue: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
     fontVariant: ["tabular-nums"],
   },
   timesRow: { flexDirection: "row", gap: 8 },

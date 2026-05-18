@@ -272,10 +272,10 @@ export default function ResultScreen() {
                 }
               />
               <Button
-                title={t("result.viewRecords")}
+                title={t("home.profile")}
                 fullWidth
                 variant="secondary"
-                onPress={() => router.replace("/records")}
+                onPress={() => router.replace("/profile")}
               />
               <Button
                 title={t("result.home")}

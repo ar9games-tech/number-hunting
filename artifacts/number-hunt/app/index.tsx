@@ -148,13 +148,6 @@ export default function HomeScreen() {
             onPress={() => router.push("/lobby")}
           />
           <View style={styles.linksRow}>
-            <Pressable onPress={() => router.push("/records")} style={styles.linkBtn}>
-              <Feather name="bar-chart-2" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.linkText, { color: colors.mutedForeground }]}>
-                {t("home.records")}
-              </Text>
-            </Pressable>
-            <View style={[styles.dot, { backgroundColor: colors.border }]} />
             <Pressable onPress={() => router.push("/profile")} style={styles.linkBtn}>
               <Feather name="user" size={16} color={colors.mutedForeground} />
               <Text style={[styles.linkText, { color: colors.mutedForeground }]}>

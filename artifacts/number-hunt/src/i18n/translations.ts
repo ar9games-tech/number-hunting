@@ -195,6 +195,8 @@ export type TranslationKey =
   | "stats.avgGuesses"
   | "stats.winsCount"
   | "stats.noWinsYet"
+  | "stats.totalGuesses"
+  | "stats.avgGuessesAll"
   // Result extras
   | "result.youLost"
   | "result.opponentWon"
@@ -450,6 +452,8 @@ const en: Record<TranslationKey, string> = {
   "stats.avgGuesses": "Avg {n} guesses",
   "stats.winsCount": "{n} wins",
   "stats.noWinsYet": "No wins yet at this length.",
+  "stats.totalGuesses": "Total guesses",
+  "stats.avgGuessesAll": "Avg guesses",
 
   "result.youLost": "So close!",
   "result.opponentWon": "{name} cracked it first",
@@ -702,6 +706,8 @@ const ar: Record<TranslationKey, string> = {
   "stats.avgGuesses": "متوسط {n} تخمينات",
   "stats.winsCount": "{n} انتصارات",
   "stats.noWinsYet": "لا توجد انتصارات بعد في هذا الطول.",
+  "stats.totalGuesses": "إجمالي التخمينات",
+  "stats.avgGuessesAll": "متوسط التخمينات",
 
   "result.youLost": "كان وشيكاً!",
   "result.opponentWon": "{name} كشفه أولاً",

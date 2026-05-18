@@ -35,7 +35,6 @@ function RootLayoutNav() {
         <Stack.Screen name="lobby" />
         <Stack.Screen name="room" />
         <Stack.Screen name="result" />
-        <Stack.Screen name="records" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="achievements" />
         <Stack.Screen name="settings" />
