@@ -202,6 +202,29 @@ export type TranslationKey =
   | "result.opponentWon"
   | "result.defeat"
   | "result.newAchievements"
+  // Punishment cards
+  | "punishment.button"
+  | "punishment.opening"
+  | "punishment.drawnBy"
+  | "punishment.accept"
+  | "punishment.refuse"
+  | "punishment.refused"
+  | "punishment.refusedBody"
+  | "punishment.cooldownTitle"
+  | "punishment.cooldownBody"
+  | "punishment.notEnoughTitle"
+  | "punishment.notEnoughBody"
+  | "punishment.errorTitle"
+  | "punishment.tapToOpen"
+  | "punishment.close"
+  | "punishment.card.directElimination.title"
+  | "punishment.card.directElimination.body"
+  | "punishment.card.vote.title"
+  | "punishment.card.vote.body"
+  | "punishment.card.sandal.title"
+  | "punishment.card.sandal.body"
+  | "punishment.card.animalSound.title"
+  | "punishment.card.animalSound.body"
   // Welcome / first-run nickname
   | "welcome.title"
   | "welcome.subtitle"
@@ -460,6 +483,29 @@ const en: Record<TranslationKey, string> = {
   "result.defeat": "Defeat",
   "result.newAchievements": "NEW UNLOCKS",
 
+  "punishment.button": "Punishment",
+  "punishment.opening": "Opening pack…",
+  "punishment.drawnBy": "Drawn by {name}",
+  "punishment.accept": "Accept Punishment",
+  "punishment.refuse": "Refuse",
+  "punishment.refused": "Direct Elimination",
+  "punishment.refusedBody": "Refusing the card means you're eliminated.",
+  "punishment.cooldownTitle": "Cooling down",
+  "punishment.cooldownBody": "Another card was just opened. Try again in a moment.",
+  "punishment.notEnoughTitle": "Need 4+ players",
+  "punishment.notEnoughBody": "Punishment cards only unlock with 4 or more players in the room.",
+  "punishment.errorTitle": "Can't open right now",
+  "punishment.tapToOpen": "Tap to open",
+  "punishment.close": "Close",
+  "punishment.card.directElimination.title": "Direct Elimination",
+  "punishment.card.directElimination.body": "The chosen player is eliminated immediately.",
+  "punishment.card.vote.title": "Vote",
+  "punishment.card.vote.body": "Everyone votes on the punishment.",
+  "punishment.card.sandal.title": "Cartoon Sandal",
+  "punishment.card.sandal.body": "If the player refuses the punishment, direct elimination.",
+  "punishment.card.animalSound.title": "Animal Sound",
+  "punishment.card.animalSound.body": "If the player refuses the punishment, direct elimination.",
+
   "welcome.title": "Welcome to Number Hunt",
   "welcome.subtitle": "Pick a nickname so we can show it next to your scores. You can change it anytime in Settings.",
   "welcome.nickname": "NICKNAME",
@@ -713,6 +759,29 @@ const ar: Record<TranslationKey, string> = {
   "result.opponentWon": "{name} كشفه أولاً",
   "result.defeat": "هزيمة",
   "result.newAchievements": "إنجازات جديدة",
+
+  "punishment.button": "عقاب",
+  "punishment.opening": "جاري فتح البطاقة…",
+  "punishment.drawnBy": "سحبها {name}",
+  "punishment.accept": "أقبل العقاب",
+  "punishment.refuse": "أرفض",
+  "punishment.refused": "خروج مباشر",
+  "punishment.refusedBody": "رفض البطاقة يعني خروجك من اللعبة.",
+  "punishment.cooldownTitle": "انتظر قليلاً",
+  "punishment.cooldownBody": "تم فتح بطاقة للتو. أعد المحاولة بعد قليل.",
+  "punishment.notEnoughTitle": "تحتاج 4 لاعبين أو أكثر",
+  "punishment.notEnoughBody": "بطاقات العقاب تظهر فقط عند وجود 4 لاعبين أو أكثر في الغرفة.",
+  "punishment.errorTitle": "تعذّر الفتح الآن",
+  "punishment.tapToOpen": "اضغط لفتح البطاقة",
+  "punishment.close": "إغلاق",
+  "punishment.card.directElimination.title": "خروج مباشر",
+  "punishment.card.directElimination.body": "يخرج اللاعب المختار فوراً.",
+  "punishment.card.vote.title": "تصويت",
+  "punishment.card.vote.body": "يصوّت الجميع على نتيجة العقاب.",
+  "punishment.card.sandal.title": "زنوبة كرتونية",
+  "punishment.card.sandal.body": "إذا لم يقبل العقاب، خروج مباشر.",
+  "punishment.card.animalSound.title": "تقليد صوت حيوان",
+  "punishment.card.animalSound.body": "إذا لم يقبل العقاب، خروج مباشر.",
 
   "welcome.title": "أهلاً بك في صيد الأرقام",
   "welcome.subtitle": "اختر اسماً مستعاراً ليظهر بجانب نتائجك. يمكنك تغييره لاحقاً من الإعدادات.",

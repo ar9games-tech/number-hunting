@@ -44,7 +44,8 @@ export type SoundId =
   | "roomCreated"
   | "playerJoined"
   | "gameStart"
-  | "newRecord";
+  | "newRecord"
+  | "punishmentReveal";
 
 /**
  * Map from event id to the asset path. Swap these `require(...)` calls
@@ -63,6 +64,7 @@ const SOUND_FILES: { [K in SoundId]: number | null } = {
   playerJoined: null, // require("../../assets/sounds/player_joined.mp3"),
   gameStart: null, // require("../../assets/sounds/game_start.mp3"),
   newRecord: null, // require("../../assets/sounds/new_record.mp3"),
+  punishmentReveal: null, // require("../../assets/sounds/punishment_reveal.mp3"),
 };
 
 /**
@@ -171,6 +173,9 @@ export function playGameStart(soundOn: boolean): void {
 }
 export function playNewRecord(soundOn: boolean): void {
   play("newRecord", soundOn);
+}
+export function playPunishmentReveal(soundOn: boolean): void {
+  play("punishmentReveal", soundOn);
 }
 
 /** Re-exported for callers that want the raw asset map (debug screens, etc). */

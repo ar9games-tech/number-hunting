@@ -60,6 +60,27 @@ export type RoomMeta = {
 
 export type JoinError = "notFound" | "full" | "started";
 
+/** Punishment card identifiers — mirror of the server's PUNISHMENT_CARDS. */
+export type PunishmentCardId =
+  | "directElimination"
+  | "vote"
+  | "sandal"
+  | "animalSound";
+
+export type PunishmentErrorReason =
+  | "notInRoom"
+  | "notEnoughPlayers"
+  | "notPlaying"
+  | "cooldown";
+
+export type PunishmentReveal = {
+  cardId: PunishmentCardId;
+  drawnBy: string;
+  cooldownUntil: number;
+};
+
+export const PUNISHMENT_MIN_PLAYERS = 4;
+
 export type JoinOutcome =
   | { ok: true; state: RoomState }
   | { ok: false; error: JoinError };
@@ -98,11 +119,21 @@ type ServerResponse = {
   meta?: RoomMeta | null;
   code?: string;
   error?: JoinError;
+  // Punishment events
+  cardId?: PunishmentCardId;
+  drawnBy?: string;
+  cooldownUntil?: number;
+  reason?: PunishmentErrorReason;
 };
+
+type PunishmentRevealListener = (reveal: PunishmentReveal) => void;
+type PunishmentErrorListener = (reason: PunishmentErrorReason) => void;
 
 const pending = new Map<string, Pending>();
 const listeners = new Map<string, Set<Listener>>();
 const closeListeners = new Map<string, Set<CloseListener>>();
+const punishmentRevealListeners = new Map<string, Set<PunishmentRevealListener>>();
+const punishmentErrorListeners = new Map<string, Set<PunishmentErrorListener>>();
 const lastState = new Map<string, RoomState>();
 const activeSubs = new Set<string>();
 
@@ -164,6 +195,23 @@ function connect(): Promise<WebSocket> {
         const code = msg.code;
         closeListeners.get(code)?.forEach((l) => l());
         return;
+      }
+
+      if (msg.type === "punishmentRevealed" && msg.code && msg.cardId) {
+        const code = msg.code;
+        const reveal: PunishmentReveal = {
+          cardId: msg.cardId,
+          drawnBy: msg.drawnBy ?? "",
+          cooldownUntil: msg.cooldownUntil ?? 0,
+        };
+        punishmentRevealListeners.get(code)?.forEach((l) => l(reveal));
+        // Fall through so any reqId on the requester also resolves below.
+      }
+
+      if (msg.type === "punishmentError" && msg.code && msg.reason) {
+        const code = msg.code;
+        const reason = msg.reason;
+        punishmentErrorListeners.get(code)?.forEach((l) => l(reason));
       }
 
       if (msg.reqId) {
@@ -288,8 +336,55 @@ export function leaveRoom(code: string): void {
   activeSubs.delete(upper);
   listeners.delete(upper);
   closeListeners.delete(upper);
+  punishmentRevealListeners.delete(upper);
+  punishmentErrorListeners.delete(upper);
   lastState.delete(upper);
   fire("leave", { code: upper });
+}
+
+/** Fire-and-forget — server broadcasts `punishmentRevealed` to all peers. */
+export function requestPunishmentCard(code: string): void {
+  fire("requestPunishment", { code: code.toUpperCase() });
+}
+
+export function onPunishmentRevealed(
+  code: string,
+  cb: PunishmentRevealListener,
+): () => void {
+  const upper = code.toUpperCase();
+  let set = punishmentRevealListeners.get(upper);
+  if (!set) {
+    set = new Set();
+    punishmentRevealListeners.set(upper, set);
+  }
+  set.add(cb);
+  return () => {
+    const s = punishmentRevealListeners.get(upper);
+    if (s) {
+      s.delete(cb);
+      if (s.size === 0) punishmentRevealListeners.delete(upper);
+    }
+  };
+}
+
+export function onPunishmentError(
+  code: string,
+  cb: PunishmentErrorListener,
+): () => void {
+  const upper = code.toUpperCase();
+  let set = punishmentErrorListeners.get(upper);
+  if (!set) {
+    set = new Set();
+    punishmentErrorListeners.set(upper, set);
+  }
+  set.add(cb);
+  return () => {
+    const s = punishmentErrorListeners.get(upper);
+    if (s) {
+      s.delete(cb);
+      if (s.size === 0) punishmentErrorListeners.delete(upper);
+    }
+  };
 }
 
 export function onUpdate(code: string, cb: Listener): () => void {

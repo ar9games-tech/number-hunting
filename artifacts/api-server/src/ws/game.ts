@@ -50,7 +50,24 @@ type RoomInternal = {
   winnerId: string | null;
   /** Per-player guess history keyed by socketId. */
   histories: Map<string, GuessEntry[]>;
+  /**
+   * Punishment-card mutex: timestamp (ms) until which no new card may be
+   * drawn. Covers both "already opening" and "cooldown after reveal" with
+   * a single value — much simpler than two flags.
+   */
+  punishmentLockUntil: number;
 };
+
+/** Punishment cards. IDs match what the client renders in its modal. */
+type PunishmentCardId = "directElimination" | "vote" | "sandal" | "animalSound";
+const PUNISHMENT_CARDS: PunishmentCardId[] = [
+  "directElimination",
+  "vote",
+  "sandal",
+  "animalSound",
+];
+const PUNISHMENT_MIN_PLAYERS = 4;
+const PUNISHMENT_COOLDOWN_MS = 10_000;
 
 type OpponentSummary = {
   name: string;
@@ -260,7 +277,14 @@ type ClientMessage =
   | { type: "guess"; code: string; guess: string }
   | { type: "rematch"; code: string }
   | { type: "leave"; code: string }
+  | { type: "requestPunishment"; reqId?: string; code: string }
   | { type: "ping"; reqId?: string };
+
+type PunishmentErrorReason =
+  | "notInRoom"
+  | "notEnoughPlayers"
+  | "notPlaying"
+  | "cooldown";
 
 // Public room metadata returned by getRoom (no privileged data).
 type PublicRoomMeta = {
@@ -303,6 +327,7 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         status: "waiting",
         winnerId: null,
         histories: new Map(),
+        punishmentLockUntil: 0,
       };
       rooms.set(code, { room, updatedAt: Date.now() });
       socketIdentity.set(ws, { code, socketId: hostId });
@@ -456,6 +481,48 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       room.status = "waiting";
       broadcast(code);
       logger.info({ code }, "ws: rematch armed (awaiting digits)");
+      break;
+    }
+
+    case "requestPunishment": {
+      const code = String(raw.code).toUpperCase();
+      const id = socketIdentity.get(ws);
+      const sendErr = (reason: PunishmentErrorReason) =>
+        safeSend(ws, {
+          type: "punishmentError",
+          reqId: raw.reqId,
+          code,
+          reason,
+        });
+      if (!id || id.code !== code) return sendErr("notInRoom");
+      const room = getRoom(code);
+      if (!room) return sendErr("notInRoom");
+      if (!playerById(room, id.socketId)) return sendErr("notInRoom");
+      if (room.status !== "playing") return sendErr("notPlaying");
+      if (room.players.length < PUNISHMENT_MIN_PLAYERS)
+        return sendErr("notEnoughPlayers");
+      const now = Date.now();
+      if (now < room.punishmentLockUntil) return sendErr("cooldown");
+      // Lock immediately so a flood of concurrent taps from different
+      // players still produces exactly one reveal.
+      room.punishmentLockUntil = now + PUNISHMENT_COOLDOWN_MS;
+      const cardId =
+        PUNISHMENT_CARDS[Math.floor(Math.random() * PUNISHMENT_CARDS.length)]!;
+      const requester = playerById(room, id.socketId)!;
+      const subs = subscribers.get(code);
+      if (subs) {
+        for (const peer of subs) {
+          safeSend(peer, {
+            type: "punishmentRevealed",
+            code,
+            cardId,
+            drawnBy: requester.name,
+            cooldownUntil: room.punishmentLockUntil,
+          });
+        }
+      }
+      touch(code);
+      logger.info({ code, cardId, drawnBy: requester.name }, "ws: punishment drawn");
       break;
     }
 

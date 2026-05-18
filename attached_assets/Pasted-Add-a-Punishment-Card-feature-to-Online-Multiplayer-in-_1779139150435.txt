@@ -1,0 +1,84 @@
+Add a Punishment Card feature to Online Multiplayer in Number Hunt.
+
+Feature location:
+- Add a “Punishment” button inside the multiplayer room/game screen.
+- This feature appears only when the room has 4 or more players.
+- If the room has fewer than 4 players, hide the Punishment button.
+
+Punishment feature concept:
+- When players are playing as a group of 4 or more, they can tap “Punishment” to reveal a random punishment card.
+- The reveal should look exciting like opening a card pack / mystery pack.
+
+Punishment card reveal animation:
+- Show a dramatic pack opening animation.
+- Add glowing effects.
+- Add shaking card pack effect.
+- Add sparkle/particle effects.
+- Add suspense delay before revealing the card.
+- Add sound placeholder for pack opening.
+- Add final reveal animation with zoom and glow.
+
+Punishment cards:
+1. Direct Elimination
+   - Arabic: خروج مباشر
+   - Effect: The selected player is eliminated immediately.
+
+2. Vote
+   - Arabic: تصويت
+   - Effect: Players vote on the punishment result.
+
+3. Cartoon Sandal Card
+   - Arabic title: زنوبة كرتونية
+   - Text under card:
+     - Arabic: إذا لم يقبل العقاب، خروج مباشر
+     - English: If the player refuses the punishment, direct elimination
+   - Use a funny cartoon sandal illustration style.
+   - Do not use real violence or offensive visuals.
+
+4. Animal Sound Imitation
+   - Arabic title: تقليد صوت حيوان
+   - Text under card:
+     - Arabic: إذا لم يقبل العقاب، خروج مباشر
+     - English: If the player refuses the punishment, direct elimination
+   - The player must imitate an animal sound.
+
+UI requirements:
+- Support Arabic and English.
+- Arabic text must be RTL.
+- Card titles should be large and clear.
+- Punishment card screen should feel fun, not aggressive.
+- Use family-friendly cartoon style.
+- Add “Accept Punishment” button.
+- Add “Refuse” button.
+- If Refuse is tapped, show “Direct Elimination”.
+
+Multiplayer rules:
+- Punishment button only available in rooms with 4+ players.
+- Server should broadcast the revealed punishment card to all players.
+- All players should see the same revealed card.
+- Prevent multiple players from opening punishment cards at the same time.
+- Add cooldown after opening a punishment card.
+
+Files/components to add:
+- src/components/PunishmentButton.js
+- src/components/PunishmentCardModal.js
+- src/data/punishmentCards.js
+- Add sound placeholder in src/services/soundManager.js
+
+Server updates:
+- Add Socket.io event:
+  - requestPunishmentCard
+  - punishmentCardRevealed
+  - punishmentCardError
+- Validate:
+  - Room exists
+  - Room has at least 4 players
+  - Game is active
+  - No punishment card is currently opening
+- Randomly select one punishment card and broadcast it to the room.
+
+Important:
+- Keep the feature optional and fun.
+- Do not break normal multiplayer guessing.
+- Do not show Punishment button in Solo Mode.
+- Do not show Punishment button in 2-player or 3-player rooms.
