@@ -1,13 +1,11 @@
 /**
  * Realtime multiplayer client.
  *
- * Each player races to guess a server-chosen hidden number. The server sends
- * each socket a personalized view containing only that player's own guesses
- * and feedback — never the opponent's history or the hidden number while
- * the game is in progress.
+ * Rooms hold 2–12 players. Every player races to guess a single hidden
+ * number that the server picks. The server sends each socket a per-player
+ * view containing only that player's own guesses and feedback — never the
+ * opponents' history or the hidden number while the game is in progress.
  */
-
-export type Role = "host" | "guest";
 
 export type FeedbackLevel = "low" | "tooLow" | "high" | "tooHigh";
 
@@ -26,27 +24,45 @@ export type GuessEntry = {
 
 export type Status = "waiting" | "playing" | "won";
 
+export type PlayerSummary = {
+  name: string;
+  isHost: boolean;
+};
+
+export type OpponentSummary = {
+  name: string;
+  guessCount: number;
+};
+
 export type RoomState = {
   code: string;
-  digits: 2 | 3 | 4;
-  hostName: string;
-  guestName: string;
-  guestJoined: boolean;
-  status: Status;
-  winner: Role | null;
-  yourRole: Role;
+  maxPlayers: number;
+  /** Null until the host picks a digit length (i.e. starts the game). */
+  digits: 2 | 3 | 4 | null;
+  players: PlayerSummary[];
+  isHost: boolean;
+  yourName: string;
   yourHistory: GuessEntry[];
-  opponentGuessCount: number;
-  // Set only when status === "won".
+  opponents: OpponentSummary[];
+  status: Status;
+  /** Set only when status === "won". */
+  winnerName: string | null;
+  /** Set only when status === "won". */
   revealedHidden: string | null;
 };
 
 export type RoomMeta = {
   code: string;
-  digits: 2 | 3 | 4;
-  guestJoined: boolean;
+  maxPlayers: number;
+  playerCount: number;
   status: Status;
 };
+
+export type JoinError = "notFound" | "full" | "started";
+
+export type JoinOutcome =
+  | { ok: true; state: RoomState }
+  | { ok: false; error: JoinError };
 
 type Listener = (state: RoomState) => void;
 type CloseListener = () => void;
@@ -81,6 +97,7 @@ type ServerResponse = {
   state?: RoomState | null;
   meta?: RoomMeta | null;
   code?: string;
+  error?: JoinError;
 };
 
 const pending = new Map<string, Pending>();
@@ -220,10 +237,10 @@ function fire(type: string, payload: Record<string, unknown>): void {
 // ---- Public API ------------------------------------------------------------
 
 export async function createRoom(
-  digits: 2 | 3 | 4,
-  hostName: string,
+  maxPlayers: number,
+  playerName: string,
 ): Promise<RoomState> {
-  const res = await request("create", { digits, hostName });
+  const res = await request("create", { maxPlayers, playerName });
   if (!res.state) throw new Error("Failed to create room");
   activeSubs.add(res.state.code);
   lastState.set(res.state.code, res.state);
@@ -232,14 +249,15 @@ export async function createRoom(
 
 export async function joinRoom(
   code: string,
-  guestName: string,
-): Promise<RoomState | null> {
-  const res = await request("join", { code: code.toUpperCase(), guestName });
+  playerName: string,
+): Promise<JoinOutcome> {
+  const res = await request("join", { code: code.toUpperCase(), playerName });
   if (res.state) {
     activeSubs.add(res.state.code);
     lastState.set(res.state.code, res.state);
+    return { ok: true, state: res.state };
   }
-  return res.state ?? null;
+  return { ok: false, error: res.error ?? "notFound" };
 }
 
 /** Lobby probe — returns only public metadata (no privileged data). */
@@ -250,6 +268,11 @@ export async function getRoomMeta(code: string): Promise<RoomMeta | null> {
 
 export function getCachedRoom(code: string): RoomState | null {
   return lastState.get(code.toUpperCase()) ?? null;
+}
+
+/** Host-only — locks in a digit length and starts the game for everyone. */
+export function setRoomDigits(code: string, digits: 2 | 3 | 4): void {
+  fire("setDigits", { code: code.toUpperCase(), digits });
 }
 
 export function submitGuess(code: string, guess: string): void {
@@ -289,9 +312,8 @@ export function onUpdate(code: string, cb: Listener): () => void {
     }
     // NOTE: do NOT clear activeSubs / lastState here. The room screen
     // unmounts when navigating to /result, but we need the cached state to
-    // survive so a rematch can re-attach to the same room (instead of the
-    // host accidentally creating a fresh one). Both are cleared only when
-    // `leaveRoom` is explicitly called.
+    // survive so a rematch can re-attach to the same room. Both are cleared
+    // only when `leaveRoom` is explicitly called.
   };
 }
 
@@ -311,3 +333,6 @@ export function onRoomClosed(code: string, cb: CloseListener): () => void {
     }
   };
 }
+
+export const MIN_PLAYERS = 2;
+export const MAX_PLAYERS = 12;

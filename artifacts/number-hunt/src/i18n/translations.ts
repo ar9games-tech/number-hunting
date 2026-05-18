@@ -49,6 +49,21 @@ export type TranslationKey =
   | "lobby.notFoundMsg"
   | "lobby.note"
   | "lobby.playingAs"
+  | "lobby.joinFull"
+  | "lobby.joinFullMsg"
+  | "lobby.joinStarted"
+  | "lobby.joinStartedMsg"
+  // Create room (N-player picker)
+  | "create.title"
+  | "create.lead"
+  | "create.players"
+  | "create.playersShort"
+  | "create.summary"
+  | "create.hint"
+  | "create.btn"
+  | "create.creating"
+  | "create.errorTitle"
+  | "create.errorMsg"
   // Room
   | "room.title"
   | "room.waitingOpponent"
@@ -71,6 +86,18 @@ export type TranslationKey =
   | "room.connectErrorMsg"
   | "room.sendErrorTitle"
   | "room.sendErrorMsg"
+  | "room.full"
+  | "room.waitingMore"
+  | "room.waitingHost"
+  | "room.playersCount"
+  | "room.players"
+  | "room.youSuffix"
+  | "room.hostLabel"
+  | "room.emptySlot"
+  | "room.pickDigits"
+  | "room.cantStartYet"
+  | "room.digitsShort"
+  | "room.unknownWinner"
   // Result
   | "result.solo"
   | "result.online"
@@ -240,12 +267,26 @@ const en: Record<TranslationKey, string> = {
   "lobby.createDesc": "Pick a difficulty, get a code, and share it with a friend.",
   "lobby.createBtn": "Create Room",
   "lobby.join": "Join a Room",
-  "lobby.joinDesc": "Enter the 6-character code from the host.",
+  "lobby.joinDesc": "Enter the 5-character code from the host.",
   "lobby.joinBtn": "Join Room",
   "lobby.codePh": "ABC123",
   "lobby.invalidCode": "Invalid code",
   "lobby.invalidCodeMsg": "Please enter a valid room code.",
   "lobby.playingAs": "PLAYING AS",
+  "lobby.joinFull": "Room is full",
+  "lobby.joinFullMsg": "That room can't take any more players.",
+  "lobby.joinStarted": "Game already started",
+  "lobby.joinStartedMsg": "This room has already begun — try a different code.",
+  "create.title": "Create Room",
+  "create.lead": "How many players will be in the room?",
+  "create.players": "{n} players",
+  "create.playersShort": "PLAYERS",
+  "create.summary": "Room for {n} players",
+  "create.hint": "Players join with the room code. The game starts once the room is full and you pick a digit length.",
+  "create.btn": "Create Room",
+  "create.creating": "Creating…",
+  "create.errorTitle": "Couldn't create room",
+  "create.errorMsg": "We couldn't reach the server. Check your connection and try again.",
   "lobby.notFound": "Room not found",
   "lobby.notFoundMsg": "Double-check the code with the host.",
   "lobby.note":
@@ -272,6 +313,18 @@ const en: Record<TranslationKey, string> = {
   "room.connectErrorMsg": "We couldn't reach the room. Check your connection and try again.",
   "room.sendErrorTitle": "Guess not sent",
   "room.sendErrorMsg": "Something blocked that guess. Please try again.",
+  "room.full": "Room is full!",
+  "room.waitingMore": "Waiting for more players to join…",
+  "room.waitingHost": "Waiting for the host to start the game…",
+  "room.playersCount": "{n} / {m} players",
+  "room.players": "PLAYERS",
+  "room.youSuffix": "(you)",
+  "room.hostLabel": "HOST",
+  "room.emptySlot": "Waiting for player…",
+  "room.pickDigits": "PICK A DIGIT LENGTH TO START",
+  "room.cantStartYet": "The room isn't full yet.",
+  "room.digitsShort": "DIGITS",
+  "room.unknownWinner": "A player",
 
   "result.solo": "Solo Result",
   "result.online": "Round Over",
@@ -445,12 +498,26 @@ const ar: Record<TranslationKey, string> = {
   "lobby.createDesc": "اختر مستوى الصعوبة، احصل على رمز، وشاركه مع صديق.",
   "lobby.createBtn": "إنشاء الغرفة",
   "lobby.join": "الانضمام إلى غرفة",
-  "lobby.joinDesc": "أدخل الرمز المكون من 6 أحرف من المضيف.",
+  "lobby.joinDesc": "أدخل الرمز المكون من 5 أحرف من المضيف.",
   "lobby.joinBtn": "انضم للغرفة",
   "lobby.codePh": "ABC123",
   "lobby.invalidCode": "رمز غير صالح",
   "lobby.invalidCodeMsg": "يرجى إدخال رمز غرفة صالح.",
   "lobby.playingAs": "تلعب باسم",
+  "lobby.joinFull": "الغرفة ممتلئة",
+  "lobby.joinFullMsg": "لا يمكن لهذه الغرفة استقبال المزيد من اللاعبين.",
+  "lobby.joinStarted": "اللعبة بدأت بالفعل",
+  "lobby.joinStartedMsg": "هذه الغرفة بدأت اللعبة بالفعل — جرّب رمزاً آخر.",
+  "create.title": "إنشاء غرفة",
+  "create.lead": "كم عدد اللاعبين في الغرفة؟",
+  "create.players": "{n} لاعبين",
+  "create.playersShort": "لاعبون",
+  "create.summary": "غرفة لعدد {n} لاعبين",
+  "create.hint": "ينضم اللاعبون باستخدام رمز الغرفة. تبدأ اللعبة عند اكتمال الغرفة واختيار عدد الخانات.",
+  "create.btn": "إنشاء الغرفة",
+  "create.creating": "جاري الإنشاء…",
+  "create.errorTitle": "تعذّر إنشاء الغرفة",
+  "create.errorMsg": "لم نتمكن من الوصول إلى الخادم. تحقق من اتصالك وحاول مجدداً.",
   "lobby.notFound": "الغرفة غير موجودة",
   "lobby.notFoundMsg": "تأكد من الرمز مع المضيف.",
   "lobby.note":
@@ -477,6 +544,18 @@ const ar: Record<TranslationKey, string> = {
   "room.connectErrorMsg": "لم نتمكن من الوصول إلى الغرفة. تحقق من اتصالك وحاول مجدداً.",
   "room.sendErrorTitle": "لم يُرسل التخمين",
   "room.sendErrorMsg": "حدث ما يمنع إرسال التخمين. حاول مرة أخرى.",
+  "room.full": "الغرفة ممتلئة!",
+  "room.waitingMore": "بانتظار انضمام المزيد من اللاعبين…",
+  "room.waitingHost": "بانتظار بدء المضيف للعبة…",
+  "room.playersCount": "{n} / {m} لاعبين",
+  "room.players": "اللاعبون",
+  "room.youSuffix": "(أنت)",
+  "room.hostLabel": "المضيف",
+  "room.emptySlot": "بانتظار لاعب…",
+  "room.pickDigits": "اختر عدد الخانات لبدء اللعبة",
+  "room.cantStartYet": "الغرفة لم تكتمل بعد.",
+  "room.digitsShort": "خانات",
+  "room.unknownWinner": "أحد اللاعبين",
 
   "result.solo": "النتيجة الفردية",
   "result.online": "انتهت الجولة",

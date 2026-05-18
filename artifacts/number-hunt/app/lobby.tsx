@@ -44,14 +44,24 @@ export default function MultiplayerLobbyScreen() {
     }
     setJoining(true);
     try {
+      // Probe the room first so we can give a precise error (full / already
+      // playing / not found) before the user is dropped into the room.
       const meta = await getRoomMeta(trimmed);
       if (!meta) {
         Alert.alert(t("lobby.notFound"), t("lobby.notFoundMsg"));
         return;
       }
+      if (meta.status !== "waiting") {
+        Alert.alert(t("lobby.joinStarted"), t("lobby.joinStartedMsg"));
+        return;
+      }
+      if (meta.playerCount >= meta.maxPlayers) {
+        Alert.alert(t("lobby.joinFull"), t("lobby.joinFullMsg"));
+        return;
+      }
       router.push({
         pathname: "/room",
-        params: { role: "guest", code: trimmed, digits: String(meta.digits) },
+        params: { code: trimmed },
       });
     } catch {
       Alert.alert(t("lobby.notFound"), t("lobby.notFoundMsg"));
@@ -95,9 +105,7 @@ export default function MultiplayerLobbyScreen() {
           <Button
             title={t("lobby.createBtn")}
             fullWidth
-            onPress={() =>
-              router.push({ pathname: "/difficulty", params: { mode: "online-create" } })
-            }
+            onPress={() => router.push("/create-room")}
           />
         </View>
 

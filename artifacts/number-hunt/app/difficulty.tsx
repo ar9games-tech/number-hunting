@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import React from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,28 +8,18 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useT } from "@/src/i18n/useT";
 import { webBottomInset } from "@/src/theme/theme";
 
-type ModeParam = "solo" | "online-create" | "online-join";
-
 export default function DifficultyScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t, isRTL } = useT();
-  const params = useLocalSearchParams<{ mode?: string; code?: string }>();
-  const mode = (params.mode as ModeParam | undefined) ?? "solo";
+  // Solo-only: online flows pick their digit length from inside the room
+  // (host only, once the room is full). Older `?mode=...` params are
+  // ignored — the only valid destination from here is /solo.
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
   const wd = isRTL ? "rtl" : "ltr";
 
   const onPick = (digits: 2 | 3 | 4) => {
-    if (mode === "solo") {
-      router.replace({ pathname: "/solo", params: { digits: String(digits) } });
-    } else if (mode === "online-create") {
-      router.replace({ pathname: "/room", params: { role: "host", digits: String(digits) } });
-    } else {
-      router.replace({
-        pathname: "/room",
-        params: { role: "guest", digits: String(digits), code: params.code ?? "" },
-      });
-    }
+    router.replace({ pathname: "/solo", params: { digits: String(digits) } });
   };
 
   const descKey = (d: 2 | 3 | 4) =>

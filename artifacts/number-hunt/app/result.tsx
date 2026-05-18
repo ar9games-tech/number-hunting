@@ -49,7 +49,6 @@ export default function ResultScreen() {
   const isOnline = mode === "online";
   const hidden = params.hidden ?? "";
   const code = params.code ?? "";
-  const role = (params.role === "guest" ? "guest" : "host") as "host" | "guest";
   const youWon = params.won === "1";
   // Solo always shows the "you won" card (solo can't lose). Online uses
   // `youWon` from params.
@@ -179,7 +178,7 @@ export default function ResultScreen() {
                 {isOnline
                   ? youWon
                     ? t("result.youGotIt")
-                    : t("result.opponentWon", { name: params.winnerName ?? "Player" })
+                    : t("result.opponentWon", { name: params.winnerName || t("room.unknownWinner") })
                   : t("result.youGotIt")}
               </Text>
               {isOnline && !youWon ? (
@@ -228,10 +227,16 @@ export default function ResultScreen() {
                 title={t("result.rematch")}
                 fullWidth
                 onPress={() => {
+                  // Only the host's rematch request actually resets the
+                  // room on the server. For everyone else, fire-and-forget
+                  // is fine — the room screen will receive the reset state
+                  // via subscription. Either way we re-attach to the same
+                  // room and let the room screen drive the next phase
+                  // (waiting → host picks digits → playing).
                   if (code) requestRematch(code);
                   router.replace({
                     pathname: "/room",
-                    params: { code, role, digits: String(digits) },
+                    params: { code },
                   });
                 }}
               />
