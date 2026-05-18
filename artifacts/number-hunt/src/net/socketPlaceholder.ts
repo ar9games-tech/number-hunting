@@ -1,14 +1,10 @@
 /**
  * Realtime multiplayer client.
  *
- * Connects to the API server's WebSocket endpoint at `/api/ws` and mirrors
- * the previous in-memory API so callers don't change much. Async functions
- * resolve once the server has acknowledged the request; fire-and-forget
- * mutations stream updated state back through `onUpdate` subscribers.
- *
- * The connection URL is derived from `EXPO_PUBLIC_DOMAIN`, which the dev
- * script exports from `$REPLIT_DEV_DOMAIN`. On Expo Go the app runs on the
- * user's phone, so we must use the public HTTPS dev domain (wss://...).
+ * Each player races to guess a server-chosen hidden number. The server sends
+ * each socket a personalized view containing only that player's own guesses
+ * and feedback — never the opponent's history or the hidden number while
+ * the game is in progress.
  */
 
 export type Role = "host" | "guest";
@@ -18,52 +14,60 @@ export type FeedbackLevel = "low" | "tooLow" | "high" | "tooHigh";
 export type Feedback = {
   correct: boolean;
   level: FeedbackLevel | null;
-  correctDigitCount: number;
+  // null for 2-digit mode.
+  correctDigitCount: number | null;
 };
 
 export type GuessEntry = {
-  by: Role;
   guess: string;
   feedback: Feedback;
   at: number;
 };
 
+export type Status = "waiting" | "playing" | "won";
+
 export type RoomState = {
   code: string;
   digits: 2 | 3 | 4;
-  hidden: string | null;
-  history: GuessEntry[];
-  status: "setup" | "guessing" | "won";
-  winner: Role | null;
   hostName: string;
   guestName: string;
   guestJoined: boolean;
+  status: Status;
+  winner: Role | null;
+  yourRole: Role;
+  yourHistory: GuessEntry[];
+  opponentGuessCount: number;
+  // Set only when status === "won".
+  revealedHidden: string | null;
+};
+
+export type RoomMeta = {
+  code: string;
+  digits: 2 | 3 | 4;
+  guestJoined: boolean;
+  status: Status;
 };
 
 type Listener = (state: RoomState) => void;
+type CloseListener = () => void;
 
-// ---- URL resolution ---------------------------------------------------------
+// ---- URL resolution --------------------------------------------------------
 
 function resolveWsUrl(): string {
-  // Allow explicit override for advanced setups (e.g. custom backend host).
   const override = process.env["EXPO_PUBLIC_WS_URL"];
   if (override) return override;
-
   const domain = process.env["EXPO_PUBLIC_DOMAIN"];
   if (domain) return `wss://${domain}/api/ws`;
-
-  // Last-resort fallback for `expo start --web` on localhost.
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${proto}//${window.location.host}/api/ws`;
   }
-
   return "ws://localhost/api/ws";
 }
 
 const WS_URL = resolveWsUrl();
 
-// ---- Connection management --------------------------------------------------
+// ---- Connection management -------------------------------------------------
 
 type Pending = {
   resolve: (msg: ServerResponse) => void;
@@ -75,10 +79,13 @@ type ServerResponse = {
   type: string;
   reqId?: string;
   state?: RoomState | null;
+  meta?: RoomMeta | null;
+  code?: string;
 };
 
 const pending = new Map<string, Pending>();
 const listeners = new Map<string, Set<Listener>>();
+const closeListeners = new Map<string, Set<CloseListener>>();
 const lastState = new Map<string, RoomState>();
 const activeSubs = new Set<string>();
 
@@ -91,7 +98,7 @@ function newReqId(): string {
 }
 
 function connect(): Promise<WebSocket> {
-  if (socket && socket.readyState === 1 /* OPEN */) return Promise.resolve(socket);
+  if (socket && socket.readyState === 1) return Promise.resolve(socket);
   if (connecting) return connecting;
 
   connecting = new Promise<WebSocket>((resolve, reject) => {
@@ -109,7 +116,6 @@ function connect(): Promise<WebSocket> {
       socket = sock;
       connecting = null;
       reconnectAttempt = 0;
-      // Re-subscribe to any rooms we were tracking before the reconnect.
       for (const code of activeSubs) {
         try {
           sock.send(JSON.stringify({ type: "subscribe", code }));
@@ -133,8 +139,13 @@ function connect(): Promise<WebSocket> {
       if (msg.type === "state" && msg.state) {
         const state = msg.state;
         lastState.set(state.code, state);
-        const ls = listeners.get(state.code);
-        if (ls) ls.forEach((l) => l(state));
+        listeners.get(state.code)?.forEach((l) => l(state));
+        return;
+      }
+
+      if (msg.type === "roomClosed" && msg.code) {
+        const code = msg.code;
+        closeListeners.get(code)?.forEach((l) => l());
         return;
       }
 
@@ -158,20 +169,16 @@ function connect(): Promise<WebSocket> {
     sock.onclose = () => {
       socket = null;
       connecting = null;
-      // Fail any in-flight requests.
       for (const p of pending.values()) {
         clearTimeout(p.timer);
         p.reject(new Error("WebSocket closed"));
       }
       pending.clear();
-      // Auto-reconnect with backoff if anyone still cares.
       if (activeSubs.size > 0 || listeners.size > 0) {
         reconnectAttempt = Math.min(reconnectAttempt + 1, 6);
         const delay = Math.min(500 * 2 ** (reconnectAttempt - 1), 8000);
         setTimeout(() => {
-          connect().catch(() => {
-            // swallow; next attempt scheduled by close handler again.
-          });
+          connect().catch(() => {});
         }, delay);
       }
     };
@@ -204,15 +211,13 @@ function fire(type: string, payload: Record<string, unknown>): void {
       try {
         sock.send(JSON.stringify({ type, ...payload }));
       } catch {
-        // ignore — reconnect will retry subscribed state via active subs.
+        // ignore
       }
     })
-    .catch(() => {
-      // ignore — close handler will schedule a reconnect.
-    });
+    .catch(() => {});
 }
 
-// ---- Public API (mirrors the previous in-memory module) --------------------
+// ---- Public API ------------------------------------------------------------
 
 export async function createRoom(
   digits: 2 | 3 | 4,
@@ -237,31 +242,29 @@ export async function joinRoom(
   return res.state ?? null;
 }
 
-export async function getRoom(code: string): Promise<RoomState | null> {
+/** Lobby probe — returns only public metadata (no privileged data). */
+export async function getRoomMeta(code: string): Promise<RoomMeta | null> {
   const res = await request("getRoom", { code: code.toUpperCase() });
-  return res.state ?? null;
+  return res.meta ?? null;
 }
 
 export function getCachedRoom(code: string): RoomState | null {
   return lastState.get(code.toUpperCase()) ?? null;
 }
 
-export function setHidden(code: string, hidden: string): void {
-  fire("setHidden", { code: code.toUpperCase(), hidden });
+export function submitGuess(code: string, guess: string): void {
+  fire("guess", { code: code.toUpperCase(), guess });
 }
 
-export function submitGuess(code: string, by: Role, guess: string): void {
-  fire("guess", { code: code.toUpperCase(), by, guess });
-}
-
-export function switchRoles(code: string): void {
-  fire("switchRoles", { code: code.toUpperCase() });
+export function requestRematch(code: string): void {
+  fire("rematch", { code: code.toUpperCase() });
 }
 
 export function leaveRoom(code: string): void {
   const upper = code.toUpperCase();
   activeSubs.delete(upper);
   listeners.delete(upper);
+  closeListeners.delete(upper);
   lastState.delete(upper);
   fire("leave", { code: upper });
 }
@@ -276,20 +279,35 @@ export function onUpdate(code: string, cb: Listener): () => void {
   set.add(cb);
   activeSubs.add(upper);
   fire("subscribe", { code: upper });
-  // Emit any cached state immediately.
   const cached = lastState.get(upper);
   if (cached) cb(cached);
   return () => {
     const s = listeners.get(upper);
     if (s) {
       s.delete(cb);
-      if (s.size === 0) {
-        listeners.delete(upper);
-        // Last listener gone — stop tracking this room so the reconnect
-        // loop and re-subscribe-on-open path don't keep it alive forever.
-        activeSubs.delete(upper);
-        lastState.delete(upper);
-      }
+      if (s.size === 0) listeners.delete(upper);
+    }
+    // NOTE: do NOT clear activeSubs / lastState here. The room screen
+    // unmounts when navigating to /result, but we need the cached state to
+    // survive so a rematch can re-attach to the same room (instead of the
+    // host accidentally creating a fresh one). Both are cleared only when
+    // `leaveRoom` is explicitly called.
+  };
+}
+
+export function onRoomClosed(code: string, cb: CloseListener): () => void {
+  const upper = code.toUpperCase();
+  let set = closeListeners.get(upper);
+  if (!set) {
+    set = new Set();
+    closeListeners.set(upper, set);
+  }
+  set.add(cb);
+  return () => {
+    const s = closeListeners.get(upper);
+    if (s) {
+      s.delete(cb);
+      if (s.size === 0) closeListeners.delete(upper);
     }
   };
 }

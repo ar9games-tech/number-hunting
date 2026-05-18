@@ -68,7 +68,9 @@ export function GuessHistory({
               <Feather name={arrow} size={14} color={tone} />
               <Text style={[styles.chipText, { color: tone }]}>
                 {t(labelKey)}
-                {showCorrectCount && !it.feedback.correct
+                {showCorrectCount &&
+                !it.feedback.correct &&
+                it.feedback.correctDigitCount != null
                   ? ` · ${lz(it.feedback.correctDigitCount)}`
                   : ""}
               </Text>

@@ -5,7 +5,8 @@ export type FeedbackLevel = "low" | "tooLow" | "high" | "tooHigh";
 export type Feedback = {
   correct: boolean;
   level: FeedbackLevel | null;
-  correctDigitCount: number;
+  // null in modes that don't expose the count (e.g. online 2-digit).
+  correctDigitCount: number | null;
 };
 
 export const DISTANCE_THRESHOLDS: Record<Digits, number> = {

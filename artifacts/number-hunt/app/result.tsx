@@ -10,7 +10,7 @@ import { Button } from "@/src/components/Button";
 import { NumberDisplay } from "@/src/components/NumberDisplay";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useT } from "@/src/i18n/useT";
-import { switchRoles } from "@/src/net/socketPlaceholder";
+import { leaveRoom, requestRematch } from "@/src/net/socketPlaceholder";
 import { webBottomInset } from "@/src/theme/theme";
 import { formatTime } from "@/src/utils/scoring";
 
@@ -28,6 +28,7 @@ export default function ResultScreen() {
     winnerName?: string;
     code?: string;
     hidden?: string;
+    role?: string;
   }>();
 
   const mode = params.mode ?? "solo";
@@ -38,6 +39,8 @@ export default function ResultScreen() {
   const isOnline = mode === "online";
   const hidden = params.hidden ?? "";
   const code = params.code ?? "";
+  const role = (params.role === "guest" ? "guest" : "host") as "host" | "guest";
+  const youWon = params.won === "1";
 
   const fade = useRef(new Animated.Value(0)).current;
   const lift = useRef(new Animated.Value(20)).current;
@@ -105,7 +108,9 @@ export default function ResultScreen() {
           </View>
           <Text style={[styles.title, { color: colors.foreground }]}>
             {isOnline
-              ? t("result.someoneWon", { name: params.winnerName ?? "Player" })
+              ? youWon
+                ? t("result.youGotIt")
+                : t("result.someoneWon", { name: params.winnerName ?? "Player" })
               : t("result.youGotIt")}
           </Text>
 
@@ -129,13 +134,13 @@ export default function ResultScreen() {
           {isOnline ? (
             <>
               <Button
-                title={t("result.switchAndPlay")}
+                title={t("result.rematch")}
                 fullWidth
                 onPress={() => {
-                  if (code) switchRoles(code);
+                  if (code) requestRematch(code);
                   router.replace({
                     pathname: "/room",
-                    params: { code, role: "host", digits: String(digits) },
+                    params: { code, role, digits: String(digits) },
                   });
                 }}
               />
@@ -143,7 +148,10 @@ export default function ResultScreen() {
                 title={t("result.leaveRoom")}
                 fullWidth
                 variant="ghost"
-                onPress={() => router.replace("/lobby")}
+                onPress={() => {
+                  if (code) leaveRoom(code);
+                  router.replace("/lobby");
+                }}
               />
             </>
           ) : (

@@ -84,7 +84,7 @@ export function FeedbackCard({
           {label}
           {guess ? ` — ${lz(guess)}` : ""}
         </Text>
-        {showCorrectCount && !feedback.correct ? (
+        {showCorrectCount && !feedback.correct && feedback.correctDigitCount != null ? (
           <Text style={[styles.sub, { color: colors.mutedForeground, writingDirection: wd }]}>
             {feedback.correctDigitCount === 1
               ? t("fb.correctDigit", { n: feedback.correctDigitCount })

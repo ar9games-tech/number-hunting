@@ -8,7 +8,7 @@ import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useT } from "@/src/i18n/useT";
-import { getRoom } from "@/src/net/socketPlaceholder";
+import { getRoomMeta } from "@/src/net/socketPlaceholder";
 import { webBottomInset } from "@/src/theme/theme";
 
 export default function MultiplayerLobbyScreen() {
@@ -29,14 +29,14 @@ export default function MultiplayerLobbyScreen() {
     }
     setJoining(true);
     try {
-      const room = await getRoom(trimmed);
-      if (!room) {
+      const meta = await getRoomMeta(trimmed);
+      if (!meta) {
         Alert.alert(t("lobby.notFound"), t("lobby.notFoundMsg"));
         return;
       }
       router.push({
         pathname: "/room",
-        params: { role: "guest", code: trimmed, digits: String(room.digits) },
+        params: { role: "guest", code: trimmed, digits: String(meta.digits) },
       });
     } catch {
       Alert.alert(t("lobby.notFound"), t("lobby.notFoundMsg"));

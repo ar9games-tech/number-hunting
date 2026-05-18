@@ -1,0 +1,85 @@
+Fix Online Multiplayer rules for Number Hunt.
+
+Online Multiplayer must work like this:
+
+Core rule:
+- The hidden number is chosen by the bot/server, not by any player.
+- Both players try to guess the same hidden number.
+- Each player plays on their own private screen.
+- Players do NOT see each other’s guesses.
+- Players do NOT see each other’s feedback history.
+- The first player to guess the correct number wins.
+
+Online flow:
+1. Player 1 creates a room.
+2. Player 2 joins using room code.
+3. Host chooses digit length:
+   - 2 digits
+   - 3 digits
+   - 4 digits
+4. Server/bot generates one hidden number.
+5. Both players start guessing privately.
+6. Each player sees only:
+   - Their own guesses
+   - Their own feedback
+   - Their own guess history
+7. When one player guesses correctly:
+   - Show winner screen to both players.
+   - Show winner name.
+   - Reveal the hidden number.
+   - Allow rematch.
+
+Important privacy rules:
+- Do not send the hidden number to clients before the game ends.
+- Do not broadcast player guesses to the opponent.
+- Do not broadcast player feedback history to the opponent.
+- Only send each player their own feedback.
+- Broadcast only general status:
+  - Opponent joined
+  - Game started
+  - Opponent is guessing
+  - Winner announced
+
+Online mode rules:
+- No guess limit.
+- No timer records.
+- No online records.
+- Feedback must use only:
+  - Low
+  - Too Low
+  - High
+  - Too High
+  - Correct
+- For 3-digit and 4-digit modes, also show correct digit count without revealing positions.
+
+Server requirements:
+- Server stores:
+  - Room code
+  - Players
+  - Digit length
+  - Hidden number
+  - Game status
+  - Winner
+- Server validates every guess.
+- Server calculates feedback.
+- Server sends feedback only to the player who guessed.
+- Server announces winner when correct.
+
+Client requirements:
+- Room screen must show:
+  - Room code
+  - Player name
+  - Opponent name
+  - Digit length
+  - Own guess input
+  - Own guess history
+  - Game status
+- Opponent guesses must remain hidden.
+- Add rematch button.
+- Add leave room button.
+
+Testing:
+- Test using two devices or two browser sessions.
+- Confirm both players guess independently.
+- Confirm Player A cannot see Player B guesses.
+- Confirm the first correct guess wins.

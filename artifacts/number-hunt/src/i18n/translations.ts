@@ -50,20 +50,18 @@ export type TranslationKey =
   | "lobby.note"
   // Room
   | "room.title"
-  | "room.simBanner"
-  | "room.host"
-  | "room.guest"
-  | "room.setHidden"
-  | "room.digitsHint"
-  | "room.digitsHintLZ"
-  | "room.yourHidden"
-  | "room.waitingForGuesser"
-  | "room.waitingFor"
-  | "room.picking"
-  | "room.guesses"
-  | "room.history"
+  | "room.waitingOpponent"
+  | "room.race"
+  | "room.youHost"
+  | "room.youGuest"
+  | "room.opponentGuesses"
+  | "room.shareCode"
+  | "room.shareHint"
+  | "room.yourGuesses"
   | "room.notFound"
   | "room.returningLobby"
+  | "room.closedTitle"
+  | "room.closedMsg"
   // Result
   | "result.solo"
   | "result.online"
@@ -77,7 +75,7 @@ export type TranslationKey =
   | "result.playAgain"
   | "result.viewRecords"
   | "result.home"
-  | "result.switchAndPlay"
+  | "result.rematch"
   | "result.leaveRoom"
   // Records
   | "records.title"
@@ -177,23 +175,21 @@ const en: Record<TranslationKey, string> = {
   "lobby.notFound": "Room not found",
   "lobby.notFoundMsg": "Double-check the code with the host.",
   "lobby.note":
-    "This is a local simulation. Real online multiplayer can be added by replacing the network placeholder with a socket.io connection.",
+    "Both players race to guess a hidden number chosen by the server. The first to get it right wins.",
 
   "room.title": "Room {code}",
-  "room.simBanner": "Connected — share the room code with a friend",
-  "room.host": "{name} (host)",
-  "room.guest": "{name} (guest)",
-  "room.setHidden": "SET A HIDDEN NUMBER",
-  "room.digitsHint": "{n} digits",
-  "room.digitsHintLZ": "{n} digits · no leading zero",
-  "room.yourHidden": "YOUR HIDDEN NUMBER",
-  "room.waitingForGuesser": "Waiting for the guesser…",
-  "room.waitingFor": "Waiting for {name}",
-  "room.picking": "They are picking a hidden {n}-digit number.",
-  "room.guesses": "GUESSES",
-  "room.history": "HISTORY",
+  "room.waitingOpponent": "Waiting for opponent to join…",
+  "room.race": "Race! Guess the hidden {n}-digit number",
+  "room.youHost": "You · Host",
+  "room.youGuest": "You · Guest",
+  "room.opponentGuesses": "{name}: {n} guesses",
+  "room.shareCode": "SHARE THIS CODE",
+  "room.shareHint": "The game starts as soon as your friend joins.",
+  "room.yourGuesses": "YOUR GUESSES",
   "room.notFound": "Room not found",
   "room.returningLobby": "Returning to lobby.",
+  "room.closedTitle": "Room closed",
+  "room.closedMsg": "The other player left the room.",
 
   "result.solo": "Solo Result",
   "result.online": "Round Over",
@@ -207,7 +203,7 @@ const en: Record<TranslationKey, string> = {
   "result.playAgain": "Play Again",
   "result.viewRecords": "View Records",
   "result.home": "Home",
-  "result.switchAndPlay": "Switch Roles & Play Again",
+  "result.rematch": "Rematch",
   "result.leaveRoom": "Leave Room",
 
   "records.title": "Records",
@@ -252,7 +248,7 @@ const en: Record<TranslationKey, string> = {
     "A timer starts as soon as the round begins. There is no guess limit — beat your best time and earn a record.",
   "howto.mp": "Multiplayer Mode",
   "howto.mpText":
-    "Create a room and share the code. The host sets a hidden number, the guesser tries to crack it. Switch roles after each round.",
+    "Create a room and share the code. Once your friend joins, both of you race privately to guess the same server-chosen number. You only see your own guesses and feedback — the first to crack it wins.",
 
   "fb.correct": "Correct!",
   "fb.tooHigh": "Too High",
@@ -314,23 +310,21 @@ const ar: Record<TranslationKey, string> = {
   "lobby.notFound": "الغرفة غير موجودة",
   "lobby.notFoundMsg": "تأكد من الرمز مع المضيف.",
   "lobby.note":
-    "هذه محاكاة محلية. يمكن إضافة وضع متعدد اللاعبين الحقيقي عبر استبدال الواجهة الشبكية باتصال socket.io.",
+    "يتسابق اللاعبان لتخمين رقم مخفي يختاره الخادم. أول من يصيبه يفوز.",
 
   "room.title": "الغرفة {code}",
-  "room.simBanner": "متصل — شارك رمز الغرفة مع صديق",
-  "room.host": "{name} (المضيف)",
-  "room.guest": "{name} (الضيف)",
-  "room.setHidden": "اختر الرقم المخفي",
-  "room.digitsHint": "{n} خانات",
-  "room.digitsHintLZ": "{n} خانات · بدون صفر في البداية",
-  "room.yourHidden": "رقمك المخفي",
-  "room.waitingForGuesser": "بانتظار المخمن…",
-  "room.waitingFor": "بانتظار {name}",
-  "room.picking": "يقومون باختيار رقم مخفي مكون من {n} خانات.",
-  "room.guesses": "التخمينات",
-  "room.history": "السجل",
+  "room.waitingOpponent": "بانتظار انضمام الخصم…",
+  "room.race": "السباق! خمّن الرقم المخفي المكون من {n} خانات",
+  "room.youHost": "أنت · المضيف",
+  "room.youGuest": "أنت · الضيف",
+  "room.opponentGuesses": "{name}: {n} تخمينات",
+  "room.shareCode": "شارك هذا الرمز",
+  "room.shareHint": "تبدأ اللعبة فور انضمام صديقك.",
+  "room.yourGuesses": "تخميناتك",
   "room.notFound": "الغرفة غير موجودة",
   "room.returningLobby": "العودة إلى الردهة.",
+  "room.closedTitle": "أُغلقت الغرفة",
+  "room.closedMsg": "غادر اللاعب الآخر الغرفة.",
 
   "result.solo": "النتيجة الفردية",
   "result.online": "انتهت الجولة",
@@ -344,7 +338,7 @@ const ar: Record<TranslationKey, string> = {
   "result.playAgain": "العب مرة أخرى",
   "result.viewRecords": "عرض السجلات",
   "result.home": "الرئيسية",
-  "result.switchAndPlay": "بدّل الأدوار والعب",
+  "result.rematch": "مباراة جديدة",
   "result.leaveRoom": "مغادرة الغرفة",
 
   "records.title": "السجلات",
@@ -388,7 +382,7 @@ const ar: Record<TranslationKey, string> = {
     "يبدأ العداد بمجرد بدء الجولة. لا يوجد حد للتخمينات — اكسر أفضل وقت لك واحصل على سجل.",
   "howto.mp": "وضع متعدد اللاعبين",
   "howto.mpText":
-    "أنشئ غرفة وشارك الرمز. يحدد المضيف رقماً مخفياً، ويحاول المخمن كشفه. بدّلوا الأدوار بعد كل جولة.",
+    "أنشئ غرفة وشارك الرمز. عندما ينضم صديقك، يتسابق كل منكما بشكل خاص لتخمين الرقم نفسه الذي يختاره الخادم. ترى فقط تخميناتك وتغذيتك الراجعة — والأسرع في كشفه يفوز.",
 
   "fb.correct": "صحيح!",
   "fb.tooHigh": "مرتفع جداً",
