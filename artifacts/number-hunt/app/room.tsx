@@ -41,6 +41,11 @@ export default function RoomScreen() {
   const [guessInput, setGuessInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef(false);
+  // Online round timer — captured the first time status flips to "playing"
+  // and frozen the first time it flips to "won". Passed to /result so the
+  // result screen can save a per-digit best time when the player wins.
+  const roundStartedAtRef = useRef<number | null>(null);
+  const roundElapsedSecRef = useRef<number>(0);
   // History length the server must reach before we release the lock. -1
   // means "not waiting for an ack right now".
   const pendingHistoryLenRef = useRef(-1);
@@ -126,15 +131,35 @@ export default function RoomScreen() {
     };
   }, [state?.code, t]);
 
+  // Track round start / end for the online timer.
+  useEffect(() => {
+    if (state?.status === "playing" && roundStartedAtRef.current == null) {
+      roundStartedAtRef.current = Date.now();
+      roundElapsedSecRef.current = 0;
+    }
+    if (state?.status !== "playing" && state?.status !== "won") {
+      // Reset between rounds (e.g. rematch back to waiting).
+      roundStartedAtRef.current = null;
+      roundElapsedSecRef.current = 0;
+    }
+  }, [state?.status]);
+
   // 3) Navigate to result on win.
   useEffect(() => {
     if (state?.status === "won" && state.revealedHidden && state.digits) {
+      const startedAt = roundStartedAtRef.current;
+      const elapsed = startedAt != null
+        ? Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+        : 0;
+      roundElapsedSecRef.current = elapsed;
       router.replace({
         pathname: "/result",
         params: {
           mode: "online",
           digits: String(state.digits),
           guesses: String(state.yourHistory.length),
+          // Only meaningful (and only saved) when the player won.
+          timeSec: String(elapsed),
           won: state.winnerName === state.yourName ? "1" : "0",
           winnerName: state.winnerName ?? "",
           code: state.code,

@@ -1,0 +1,87 @@
+Update Number Hunt stats, first-time settings, and sound system.
+
+1. Lifetime Stats Rules:
+- Lifetime stats should be recorded for ONLINE GAMES ONLY.
+- Online lifetime stats should track:
+  - Total online games played
+  - Online wins
+  - Online losses
+  - Online win rate
+  - Online streak
+  - Best online streak
+  - Total online guesses
+  - Average online guesses
+- Do NOT count Solo Mode in lifetime stats.
+
+2. Time Records Rules:
+- Time records should be saved for BOTH Solo Mode and Online Mode.
+- Solo time records:
+  - Best time for 2-digit mode
+  - Best time for 3-digit mode
+  - Best time for 4-digit mode
+- Online time records:
+  - Best online win time for 2-digit mode
+  - Best online win time for 3-digit mode
+  - Best online win time for 4-digit mode
+- Online timer starts when the multiplayer round starts.
+- Online timer stops when the player wins or the round ends.
+- Save time record only if the player wins.
+
+3. First-Time Name Screen Settings:
+- On the first-time nickname setup screen, add a Settings button.
+- The player must be able to change language before choosing a nickname.
+- Add language selector on first screen:
+  - English
+  - Arabic
+- Language change must update the nickname screen immediately.
+- Save selected language using AsyncStorage.
+- If Arabic is selected:
+  - Text should be RTL
+  - Numbers should still display left-to-right
+  - Arabic digit glyphs should work correctly
+
+4. Sound System:
+- Add game sound effects using Expo AV.
+- Create:
+  - src/services/soundManager.js
+- Add sound placeholders for:
+  - Button tap
+  - Number key press
+  - Wrong guess
+  - Correct guess
+  - Win
+  - Lose
+  - Room created
+  - Player joined
+  - Game start
+  - New record
+- Add sound toggle in Settings.
+- Save sound on/off setting using AsyncStorage.
+- Do not play sounds when sound is disabled.
+- Prevent crashes if sound files are missing by using safe try/catch.
+- Use local placeholder sound files or simple generated placeholder assets.
+- Add clear comments explaining where to replace sounds later.
+
+5. UI Updates:
+- Records screen should clearly separate:
+  - Solo Time Records
+  - Online Time Records
+  - Online Lifetime Stats
+- Profile screen should show:
+  - Nickname #Serial
+  - Online lifetime stats only
+  - Best solo times
+  - Best online times
+- Settings screen should include:
+  - Language
+  - Theme
+  - Sound on/off
+  - Reset profile
+  - Reset records
+
+6. Important:
+- Do not remove existing gameplay.
+- Do not break Solo Mode.
+- Do not break Online Mode.
+- Keep the app fully runnable in Replit with Expo.
+- Write clean, commented code.

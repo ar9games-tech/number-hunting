@@ -1,31 +1,35 @@
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 
-// ---------------------------------------------------------------------------
-// Audio is reserved for a future release. These no-op stubs are the single
-// integration point the rest of the app calls into so that when real audio
-// arrives we only have to edit this file (load assets, play, respect mute).
-// ---------------------------------------------------------------------------
-
-/** Tap / button-press sound stub. Called from interactive elements. */
-export function playTap(_soundOn: boolean): void {
-  // intentionally empty — placeholder for future expo-audio integration.
-}
-
-/** Win / fanfare sound stub. Called from the result screen on victory. */
-export function playWin(_soundOn: boolean): void {
-  // intentionally empty.
-}
-
-/** Loss / defeat sound stub. */
-export function playLose(_soundOn: boolean): void {
-  // intentionally empty.
-}
+import {
+  playLose as smPlayLose,
+  playTap as smPlayTap,
+  playWin as smPlayWin,
+} from "@/src/services/soundManager";
 
 // ---------------------------------------------------------------------------
-// Haptic helpers. These are real, just centralized so individual components
-// don't each re-check the platform + setting. Web is a no-op since RN haptics
-// only exist on native.
+// Thin compatibility wrappers around the central sound manager. New code
+// should import directly from `@/src/services/soundManager`; these exports
+// stay so existing call sites (FeedbackCard, NumericKeypad, result.tsx)
+// keep working without an edit.
+// ---------------------------------------------------------------------------
+
+export function playTap(soundOn: boolean): void {
+  smPlayTap(soundOn);
+}
+
+export function playWin(soundOn: boolean): void {
+  smPlayWin(soundOn);
+}
+
+export function playLose(soundOn: boolean): void {
+  smPlayLose(soundOn);
+}
+
+// ---------------------------------------------------------------------------
+// Haptics — real on native, no-op on web. These belong with the audio
+// helpers because the call sites always pair them ("celebration =
+// playWin + successHaptic").
 // ---------------------------------------------------------------------------
 
 export function tapHaptic(hapticsOn: boolean): void {

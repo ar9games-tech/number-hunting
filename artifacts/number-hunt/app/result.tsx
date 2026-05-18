@@ -15,7 +15,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
 import { leaveRoom, requestRematch } from "@/src/net/socketPlaceholder";
-import { recordLoss, recordWin } from "@/src/storage/storage";
+import { recordLoss, recordWin, saveRecordIfBest } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { errorHaptic, playLose, playWin, successHaptic } from "@/src/utils/sound";
 import type { Digits } from "@/src/utils/gameLogic";
@@ -45,7 +45,7 @@ export default function ResultScreen() {
   const digits = parseInt(params.digits ?? "3", 10);
   const timeSec = parseInt(params.timeSec ?? "0", 10);
   const guesses = parseInt(params.guesses ?? "0", 10);
-  const isNewRecord = params.isNewRecord === "1";
+  const [isNewRecord, setIsNewRecord] = React.useState<boolean>(params.isNewRecord === "1");
   const isOnline = mode === "online";
   const hidden = params.hidden ?? "";
   const code = params.code ?? "";
@@ -101,11 +101,23 @@ export default function ResultScreen() {
     if (isOnline) {
       if (youWon) {
         const d = (Math.min(4, Math.max(2, digits)) || 3) as Digits;
-        void recordWin({ mode: "online", digits: d, guesses, timeSec: null }).then((r) => {
+        // Save online win: lifetime stats + the per-digit best time.
+        // We only save the time record on a WIN, never on a loss.
+        void recordWin({
+          mode: "online",
+          digits: d,
+          guesses,
+          timeSec: Number.isFinite(timeSec) && timeSec > 0 ? timeSec : null,
+        }).then((r) => {
           if (r.newUnlocks.length > 0) setUnlocks(r.newUnlocks);
         });
+        if (Number.isFinite(timeSec) && timeSec > 0) {
+          void saveRecordIfBest("online", d, timeSec, guesses).then((r) => {
+            if (r.wasBest) setIsNewRecord(true);
+          });
+        }
       } else {
-        void recordLoss();
+        void recordLoss("online");
       }
     }
 

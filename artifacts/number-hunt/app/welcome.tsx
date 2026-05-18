@@ -12,14 +12,15 @@ import { useT } from "@/src/i18n/useT";
 import {
   formatPlayerIdentity,
   generateSerial,
+  type Language,
 } from "@/src/storage/storage";
 import { webBottomInset, webTopInset } from "@/src/theme/theme";
 
 /**
- * First-launch onboarding. The player picks a nickname; the system
- * pairs it with an auto-generated 5-digit serial that they cannot edit.
- * The combined identity ("Ahmed #48291") is what shows everywhere in
- * the app — solo records, online rooms, stats.
+ * First-launch onboarding. The player picks a nickname and a language;
+ * the system pairs the nickname with an auto-generated 5-digit serial
+ * that they cannot edit. The combined identity ("Ahmed #48291") is what
+ * shows everywhere — solo records, online rooms, stats.
  */
 export default function WelcomeScreen() {
   const colors = useColors();
@@ -28,9 +29,6 @@ export default function WelcomeScreen() {
   const { t, isRTL } = useT();
   const writingDirection = isRTL ? "rtl" : "ltr";
 
-  // Generate a serial once per mount. Persist whatever exists if the
-  // user is editing rather than first-launching, so the preview stays
-  // stable across re-renders.
   const initialSerial = useMemo(
     () => settings.playerSerial || generateSerial(),
     [settings.playerSerial],
@@ -43,7 +41,7 @@ export default function WelcomeScreen() {
   const canContinue = trimmed.length > 0 && !busy;
   const previewIdentity = formatPlayerIdentity(trimmed, serial);
 
-  const topPad = (Platform.OS === "web" ? webTopInset() : insets.top) + 40;
+  const topPad = (Platform.OS === "web" ? webTopInset() : insets.top) + 24;
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
 
   const onContinue = async () => {
@@ -57,6 +55,11 @@ export default function WelcomeScreen() {
     router.replace("/");
   };
 
+  const langOptions: { value: Language; label: string }[] = [
+    { value: "en", label: "English" },
+    { value: "ar", label: "العربية" },
+  ];
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <LinearGradient
@@ -64,6 +67,47 @@ export default function WelcomeScreen() {
         style={StyleSheet.absoluteFill}
       />
       <View style={[styles.container, { paddingTop: topPad, paddingBottom: bottomPad }]}>
+        {/* Top bar — quick access to the full settings screen and an
+            inline language toggle. Switching language re-renders the
+            screen instantly and persists via AsyncStorage. */}
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={() => router.push("/settings")}
+            hitSlop={12}
+            accessibilityLabel={t("welcome.openSettings")}
+          >
+            <View style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Feather name="settings" size={18} color={colors.foreground} />
+            </View>
+          </Pressable>
+          <View style={[styles.langPicker, { backgroundColor: colors.muted }]}>
+            {langOptions.map((o) => {
+              const active = settings.language === o.value;
+              return (
+                <Pressable
+                  key={o.value}
+                  onPress={() => void update({ language: o.value })}
+                  style={[
+                    styles.langItem,
+                    { backgroundColor: active ? colors.card : "transparent" },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text
+                    style={[
+                      styles.langText,
+                      { color: active ? colors.foreground : colors.mutedForeground },
+                    ]}
+                  >
+                    {o.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         <View style={styles.hero}>
           <View style={[styles.iconRing, { borderColor: colors.primary }]}>
             <Feather name="user" size={32} color={colors.primary} />
@@ -106,8 +150,6 @@ export default function WelcomeScreen() {
             />
           </View>
 
-          {/* Live identity preview — shows the user exactly how their
-              name will appear next to the system-generated serial. */}
           <View
             style={[
               styles.previewCard,
@@ -171,14 +213,20 @@ export default function WelcomeScreen() {
   );
 }
 
-// Keep this so the welcome flow always works even if Button.loading is
-// removed in a future refactor; eslint-disable lets us reference the prop
-// optimistically. (No-op at runtime when Button supports it.)
 void Pressable;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  container: { flex: 1, paddingHorizontal: 24, justifyContent: "space-between", gap: 20 },
+  container: { flex: 1, paddingHorizontal: 24, justifyContent: "space-between", gap: 16 },
+  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  iconBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  langPicker: { flexDirection: "row", padding: 3, borderRadius: 10 },
+  langItem: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  langText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   hero: { alignItems: "center", gap: 12 },
   iconRing: {
     width: 76,

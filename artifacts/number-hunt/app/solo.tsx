@@ -101,16 +101,18 @@ export default function SoloGameScreen() {
       // Stop the timer only on a correct guess.
       setRunning(false);
       void (async () => {
-        // Persist both the single-best snapshot (records) and the lifetime
-        // aggregate (stats) + evaluate achievements. Running in parallel
-        // so navigation isn't blocked.
-        // Only persist when both digits + hidden + elapsed are valid.
+        // Solo persists the best-time snapshot AND still calls recordWin
+        // so the achievement catalog keeps evaluating against solo runs
+        // (time-based + sniper unlocks need to fire for solo too).
+        // Note: recordWin only mutates the user-visible OnlineStats when
+        // event.mode === "online", so solo wins do NOT pollute the
+        // online-only lifetime stats surfaced on Records / Profile.
         let wasBest = false;
         let newUnlocks: string[] = [];
         try {
           if (digits && hidden && Number.isFinite(finalElapsed)) {
             const [a, b] = await Promise.all([
-              saveRecordIfBest(digits, finalElapsed, nextCount),
+              saveRecordIfBest("solo", digits, finalElapsed, nextCount),
               recordWin({
                 mode: "solo",
                 digits,

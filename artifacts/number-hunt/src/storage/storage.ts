@@ -8,9 +8,11 @@ import {
 import { isNewBest } from "@/src/utils/scoring";
 import type { Digits } from "@/src/utils/gameLogic";
 
-const RECORDS_KEY = "number-hunt:records:v1";
+const RECORDS_KEY = "number-hunt:records:v2";
+const RECORDS_KEY_LEGACY = "number-hunt:records:v1";
 const SETTINGS_KEY = "number-hunt:settings:v1";
 const STATS_KEY = "number-hunt:stats:v1";
+const ONLINE_STATS_KEY = "number-hunt:online-stats:v1";
 const ACH_KEY = "number-hunt:achievements:v1";
 
 export type Record = {
@@ -19,11 +21,23 @@ export type Record = {
   dateISO: string;
 };
 
-export type Records = {
+/** Best run snapshot per digit length, for a single mode. */
+export type ModeRecords = {
   2?: Record;
   3?: Record;
   4?: Record;
 };
+
+/**
+ * Records are split by mode. Solo times are kept across solo runs;
+ * Online times are kept across online wins. They never share a slot.
+ */
+export type Records = {
+  solo: ModeRecords;
+  online: ModeRecords;
+};
+
+export type RecordsMode = "solo" | "online";
 
 export type ThemeMode = "system" | "light" | "dark";
 export type Language = "en" | "ar";
@@ -58,7 +72,15 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 // ---------------------------------------------------------------------------
-// Lifetime stats — aggregates across every finished game.
+// Lifetime stats
+//
+// `Stats` is the internal aggregate used by the achievement catalog — every
+// win (solo OR online) updates it so the existing achievement tests keep
+// firing as designed.
+//
+// `OnlineStats` is what we display on the Records and Profile screens.
+// It is updated ONLY for online events, so the user-visible "lifetime stats"
+// truly reflect online play only, as the product spec requires.
 // ---------------------------------------------------------------------------
 
 export type DigitStats = {
@@ -75,11 +97,8 @@ export type Stats = {
   perDigit: { 2: DigitStats; 3: DigitStats; 4: DigitStats };
 };
 
-/**
- * Builds a fresh zeroed Stats object every call. Callers (recordWin /
- * recordLoss) mutate the returned object — sharing nested references would
- * leak mutations back into the "default" and break clearStats semantics.
- */
+export type OnlineStats = Stats;
+
 export function createDefaultStats(): Stats {
   return {
     gamesPlayed: 0,
@@ -95,8 +114,8 @@ export function createDefaultStats(): Stats {
   };
 }
 
-/** Kept exported for type/value back-compat; never mutate. */
 export const DEFAULT_STATS: Stats = createDefaultStats();
+export const DEFAULT_ONLINE_STATS: OnlineStats = createDefaultStats();
 
 function mergeStats(raw: Partial<Stats> | null | undefined): Stats {
   const base = createDefaultStats();
@@ -130,13 +149,30 @@ async function saveStats(stats: Stats): Promise<void> {
   await AsyncStorage.setItem(STATS_KEY, JSON.stringify(stats));
 }
 
+export async function getOnlineStats(): Promise<OnlineStats> {
+  try {
+    const raw = await AsyncStorage.getItem(ONLINE_STATS_KEY);
+    if (!raw) return mergeStats(null);
+    return mergeStats(JSON.parse(raw) as Partial<OnlineStats>);
+  } catch {
+    return mergeStats(null);
+  }
+}
+
+async function saveOnlineStats(stats: OnlineStats): Promise<void> {
+  await AsyncStorage.setItem(ONLINE_STATS_KEY, JSON.stringify(stats));
+}
+
+export async function clearOnlineStats(): Promise<void> {
+  await AsyncStorage.removeItem(ONLINE_STATS_KEY);
+}
+
 // ---------------------------------------------------------------------------
 // Achievements
 // ---------------------------------------------------------------------------
 
 export type Achievements = {
   unlockedIds: string[];
-  /** id -> ISO unlock timestamp. */
   unlockedAt: { [id: string]: string };
 };
 
@@ -178,12 +214,14 @@ export async function clearAchievements(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Record a winning game. Bumps lifetime aggregates, evaluates the
- * achievement catalog against the post-update stats + win event, and
- * persists any newly unlocked IDs.
+ * Record a winning game.
  *
- * Returns the new stats plus the IDs that were just unlocked (so the
- * caller — solo screen, result screen — can surface a banner).
+ * - Always updates the internal `Stats` aggregate (so the existing
+ *   achievement catalog keeps evaluating against the full play history).
+ * - If the event is `online`, ALSO updates `OnlineStats` — the
+ *   user-visible lifetime stats surface on the Records/Profile screens.
+ *
+ * Returns the new internal stats plus any IDs just unlocked.
  */
 export async function recordWin(
   event: WinEvent,
@@ -198,6 +236,18 @@ export async function recordWin(
   pd.totalGuessesWon += event.guesses;
   await saveStats(stats);
 
+  if (event.mode === "online") {
+    const os = await getOnlineStats();
+    os.gamesPlayed += 1;
+    os.wins += 1;
+    os.currentStreak += 1;
+    if (os.currentStreak > os.bestStreak) os.bestStreak = os.currentStreak;
+    const opd = os.perDigit[event.digits];
+    opd.wins += 1;
+    opd.totalGuessesWon += event.guesses;
+    await saveOnlineStats(os);
+  }
+
   const ach = await getAchievements();
   const newUnlocks = evaluateUnlocks(stats, event, ach.unlockedIds);
   if (newUnlocks.length > 0) {
@@ -211,62 +261,105 @@ export async function recordWin(
 }
 
 /**
- * Record a lost game. Bumps games + losses and resets the current streak.
- * Losses do not unlock achievements in this catalog, but the function
- * still returns the (empty) unlock array for symmetry with recordWin.
+ * Record a lost game. Updates internal stats always; updates OnlineStats
+ * only when the loss happened in an online round.
  */
-export async function recordLoss(): Promise<{ stats: Stats; newUnlocks: string[] }> {
+export async function recordLoss(
+  mode: "solo" | "online" = "online",
+): Promise<{ stats: Stats; newUnlocks: string[] }> {
   const stats = await getStats();
   stats.gamesPlayed += 1;
   stats.losses += 1;
   stats.currentStreak = 0;
   await saveStats(stats);
+
+  if (mode === "online") {
+    const os = await getOnlineStats();
+    os.gamesPlayed += 1;
+    os.losses += 1;
+    os.currentStreak = 0;
+    await saveOnlineStats(os);
+  }
+
   return { stats, newUnlocks: [] };
 }
 
 export async function clearStats(): Promise<void> {
-  await AsyncStorage.removeItem(STATS_KEY);
+  await Promise.all([
+    AsyncStorage.removeItem(STATS_KEY),
+    AsyncStorage.removeItem(ONLINE_STATS_KEY),
+  ]);
 }
 
-/** Re-export the WinEvent type so callers don't need to know about catalog. */
 export type { WinEvent };
-/** Re-export the catalog for screens that render the badge grid. */
 export { ACHIEVEMENTS };
 
 // ---------------------------------------------------------------------------
-// Records — single-best-run snapshot per difficulty (legacy, kept as-is).
+// Records — single-best snapshot per (mode, digits)
 // ---------------------------------------------------------------------------
 
+function emptyRecords(): Records {
+  return { solo: {}, online: {} };
+}
+
+/**
+ * Read records. Migrates legacy v1 (flat `{2,3,4}`) into the new
+ * `{ solo, online }` shape; legacy data is treated as solo since the
+ * old game never separated them.
+ */
 export async function getRecords(): Promise<Records> {
   try {
     const raw = await AsyncStorage.getItem(RECORDS_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as Records;
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Records>;
+      return {
+        solo: { ...(parsed.solo ?? {}) },
+        online: { ...(parsed.online ?? {}) },
+      };
+    }
+    // Legacy migration: v1 shape was `{ 2?, 3?, 4? }` for solo only.
+    const legacyRaw = await AsyncStorage.getItem(RECORDS_KEY_LEGACY);
+    if (legacyRaw) {
+      const legacy = JSON.parse(legacyRaw) as ModeRecords;
+      const migrated: Records = { solo: { ...legacy }, online: {} };
+      await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+    return emptyRecords();
   } catch {
-    return {};
+    return emptyRecords();
   }
 }
 
+/**
+ * Update the per-mode best record if `timeSec` beats the prior best.
+ * Returns whether it was a new record and the stored snapshot.
+ */
 export async function saveRecordIfBest(
+  mode: RecordsMode,
   digits: Digits,
   timeSec: number,
   guesses: number,
 ): Promise<{ wasBest: boolean; record: Record }> {
   const records = await getRecords();
-  const prev = records[digits];
+  const bucket = records[mode];
+  const prev = bucket[digits];
   const wasBest = isNewBest(prev?.bestTimeSec, timeSec);
   const record: Record = wasBest
     ? { bestTimeSec: timeSec, guesses, dateISO: new Date().toISOString() }
     : prev!;
   if (wasBest) {
-    records[digits] = record;
+    bucket[digits] = record;
     await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(records));
   }
   return { wasBest, record };
 }
 
 export async function clearRecords(): Promise<void> {
-  await AsyncStorage.removeItem(RECORDS_KEY);
+  await Promise.all([
+    AsyncStorage.removeItem(RECORDS_KEY),
+    AsyncStorage.removeItem(RECORDS_KEY_LEGACY),
+  ]);
 }
 
 // ---------------------------------------------------------------------------
@@ -277,15 +370,10 @@ export async function getSettings(): Promise<Settings> {
   try {
     const raw = await AsyncStorage.getItem(SETTINGS_KEY);
     if (!raw) {
-      // Brand-new install — DEFAULT_SETTINGS has hasOnboarded=false so the
-      // welcome screen runs.
       return { ...DEFAULT_SETTINGS };
     }
     const parsed = JSON.parse(raw) as Partial<Settings>;
 
-    // Migration A: legacy single-string identity. Older builds stored
-    // both the nickname and serial in `playerName` as e.g. "Player #1234".
-    // Split them so the new two-field UI works.
     let { playerName, playerSerial } = parsed;
     let migrated = false;
     if (playerName && !playerSerial) {
@@ -296,16 +384,11 @@ export async function getSettings(): Promise<Settings> {
         migrated = true;
       }
     }
-    // Migration B: any existing install missing the serial should get a
-    // fresh one silently so they never see a broken identity card.
     if (!playerSerial) {
       playerSerial = generateSerial();
       migrated = true;
     }
 
-    // Migration C: pre-Wave-C installs don't have hasOnboarded. If they
-    // have a payload at all they've already used the app, so treat as
-    // onboarded unless the field is explicitly false in storage.
     const hasOnboarded = parsed.hasOnboarded ?? true;
     if (parsed.hasOnboarded === undefined) migrated = true;
 
@@ -317,10 +400,6 @@ export async function getSettings(): Promise<Settings> {
       hasOnboarded,
     };
 
-    // Persist the migrated payload so the freshly generated serial (or
-    // split nickname) is stable across cold starts — otherwise we'd hand
-    // out a different serial every launch until the user next changed a
-    // setting.
     if (migrated) {
       void saveSettings(result).catch(() => {});
     }
@@ -335,22 +414,11 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
-/**
- * Generate a 5-digit system serial. The serial is opaque — it's only ever
- * displayed prefixed by "#" alongside the user's nickname. Using 10000-99999
- * gives ~90k unique values per install which is comfortably enough for
- * casual room identification without leaking anything sensitive.
- */
 export function generateSerial(): string {
   const n = Math.floor(10000 + Math.random() * 90000);
   return String(n);
 }
 
-/**
- * Compose the public identity string shown wherever the player is named:
- * room screen, online lobby, future scoreboards. Falls back gracefully
- * when either piece is missing so we never render "undefined" or " #".
- */
 export function formatPlayerIdentity(name: string, serial: string): string {
   const n = (name ?? "").trim();
   const s = (serial ?? "").trim();

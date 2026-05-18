@@ -155,6 +155,13 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
             <View style={[styles.dot, { backgroundColor: colors.border }]} />
+            <Pressable onPress={() => router.push("/profile")} style={styles.linkBtn}>
+              <Feather name="user" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.linkText, { color: colors.mutedForeground }]}>
+                {t("home.profile")}
+              </Text>
+            </Pressable>
+            <View style={[styles.dot, { backgroundColor: colors.border }]} />
             <Pressable onPress={() => router.push("/achievements")} style={styles.linkBtn}>
               <Feather name="award" size={16} color={colors.mutedForeground} />
               <Text style={[styles.linkText, { color: colors.mutedForeground }]}>

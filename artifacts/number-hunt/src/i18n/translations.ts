@@ -123,6 +123,19 @@ export type TranslationKey =
   | "records.reset"
   | "records.resetTitle"
   | "records.resetMsg"
+  | "records.soloSection"
+  | "records.onlineSection"
+  | "records.onlineLifetime"
+  | "records.soloHint"
+  | "records.onlineHint"
+  // Profile
+  | "profile.title"
+  | "profile.identity"
+  | "profile.onlineStats"
+  | "profile.bestSoloTimes"
+  | "profile.bestOnlineTimes"
+  | "profile.noTime"
+  | "profile.viewFullRecords"
   // Settings
   | "settings.title"
   | "settings.profile"
@@ -145,6 +158,10 @@ export type TranslationKey =
   | "settings.resetAll"
   | "settings.resetAllConfirm"
   | "settings.rtlNote"
+  | "settings.resetRecords"
+  | "settings.resetRecordsMsg"
+  | "settings.danger"
+  | "settings.data"
   // How to Play
   | "howto.title"
   | "howto.goal"
@@ -192,11 +209,14 @@ export type TranslationKey =
   | "welcome.continue"
   | "welcome.identityPreview"
   | "welcome.nicknameRequired"
+  | "welcome.languageLabel"
+  | "welcome.openSettings"
   // Keypad accessibility
   | "keypad.backspace"
   | "keypad.clear"
   // Home
   | "home.achievements"
+  | "home.profile"
   // Achievements screen
   | "ach.title"
   | "ach.progress"
@@ -246,6 +266,7 @@ const en: Record<TranslationKey, string> = {
   "home.records": "Records",
   "home.howto": "How to Play",
   "home.achievements": "Achievements",
+  "home.profile": "Profile",
 
   "mode.title": "Choose Mode",
   "mode.solo": "Solo",
@@ -352,6 +373,18 @@ const en: Record<TranslationKey, string> = {
   "records.reset": "Reset all records",
   "records.resetTitle": "Reset all records?",
   "records.resetMsg": "This will erase all of your best times.",
+  "records.soloSection": "SOLO TIMES",
+  "records.onlineSection": "ONLINE TIMES",
+  "records.onlineLifetime": "ONLINE LIFETIME STATS",
+  "records.soloHint": "Your best solo runs by digit length.",
+  "records.onlineHint": "Your best online wins by digit length.",
+  "profile.title": "Profile",
+  "profile.identity": "IDENTITY",
+  "profile.onlineStats": "ONLINE LIFETIME",
+  "profile.bestSoloTimes": "BEST SOLO TIMES",
+  "profile.bestOnlineTimes": "BEST ONLINE TIMES",
+  "profile.noTime": "—",
+  "profile.viewFullRecords": "View full records",
 
   "settings.title": "Settings",
   "settings.profile": "Profile",
@@ -376,6 +409,10 @@ const en: Record<TranslationKey, string> = {
   "settings.resetAllConfirm": "This will restore all preferences to their defaults.",
   "settings.rtlNote":
     "Tip: switching language updates the layout direction immediately on web. On a real device, a full app reload may be required for native RTL.",
+  "settings.resetRecords": "Reset records",
+  "settings.resetRecordsMsg": "Erases best times and online lifetime stats. Your profile and unlocked achievements stay.",
+  "settings.danger": "Data",
+  "settings.data": "Data",
 
   "howto.title": "How to Play",
   "howto.goal": "The goal",
@@ -427,6 +464,9 @@ const en: Record<TranslationKey, string> = {
   "welcome.continue": "Continue",
   "welcome.identityPreview": "YOUR IDENTITY",
   "welcome.nicknameRequired": "Please enter a nickname to continue.",
+  "welcome.languageLabel": "LANGUAGE",
+  "welcome.openSettings": "Settings",
+  // (Arabic strings for these two keys live in the `ar` table below.)
   "keypad.backspace": "Backspace",
   "keypad.clear": "Clear",
 
@@ -479,6 +519,7 @@ const ar: Record<TranslationKey, string> = {
   "home.records": "السجلات",
   "home.howto": "طريقة اللعب",
   "home.achievements": "الإنجازات",
+  "home.profile": "الملف الشخصي",
 
   "mode.title": "اختر الوضع",
   "mode.solo": "فردي",
@@ -585,6 +626,18 @@ const ar: Record<TranslationKey, string> = {
   "records.reset": "إعادة تعيين كل السجلات",
   "records.resetTitle": "إعادة تعيين كل السجلات؟",
   "records.resetMsg": "سيؤدي هذا إلى مسح جميع أفضل أوقاتك.",
+  "records.soloSection": "أوقات الفردي",
+  "records.onlineSection": "أوقات الأونلاين",
+  "records.onlineLifetime": "إحصائيات الأونلاين التراكمية",
+  "records.soloHint": "أفضل جولاتك الفردية حسب طول الرقم.",
+  "records.onlineHint": "أفضل انتصاراتك أونلاين حسب طول الرقم.",
+  "profile.title": "الملف الشخصي",
+  "profile.identity": "الهوية",
+  "profile.onlineStats": "إحصاءات الأونلاين",
+  "profile.bestSoloTimes": "أفضل أوقات الفردي",
+  "profile.bestOnlineTimes": "أفضل أوقات الأونلاين",
+  "profile.noTime": "—",
+  "profile.viewFullRecords": "عرض جميع السجلات",
 
   "settings.title": "الإعدادات",
   "settings.profile": "الملف الشخصي",
@@ -608,6 +661,10 @@ const ar: Record<TranslationKey, string> = {
   "settings.resetAllConfirm": "سيؤدي هذا إلى استعادة جميع التفضيلات إلى قيمها الافتراضية.",
   "settings.rtlNote":
     "ملاحظة: يتم تغيير اتجاه التخطيط فوراً على الويب. على الجهاز الفعلي، قد يلزم إعادة تشغيل التطبيق لتطبيق RTL بالكامل.",
+  "settings.resetRecords": "إعادة تعيين السجلات",
+  "settings.resetRecordsMsg": "يمسح أفضل الأوقات وإحصائيات الأونلاين التراكمية. يبقى ملفك الشخصي وإنجازاتك.",
+  "settings.danger": "البيانات",
+  "settings.data": "البيانات",
 
   "howto.title": "طريقة اللعب",
   "howto.goal": "الهدف",
@@ -659,6 +716,8 @@ const ar: Record<TranslationKey, string> = {
   "welcome.continue": "متابعة",
   "welcome.identityPreview": "هويتك",
   "welcome.nicknameRequired": "الرجاء إدخال اسم مستعار للمتابعة.",
+  "welcome.languageLabel": "اللغة",
+  "welcome.openSettings": "الإعدادات",
   "keypad.backspace": "مسح حرف",
   "keypad.clear": "مسح الكل",
 

@@ -10,13 +10,14 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { StatsOverview } from "@/src/components/StatsOverview";
 import { useT } from "@/src/i18n/useT";
 import {
-  DEFAULT_STATS,
+  DEFAULT_ONLINE_STATS,
+  clearOnlineStats,
   clearRecords,
-  clearStats,
+  getOnlineStats,
   getRecords,
-  getStats,
+  type ModeRecords,
+  type OnlineStats,
   type Records,
-  type Stats,
 } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { formatDate, formatTime } from "@/src/utils/scoring";
@@ -28,22 +29,20 @@ export default function RecordsScreen() {
   const insets = useSafeAreaInsets();
   const { t, lz, isRTL } = useT();
   const wd = isRTL ? "rtl" : "ltr";
-  const [records, setRecords] = useState<Records>({});
-  const [stats, setStats] = useState<Stats>(DEFAULT_STATS);
+  const [records, setRecords] = useState<Records>({ solo: {}, online: {} });
+  const [onlineStats, setOnlineStats] = useState<OnlineStats>(DEFAULT_ONLINE_STATS);
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
 
   const load = useCallback(async () => {
-    const [r, s] = await Promise.all([getRecords(), getStats()]);
+    const [r, s] = await Promise.all([getRecords(), getOnlineStats()]);
     setRecords(r);
-    setStats(s);
+    setOnlineStats(s);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // Reset wipes both surfaces — the single-best snapshots AND the lifetime
-  // aggregates. Single dialog, single action.
   const onReset = () => {
     Alert.alert(t("records.resetTitle"), t("records.resetMsg"), [
       { text: t("common.cancel"), style: "cancel" },
@@ -51,7 +50,7 @@ export default function RecordsScreen() {
         text: t("common.reset"),
         style: "destructive",
         onPress: async () => {
-          await Promise.all([clearRecords(), clearStats()]);
+          await Promise.all([clearRecords(), clearOnlineStats()]);
           await load();
         },
       },
@@ -65,54 +64,98 @@ export default function RecordsScreen() {
         contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
       >
-        <StatsOverview stats={stats} />
-
-        <Text
-          style={[styles.sectionHeading, { color: colors.mutedForeground, writingDirection: wd }]}
-        >
-          {t("stats.bestTimes")}
+        {/* Section 1 — online lifetime stats. Solo runs deliberately do
+            NOT contribute to these counters per product spec. */}
+        <Text style={[styles.sectionHeading, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {t("records.onlineLifetime")}
         </Text>
+        <StatsOverview stats={onlineStats} />
 
-        {DIGITS_LIST.map((d) => {
-          const r = records[d];
-          const pd = stats.perDigit[d];
-          const avg = pd.wins > 0 ? Math.round((pd.totalGuessesWon / pd.wins) * 10) / 10 : null;
-          return (
-            <GlassCard key={d} style={styles.card}>
-              <View style={styles.rowTop}>
-                <View style={[styles.badge, { backgroundColor: colors.secondary }]}>
-                  <Text style={[styles.badgeText, { color: colors.secondaryForeground }]}>
-                    {t("records.label", { n: d })}
-                  </Text>
-                </View>
-                {r ? (
-                  <Feather name="award" size={18} color={colors.accent} />
-                ) : (
-                  <Feather name="clock" size={18} color={colors.mutedForeground} />
-                )}
+        {/* Section 2 — best online times by digit length. */}
+        <Text style={[styles.sectionHeading, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {t("records.onlineSection")}
+        </Text>
+        <Text style={[styles.sectionHint, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {t("records.onlineHint")}
+        </Text>
+        <TimeRecordsList
+          mode="online"
+          modeRecords={records.online}
+          onlineStats={onlineStats}
+        />
+
+        {/* Section 3 — best solo times by digit length. */}
+        <Text style={[styles.sectionHeading, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {t("records.soloSection")}
+        </Text>
+        <Text style={[styles.sectionHint, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {t("records.soloHint")}
+        </Text>
+        <TimeRecordsList mode="solo" modeRecords={records.solo} />
+
+        <Button title={t("records.reset")} variant="ghost" fullWidth onPress={onReset} />
+      </ScrollView>
+    </View>
+  );
+}
+
+function TimeRecordsList({
+  mode,
+  modeRecords,
+  onlineStats,
+}: {
+  mode: "solo" | "online";
+  modeRecords: ModeRecords;
+  onlineStats?: OnlineStats;
+}) {
+  const colors = useColors();
+  const { t, lz, isRTL } = useT();
+  const wd = isRTL ? "rtl" : "ltr";
+
+  return (
+    <>
+      {DIGITS_LIST.map((d) => {
+        const r = modeRecords[d];
+        // Per-digit aggregates are only meaningful for online mode (solo
+        // doesn't contribute to lifetime stats). For solo, just show the
+        // best-time snapshot without an aggregate footer.
+        const pd = onlineStats?.perDigit[d];
+        const avg = pd && pd.wins > 0
+          ? Math.round((pd.totalGuessesWon / pd.wins) * 10) / 10
+          : null;
+        return (
+          <GlassCard key={`${mode}-${d}`} style={styles.card}>
+            <View style={styles.rowTop}>
+              <View style={[styles.badge, { backgroundColor: colors.secondary }]}>
+                <Text style={[styles.badgeText, { color: colors.secondaryForeground }]}>
+                  {t("records.label", { n: d })}
+                </Text>
               </View>
               {r ? (
-                <>
-                  <Text style={[styles.timeText, { color: colors.foreground }]}>
-                    {lz(formatTime(r.bestTimeSec))}
-                  </Text>
-                  <View style={styles.metaRow}>
-                    <Meta icon="hash" label={t("records.guesses", { n: r.guesses })} />
-                    <Meta icon="calendar" label={formatDate(r.dateISO)} />
-                  </View>
-                </>
+                <Feather name="award" size={18} color={colors.accent} />
               ) : (
-                <View style={styles.emptyBlock}>
-                  <Text
-                    style={[styles.empty, { color: colors.mutedForeground, writingDirection: wd }]}
-                  >
-                    {t("records.empty")}
-                  </Text>
-                </View>
+                <Feather name="clock" size={18} color={colors.mutedForeground} />
               )}
+            </View>
+            {r ? (
+              <>
+                <Text style={[styles.timeText, { color: colors.foreground }]}>
+                  {lz(formatTime(r.bestTimeSec))}
+                </Text>
+                <View style={styles.metaRow}>
+                  <Meta icon="hash" label={t("records.guesses", { n: r.guesses })} />
+                  <Meta icon="calendar" label={formatDate(r.dateISO)} />
+                </View>
+              </>
+            ) : (
+              <View style={styles.emptyBlock}>
+                <Text style={[styles.empty, { color: colors.mutedForeground, writingDirection: wd }]}>
+                  {t("records.empty")}
+                </Text>
+              </View>
+            )}
 
-              {/* Aggregate row — always visible, even with no best time yet.
-                  Shows lifetime wins + average guesses for this difficulty. */}
+            {mode === "online" && pd ? (
               <View style={[styles.aggRow, { borderTopColor: colors.border }]}>
                 <View style={styles.aggCell}>
                   <Feather name="trending-up" size={13} color={colors.mutedForeground} />
@@ -131,12 +174,11 @@ export default function RecordsScreen() {
                   </View>
                 ) : null}
               </View>
-            </GlassCard>
-          );
-        })}
-        <Button title={t("records.reset")} variant="ghost" fullWidth onPress={onReset} />
-      </ScrollView>
-    </View>
+            ) : null}
+          </GlassCard>
+        );
+      })}
+    </>
   );
 }
 
@@ -156,8 +198,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.2,
     fontFamily: "Inter_700Bold",
-    marginTop: 6,
+    marginTop: 10,
     marginBottom: -4,
+  },
+  sectionHint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: -6,
+    marginBottom: -2,
+    lineHeight: 17,
   },
   card: { padding: 18, gap: 8 },
   rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
