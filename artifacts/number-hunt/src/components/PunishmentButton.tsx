@@ -13,30 +13,40 @@ import { useT } from "@/src/i18n/useT";
 export function PunishmentButton({
   onPress,
   used,
+  loading = false,
 }: {
   onPress: () => void;
   used: boolean;
+  /** True while we're waiting for the server's reveal broadcast. */
+  loading?: boolean;
 }) {
   const colors = useColors();
   const { t } = useT();
+  const disabled = used || loading;
+  const label = used
+    ? t("punishment.alreadyUsed")
+    : loading
+      ? t("punishment.opening")
+      : t("punishment.button");
+  const iconName = used ? "check-circle" : loading ? "loader" : "zap";
 
   return (
     <Pressable
       onPress={onPress}
-      disabled={used}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.btn,
         {
           backgroundColor: used ? colors.muted : colors.destructive,
           borderColor: used ? colors.border : colors.destructive,
-          opacity: pressed ? 0.85 : used ? 0.7 : 1,
+          opacity: pressed ? 0.85 : disabled ? 0.7 : 1,
         },
       ]}
-      accessibilityLabel={used ? t("punishment.alreadyUsed") : t("punishment.button")}
+      accessibilityLabel={label}
     >
       <View style={styles.row}>
         <Feather
-          name={used ? "check-circle" : "zap"}
+          name={iconName}
           size={18}
           color={used ? colors.mutedForeground : colors.destructiveForeground}
         />
@@ -48,7 +58,7 @@ export function PunishmentButton({
             },
           ]}
         >
-          {used ? t("punishment.alreadyUsed") : t("punishment.button")}
+          {label}
         </Text>
       </View>
     </Pressable>

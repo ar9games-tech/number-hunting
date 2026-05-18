@@ -1,0 +1,78 @@
+Fix the Punishment button on the Winner Screen.
+
+Problem:
+When the winner taps the Punishment button, nothing happens.
+
+Required fix:
+- Trace the full flow from button press to card reveal.
+- Make sure the Punishment button calls the correct function.
+- Make sure the function emits the correct Socket.io event.
+- Make sure the server receives the event.
+- Make sure the server broadcasts the revealed punishment card to all players.
+- Make sure the client listens to the broadcast event and opens the punishment modal.
+
+Client requirements:
+- On Winner Screen, the Punishment button must call:
+  requestPunishmentCard()
+- requestPunishmentCard must emit:
+  "requestPunishmentCard"
+- Include:
+  - roomCode
+  - playerId or socketId
+  - nickname
+  - serial
+- Add loading state after pressing the button:
+  - “Opening...”
+- Disable the button while loading.
+- Show friendly error if the server rejects the request.
+
+Server requirements:
+- Add or fix Socket.io listener:
+  "requestPunishmentCard"
+- Validate:
+  - room exists
+  - match has ended
+  - requester is the winner
+  - punishmentUsed is false
+- Randomly select one punishment card.
+- Set:
+  punishmentUsed = true
+- Broadcast to the room:
+  "punishmentCardRevealed"
+- Include:
+  - card id
+  - title
+  - description
+  - revealedBy
+  - timestamp
+
+Client listener:
+- Listen for:
+  "punishmentCardRevealed"
+- When received:
+  - Stop loading
+  - Open PunishmentCardModal
+  - Play reveal animation
+  - Show the revealed card to all players
+  - Mark punishment as used
+
+Also add:
+- Listener for:
+  "punishmentCardError"
+- Show error message if something fails.
+
+Debug logs:
+Add console logs for:
+- Punishment button pressed
+- requestPunishmentCard emitted
+- Server received requestPunishmentCard
+- Server selected punishment card
+- punishmentCardRevealed received on client
+- Modal opened
+
+Important:
+- Button appears only on Winner Screen.
+- Only winner can press it.
+- Button works only once per match.
+- Non-winners should still see the revealed punishment modal after winner presses the button.
+- Do not break rematch or leave room.

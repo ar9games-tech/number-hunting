@@ -108,25 +108,48 @@ export default function ResultScreen() {
   const [punishment, setPunishment] = React.useState<PunishmentReveal | null>(null);
   const [punishmentVisible, setPunishmentVisible] = React.useState(false);
   const [punishmentUsed, setPunishmentUsed] = React.useState(false);
+  const [punishmentLoading, setPunishmentLoading] = React.useState(false);
+  const [punishmentError, setPunishmentError] = React.useState<string | null>(null);
 
   useEffect(() => {
     if (!isOnline || !code) return;
     const unsubReveal = onPunishmentRevealed(code, (reveal) => {
+      if (__DEV__) console.log("[punishment] modal opened", { cardId: reveal.cardId });
       setPunishment(reveal);
       setPunishmentVisible(true);
       setPunishmentUsed(true);
+      setPunishmentLoading(false);
+      setPunishmentError(null);
       playPunishmentReveal(settings.soundOn);
     });
     const unsubErr = onPunishmentError(code, (reason) => {
-      if (reason === "alreadyUsed") setPunishmentUsed(true);
-      // For the other reasons (notWinner, notWon, notInRoom) the button
-      // simply wouldn't render — but if it ever fires, surface a soft error.
+      setPunishmentLoading(false);
+      if (reason === "alreadyUsed") {
+        setPunishmentUsed(true);
+        return;
+      }
+      // Surface friendly copy for the rare cases the button shouldn't have
+      // been pressable (e.g. status drifted just before the request landed).
+      const body =
+        reason === "notWinner"
+          ? t("punishment.notWinnerBody")
+          : reason === "notWon"
+            ? t("punishment.notWonBody")
+            : t("punishment.errorTitle");
+      setPunishmentError(body);
     });
     return () => {
       unsubReveal();
       unsubErr();
     };
-  }, [isOnline, code, settings.soundOn]);
+  }, [isOnline, code, settings.soundOn, t]);
+
+  // Auto-dismiss the soft error after a short delay so it doesn't linger.
+  useEffect(() => {
+    if (!punishmentError) return;
+    const id = setTimeout(() => setPunishmentError(null), 3500);
+    return () => clearTimeout(id);
+  }, [punishmentError]);
 
   const persistedRef = useRef(false);
   useEffect(() => {
@@ -271,12 +294,26 @@ export default function ResultScreen() {
           {isOnline ? (
             <>
               {youWon ? (
-                <PunishmentButton
-                  used={punishmentUsed}
-                  onPress={() => {
-                    if (code && !punishmentUsed) requestPunishmentCard(code);
-                  }}
-                />
+                <>
+                  <PunishmentButton
+                    used={punishmentUsed}
+                    loading={punishmentLoading}
+                    onPress={() => {
+                      if (!code || punishmentUsed || punishmentLoading) return;
+                      if (__DEV__) {
+                        console.log("[punishment] button pressed", { code });
+                      }
+                      setPunishmentLoading(true);
+                      setPunishmentError(null);
+                      requestPunishmentCard(code);
+                    }}
+                  />
+                  {punishmentError ? (
+                    <Text style={[styles.punishErr, { color: colors.destructive }]}>
+                      {punishmentError}
+                    </Text>
+                  ) : null}
+                </>
               ) : null}
               <Button
                 title={t("result.rematch")}
@@ -383,6 +420,12 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontFamily: "Inter_700Bold", fontVariant: ["tabular-nums"] },
   statLabel: { fontSize: 11, fontFamily: "Inter_500Medium" },
   actions: { gap: 10 },
+  punishErr: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    marginTop: -2,
+  },
   unlocks: { gap: 8 },
   unlocksHead: {
     fontSize: 11,

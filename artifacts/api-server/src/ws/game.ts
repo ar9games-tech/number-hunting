@@ -496,13 +496,19 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
     case "requestPunishment": {
       const code = String(raw.code).toUpperCase();
       const id = socketIdentity.get(ws);
-      const sendErr = (reason: PunishmentErrorReason) =>
+      logger.info(
+        { code, socketId: id?.socketId ?? null },
+        "ws: requestPunishment received",
+      );
+      const sendErr = (reason: PunishmentErrorReason) => {
+        logger.info({ code, reason }, "ws: punishment rejected");
         safeSend(ws, {
           type: "punishmentError",
           reqId: raw.reqId,
           code,
           reason,
         });
+      };
       if (!id || id.code !== code) return sendErr("notInRoom");
       const room = getRoom(code);
       if (!room) return sendErr("notInRoom");
@@ -520,6 +526,7 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         PUNISHMENT_CARDS[Math.floor(Math.random() * PUNISHMENT_CARDS.length)]!;
       const requester = playerById(room, id.socketId)!;
       const subs = subscribers.get(code);
+      const peerCount = subs ? subs.size : 0;
       if (subs) {
         for (const peer of subs) {
           safeSend(peer, {
@@ -531,7 +538,10 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         }
       }
       touch(code);
-      logger.info({ code, cardId, drawnBy: requester.name }, "ws: punishment drawn");
+      logger.info(
+        { code, cardId, drawnBy: requester.name, peerCount },
+        "ws: punishment drawn + broadcast",
+      );
       break;
     }
 

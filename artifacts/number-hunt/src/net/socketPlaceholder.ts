@@ -213,6 +213,15 @@ function connect(): Promise<WebSocket> {
           cardId: msg.cardId,
           drawnBy: msg.drawnBy ?? "",
         };
+        const listenerCount = punishmentRevealListeners.get(code)?.size ?? 0;
+        if (__DEV__) {
+          console.log("[punishment] punishmentRevealed received", {
+            code,
+            cardId: reveal.cardId,
+            drawnBy: reveal.drawnBy,
+            listenerCount,
+          });
+        }
         lastPunishmentReveal.set(code, reveal);
         punishmentRevealListeners.get(code)?.forEach((l) => l(reveal));
         // Fall through so any reqId on the requester also resolves below.
@@ -221,6 +230,9 @@ function connect(): Promise<WebSocket> {
       if (msg.type === "punishmentError" && msg.code && msg.reason) {
         const code = msg.code;
         const reason = msg.reason;
+        if (__DEV__) {
+          console.log("[punishment] punishmentError received", { code, reason });
+        }
         punishmentErrorListeners.get(code)?.forEach((l) => l(reason));
       }
 
@@ -355,7 +367,9 @@ export function leaveRoom(code: string): void {
 
 /** Fire-and-forget — server broadcasts `punishmentRevealed` to all peers. */
 export function requestPunishmentCard(code: string): void {
-  fire("requestPunishment", { code: code.toUpperCase() });
+  const upper = code.toUpperCase();
+  if (__DEV__) console.log("[punishment] emit requestPunishment", { code: upper });
+  fire("requestPunishment", { code: upper });
 }
 
 export function onPunishmentRevealed(
