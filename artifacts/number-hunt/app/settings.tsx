@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React from "react";
 import {
   Alert,
@@ -36,6 +37,23 @@ export default function SettingsScreen() {
     ]);
   };
 
+  // Reset Profile clears nickname + serial + onboarded flag so the next
+  // launch (or this immediate redirect) shows the welcome screen again.
+  // It deliberately leaves stats / records / achievements intact.
+  const onResetProfile = () => {
+    Alert.alert(t("settings.resetProfile"), t("settings.resetProfileMsg"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("common.reset"),
+        style: "destructive",
+        onPress: async () => {
+          await update({ playerName: "", playerSerial: "", hasOnboarded: false });
+          router.replace("/welcome");
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader title={t("settings.title")} />
@@ -61,6 +79,13 @@ export default function SettingsScreen() {
                 },
               ]}
             />
+          </Row>
+          <Row label={t("settings.serial")} icon="hash">
+            <View style={[styles.serialChip, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <Text style={[styles.serialText, { color: colors.foreground }]} numberOfLines={1}>
+                #{settings.playerSerial || "—"}
+              </Text>
+            </View>
           </Row>
         </Section>
 
@@ -112,6 +137,12 @@ export default function SettingsScreen() {
           </Row>
         </Section>
 
+        <Button
+          title={t("settings.resetProfile")}
+          variant="secondary"
+          fullWidth
+          onPress={onResetProfile}
+        />
         <Button
           title={t("settings.resetAll")}
           variant="ghost"
@@ -229,6 +260,18 @@ const styles = StyleSheet.create({
   input: {
     minWidth: 140, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1,
     fontSize: 14, fontFamily: "Inter_500Medium",
+  },
+  serialChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  serialText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 0.5,
   },
   note: {
     fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center",

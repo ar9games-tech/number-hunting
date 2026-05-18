@@ -34,7 +34,14 @@ export type Settings = {
   soundOn: boolean;
   hapticsOn: boolean;
   language: Language;
+  /** User-chosen nickname (no "#" — the serial is stored separately). */
   playerName: string;
+  /**
+   * 5-digit system-generated identifier. Combined with `playerName` to
+   * form the display identity ("Ahmed #48291"). Read-only from the UI —
+   * the user can never edit this.
+   */
+  playerSerial: string;
   /** False on a brand-new install so the welcome screen runs once. */
   hasOnboarded: boolean;
 };
@@ -45,9 +52,8 @@ export const DEFAULT_SETTINGS: Settings = {
   soundOn: true,
   hapticsOn: true,
   language: "en",
-  // Empty by default — the welcome screen generates a Player #NNNN serial
-  // for the user to accept or edit on first launch.
   playerName: "",
+  playerSerial: "",
   hasOnboarded: false,
 };
 
@@ -276,11 +282,50 @@ export async function getSettings(): Promise<Settings> {
       return { ...DEFAULT_SETTINGS };
     }
     const parsed = JSON.parse(raw) as Partial<Settings>;
-    // Migration: pre-Wave-C installs don't have hasOnboarded. If they have a
-    // payload at all they've already used the app, so treat as onboarded
-    // unless the field is explicitly false in storage.
+
+    // Migration A: legacy single-string identity. Older builds stored
+    // both the nickname and serial in `playerName` as e.g. "Player #1234".
+    // Split them so the new two-field UI works.
+    let { playerName, playerSerial } = parsed;
+    let migrated = false;
+    if (playerName && !playerSerial) {
+      const m = /^(.+?)\s*#\s*(\d{1,8})\s*$/.exec(playerName);
+      if (m) {
+        playerName = (m[1] ?? "").trim();
+        playerSerial = (m[2] ?? "").padStart(5, "0").slice(-5);
+        migrated = true;
+      }
+    }
+    // Migration B: any existing install missing the serial should get a
+    // fresh one silently so they never see a broken identity card.
+    if (!playerSerial) {
+      playerSerial = generateSerial();
+      migrated = true;
+    }
+
+    // Migration C: pre-Wave-C installs don't have hasOnboarded. If they
+    // have a payload at all they've already used the app, so treat as
+    // onboarded unless the field is explicitly false in storage.
     const hasOnboarded = parsed.hasOnboarded ?? true;
-    return { ...DEFAULT_SETTINGS, ...parsed, hasOnboarded };
+    if (parsed.hasOnboarded === undefined) migrated = true;
+
+    const result: Settings = {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      playerName: playerName ?? "",
+      playerSerial,
+      hasOnboarded,
+    };
+
+    // Persist the migrated payload so the freshly generated serial (or
+    // split nickname) is stable across cold starts — otherwise we'd hand
+    // out a different serial every launch until the user next changed a
+    // setting.
+    if (migrated) {
+      void saveSettings(result).catch(() => {});
+    }
+
+    return result;
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -291,11 +336,26 @@ export async function saveSettings(settings: Settings): Promise<void> {
 }
 
 /**
- * Generate a friendly "Player #1234" style serial. The prefix is passed in
- * so the caller can localize it (e.g. "اللاعب" for Arabic). The 4-digit
- * suffix keeps casual collisions rare without making the name awkward.
+ * Generate a 5-digit system serial. The serial is opaque — it's only ever
+ * displayed prefixed by "#" alongside the user's nickname. Using 10000-99999
+ * gives ~90k unique values per install which is comfortably enough for
+ * casual room identification without leaking anything sensitive.
  */
-export function generatePlayerSerial(prefix: string): string {
-  const n = Math.floor(1000 + Math.random() * 9000);
-  return `${prefix} #${n}`;
+export function generateSerial(): string {
+  const n = Math.floor(10000 + Math.random() * 90000);
+  return String(n);
+}
+
+/**
+ * Compose the public identity string shown wherever the player is named:
+ * room screen, online lobby, future scoreboards. Falls back gracefully
+ * when either piece is missing so we never render "undefined" or " #".
+ */
+export function formatPlayerIdentity(name: string, serial: string): string {
+  const n = (name ?? "").trim();
+  const s = (serial ?? "").trim();
+  if (!n && !s) return "";
+  if (!s) return n;
+  if (!n) return `#${s}`;
+  return `${n} #${s}`;
 }

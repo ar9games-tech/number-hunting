@@ -1,25 +1,40 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
 import { getRoomMeta } from "@/src/net/socketPlaceholder";
+import { formatPlayerIdentity } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 
 export default function MultiplayerLobbyScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { settings, ready } = useSettings();
   const { t, isRTL } = useT();
   const [code, setCode] = useState("");
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
   const wd = isRTL ? "rtl" : "ltr";
 
   const [joining, setJoining] = useState(false);
+
+  // Online play requires a saved identity — never prompt for a nickname
+  // inside the multiplayer flow. Send the user to welcome if it's missing.
+  const needsProfile =
+    ready && (!settings.hasOnboarded || !settings.playerName.trim());
+  useEffect(() => {
+    if (needsProfile) {
+      router.replace("/welcome");
+    }
+  }, [needsProfile]);
+
+  const identity = formatPlayerIdentity(settings.playerName, settings.playerSerial);
 
   const handleJoin = async () => {
     const trimmed = code.trim().toUpperCase();
@@ -45,10 +60,28 @@ export default function MultiplayerLobbyScreen() {
     }
   };
 
+  if (needsProfile || !ready) {
+    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader title={t("lobby.title")} />
       <View style={[styles.container, { paddingBottom: bottomPad }]}>
+        {/* Show the player's saved identity so they know which name will
+            appear to the opponent — no prompt, no edit field here. */}
+        <View style={[styles.identityBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <View style={[styles.identityDot, { backgroundColor: colors.primary }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.identityLabel, { color: colors.mutedForeground, writingDirection: wd }]}>
+              {t("lobby.playingAs")}
+            </Text>
+            <Text style={[styles.identityName, { color: colors.foreground }]} numberOfLines={1}>
+              {identity}
+            </Text>
+          </View>
+        </View>
+
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.iconWrap, { backgroundColor: colors.secondary }]}>
             <Feather name="plus-circle" size={24} color={colors.primary} />
@@ -116,6 +149,18 @@ export default function MultiplayerLobbyScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 16 },
+  identityBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  identityDot: { width: 8, height: 8, borderRadius: 4 },
+  identityLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: "Inter_700Bold" },
+  identityName: { fontSize: 15, fontFamily: "Inter_700Bold", marginTop: 2 },
   card: { padding: 18, borderRadius: 20, borderWidth: 1, gap: 10 },
   iconWrap: {
     width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",

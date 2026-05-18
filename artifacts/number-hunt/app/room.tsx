@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,18 +18,22 @@ import {
   leaveRoom,
   onRoomClosed,
   onUpdate,
-  submitGuess,
+  submitGuess as sendGuess,
   type RoomState,
 } from "@/src/net/socketPlaceholder";
+import { formatPlayerIdentity } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { isValidGuess, type Digits } from "@/src/utils/gameLogic";
 
 type ViewRole = "host" | "guest";
 
+const AUTO_SUBMIT_LOCK_MS = 250;
+const AUTO_SUBMIT_DELAY_MS = 130;
+
 export default function RoomScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { settings } = useSettings();
+  const { settings, ready } = useSettings();
   const { t, isRTL, lz } = useT();
   const params = useLocalSearchParams<{ code?: string; role?: string; digits?: string }>();
 
@@ -38,35 +42,41 @@ export default function RoomScreen() {
 
   const [state, setState] = useState<RoomState | null>(null);
   const [guessInput, setGuessInput] = useState("");
+  const submittingRef = useRef(false);
+  const [locked, setLocked] = useState(false);
 
-  // 1) Initial create/join
+  // Guard: online mode needs a nickname. If somehow a fresh install lands
+  // here, send them through onboarding first.
+  useEffect(() => {
+    if (ready && (!settings.hasOnboarded || !settings.playerName.trim())) {
+      router.replace("/welcome");
+    }
+  }, [ready, settings.hasOnboarded, settings.playerName]);
+
+  // 1) Initial create/join — uses the saved identity (no prompt here).
   useEffect(() => {
     let cancelled = false;
     const incomingCode = (params.code ?? "").toUpperCase();
+    const identity = formatPlayerIdentity(settings.playerName, settings.playerSerial);
+    if (!identity) return; // welcome-redirect effect will fire on next tick
 
     (async () => {
       try {
         // Rematch path: we already have a live identity + cached state for
-        // this room (returned from the /result screen). Just re-attach
-        // — do NOT create or rejoin, which would spawn a duplicate room
-        // (host) or hit the "room full" guard (guest).
+        // this room (returned from /result). Just re-attach — do NOT
+        // create/rejoin, which would spawn a duplicate room or fail the
+        // "room full" guard.
         const cached = incomingCode ? getCachedRoom(incomingCode) : null;
         if (cached) {
           setState(cached);
           return;
         }
         if (initialRole === "host") {
-          const room = await createRoom(
-            digits,
-            settings.playerName || t("misc.player1"),
-          );
+          const room = await createRoom(digits, identity);
           if (cancelled) return;
           setState(room);
         } else {
-          const room = await joinRoom(
-            incomingCode,
-            settings.playerName || t("misc.player2"),
-          );
+          const room = await joinRoom(incomingCode, identity);
           if (cancelled) return;
           if (!room) {
             Alert.alert(t("room.notFound"), t("room.returningLobby"));
@@ -77,7 +87,7 @@ export default function RoomScreen() {
         }
       } catch {
         if (cancelled) return;
-        Alert.alert(t("room.notFound"), t("room.returningLobby"));
+        Alert.alert(t("room.connectErrorTitle"), t("room.connectErrorMsg"));
         router.replace("/lobby");
       }
     })();
@@ -86,9 +96,9 @@ export default function RoomScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [settings.playerName, settings.playerSerial]);
 
-  // 2) Subscribe to live updates
+  // 2) Subscribe to live updates.
   useEffect(() => {
     if (!state?.code) return;
     const unsubState = onUpdate(state.code, (s) => setState(s));
@@ -102,7 +112,7 @@ export default function RoomScreen() {
     };
   }, [state?.code, t]);
 
-  // 3) Navigate to result on win
+  // 3) Navigate to result on win.
   useEffect(() => {
     if (state?.status === "won" && state.revealedHidden) {
       const winnerName = state.winner === "host" ? state.hostName : state.guestName;
@@ -126,6 +136,39 @@ export default function RoomScreen() {
   const showCount = digits >= 3;
   const wd = isRTL ? "rtl" : "ltr";
 
+  const submitNow = (guess: string) => {
+    if (submittingRef.current) return;
+    if (!state || state.status !== "playing") return;
+    if (!isValidGuess(guess, digits)) return;
+    submittingRef.current = true;
+    setLocked(true);
+    try {
+      sendGuess(state.code, guess);
+    } catch {
+      // sendGuess is fire-and-forget; show a soft error if the socket
+      // wrapper itself throws synchronously.
+      Alert.alert(t("room.sendErrorTitle"), t("room.sendErrorMsg"));
+    }
+    setGuessInput("");
+    setTimeout(() => {
+      submittingRef.current = false;
+      setLocked(false);
+    }, AUTO_SUBMIT_LOCK_MS);
+  };
+
+  const onDigit = (d: string) => {
+    if (submittingRef.current) return;
+    if (!state || state.status !== "playing") return;
+    setGuessInput((v) => {
+      if (v.length >= digits) return v;
+      const next = v + d;
+      if (next.length === digits) {
+        setTimeout(() => submitNow(next), AUTO_SUBMIT_DELAY_MS);
+      }
+      return next;
+    });
+  };
+
   if (!state) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -134,8 +177,11 @@ export default function RoomScreen() {
     );
   }
 
+  const myName =
+    state.yourRole === "host" ? state.hostName : state.guestName;
   const opponentName =
     state.yourRole === "host" ? state.guestName : state.hostName;
+  const hasOpponent = state.guestJoined;
 
   const historyItems: HistoryItem[] = state.yourHistory.map((h) => ({
     guess: h.guess,
@@ -153,6 +199,7 @@ export default function RoomScreen() {
               router.replace("/lobby");
             }}
             hitSlop={12}
+            accessibilityLabel={t("room.leave")}
           >
             <Feather name="log-out" size={20} color={colors.destructive} />
           </Pressable>
@@ -178,27 +225,32 @@ export default function RoomScreen() {
           </Text>
         </View>
 
-        {/* Role + opponent guess counter */}
-        <View style={styles.metaRow}>
-          <View style={[styles.chip, { backgroundColor: colors.muted }]}>
-            <Text style={[styles.chipText, { color: colors.mutedForeground }]}>
-              {t(state.yourRole === "host" ? "room.youHost" : "room.youGuest")}
-            </Text>
-          </View>
-          {state.status === "playing" ? (
-            <View style={[styles.chip, { backgroundColor: colors.muted }]}>
-              <Feather name="user" size={11} color={colors.mutedForeground} />
-              <Text style={[styles.chipText, { color: colors.mutedForeground }]}>
-                {t("room.opponentGuesses", {
-                  name: opponentName,
-                  n: lz(state.opponentGuessCount),
-                })}
-              </Text>
-            </View>
-          ) : null}
+        {/* Identity strip — shows you + opponent + opponent's guess count */}
+        <View style={styles.identityCol}>
+          <IdentityRow
+            label={t("room.you")}
+            name={myName || t("misc.player1")}
+            tone="primary"
+          />
+          <IdentityRow
+            label={t("room.opponent")}
+            name={hasOpponent ? opponentName : t("room.waitingForJoin")}
+            tone="accent"
+            faded={!hasOpponent}
+            suffix={
+              state.status === "playing" ? (
+                <View style={[styles.guessBadge, { backgroundColor: colors.muted }]}>
+                  <Feather name="hash" size={10} color={colors.mutedForeground} />
+                  <Text style={[styles.guessBadgeText, { color: colors.mutedForeground }]}>
+                    {lz(state.opponentGuessCount)}
+                  </Text>
+                </View>
+              ) : null
+            }
+          />
         </View>
 
-        {/* Waiting (host only) — shareable code panel */}
+        {/* Waiting — shareable code panel */}
         {state.status === "waiting" ? (
           <View style={[styles.shareCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.shareLabel, { color: colors.mutedForeground }]}>
@@ -225,22 +277,54 @@ export default function RoomScreen() {
             <View style={styles.bottom}>
               <GuessInput value={guessInput} digits={digits} />
               <NumericKeypad
-                onDigit={(d) =>
-                  setGuessInput(guessInput.length < digits ? guessInput + d : guessInput)
-                }
-                onBackspace={() => setGuessInput(guessInput.slice(0, -1))}
-                onSubmit={() => {
-                  if (isValidGuess(guessInput, digits)) {
-                    submitGuess(state.code, guessInput);
-                    setGuessInput("");
-                  }
-                }}
-                canSubmit={isValidGuess(guessInput, digits)}
+                onDigit={onDigit}
+                onBackspace={() => setGuessInput((v) => v.slice(0, -1))}
+                onClear={() => setGuessInput("")}
+                disabled={locked}
               />
             </View>
           </>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+function IdentityRow({
+  label,
+  name,
+  tone,
+  faded = false,
+  suffix,
+}: {
+  label: string;
+  name: string;
+  tone: "primary" | "accent";
+  faded?: boolean;
+  suffix?: React.ReactNode;
+}) {
+  const colors = useColors();
+  const accent = tone === "primary" ? colors.primary : colors.accent;
+  return (
+    <View
+      style={[
+        styles.identityRow,
+        { backgroundColor: colors.card, borderColor: colors.border, opacity: faded ? 0.6 : 1 },
+      ]}
+    >
+      <View style={[styles.identityDot, { backgroundColor: accent }]} />
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.identityLabel, { color: colors.mutedForeground }]}>
+          {label}
+        </Text>
+        <Text
+          style={[styles.identityName, { color: colors.foreground }]}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+      </View>
+      {suffix}
     </View>
   );
 }
@@ -252,12 +336,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, alignSelf: "center",
   },
   bannerText: { fontSize: 12, fontFamily: "Inter_500Medium" },
-  metaRow: { flexDirection: "row", gap: 8, justifyContent: "center", flexWrap: "wrap" },
-  chip: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+  identityCol: { gap: 8 },
+  identityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  chipText: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3 },
+  identityDot: { width: 8, height: 8, borderRadius: 4 },
+  identityLabel: {
+    fontSize: 10, letterSpacing: 1.2, fontFamily: "Inter_700Bold",
+  },
+  identityName: {
+    fontSize: 15, fontFamily: "Inter_600SemiBold", marginTop: 2,
+  },
+  guessBadge: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
+  },
+  guessBadgeText: { fontSize: 12, fontFamily: "Inter_700Bold", fontVariant: ["tabular-nums"] },
   shareCard: {
     padding: 20, borderRadius: 20, borderWidth: 1, alignItems: "center", gap: 10,
   },

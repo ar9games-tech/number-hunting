@@ -14,25 +14,29 @@ import { useColors } from "@/hooks/useColors";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
 
-type KeyValue = string | "back" | "submit";
+type KeyValue = string | "back" | "clear";
 
+// Layout stays a 3-column 4-row grid for muscle memory; the old "submit"
+// key in the bottom-right has been replaced with a clear-all key now
+// that guesses auto-submit when the full digit count is entered.
 const KEYS: KeyValue[] = [
   "1", "2", "3",
   "4", "5", "6",
   "7", "8", "9",
-  "back", "0", "submit",
+  "back", "0", "clear",
 ];
 
 export function NumericKeypad({
   onDigit,
   onBackspace,
-  onSubmit,
-  canSubmit,
+  onClear,
+  disabled = false,
 }: {
   onDigit: (d: string) => void;
   onBackspace: () => void;
-  onSubmit: () => void;
-  canSubmit: boolean;
+  onClear: () => void;
+  /** Locks the whole keypad — used during the brief auto-submit window. */
+  disabled?: boolean;
 }) {
   return (
     <View style={styles.grid} {...({ dir: "ltr" } as object)}>
@@ -40,12 +44,11 @@ export function NumericKeypad({
         <Key
           key={`${k}-${i}`}
           value={k}
-          canSubmit={canSubmit}
+          disabled={disabled}
           onPress={() => {
             if (k === "back") onBackspace();
-            else if (k === "submit") {
-              if (canSubmit) onSubmit();
-            } else onDigit(k); // always emit English digit to game logic
+            else if (k === "clear") onClear();
+            else onDigit(k); // always emit English digit to game logic
           }}
         />
       ))}
@@ -56,57 +59,52 @@ export function NumericKeypad({
 function Key({
   value,
   onPress,
-  canSubmit,
+  disabled,
 }: {
   value: KeyValue;
   onPress: () => void;
-  canSubmit: boolean;
+  disabled: boolean;
 }) {
   const colors = useColors();
   const { settings } = useSettings();
-  const { lz } = useT();
+  const { lz, t } = useT();
   const scale = useRef(new Animated.Value(1)).current;
 
   const animateTo = (v: number) =>
     Animated.spring(scale, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
 
-  const isAction = value === "back" || value === "submit";
-  const isSubmit = value === "submit";
-  const submitEnabled = !isSubmit || canSubmit;
+  const isAction = value === "back" || value === "clear";
 
-  const bg = isSubmit
-    ? canSubmit
-      ? colors.accent
-      : colors.muted
-    : value === "back"
-      ? colors.muted
-      : colors.card;
-  const fg = isSubmit
-    ? canSubmit
-      ? colors.accentForeground
-      : colors.mutedForeground
-    : colors.foreground;
+  const bg = isAction ? colors.muted : colors.card;
+  const fg = colors.foreground;
 
   return (
     <Animated.View style={[styles.cell, { transform: [{ scale }] }]}>
       <Pressable
         onPress={() => {
-          if (!submitEnabled) return;
+          if (disabled) return;
           if (settings.hapticsOn && Platform.OS !== "web") {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }
           onPress();
         }}
-        onPressIn={() => submitEnabled && animateTo(0.93)}
+        onPressIn={() => !disabled && animateTo(0.93)}
         onPressOut={() => animateTo(1)}
         style={[
           styles.key,
-          { backgroundColor: bg, borderColor: colors.border, opacity: submitEnabled ? 1 : 0.6 },
+          { backgroundColor: bg, borderColor: colors.border, opacity: disabled ? 0.5 : 1 },
         ]}
+        accessibilityLabel={
+          value === "back"
+            ? t("keypad.backspace")
+            : value === "clear"
+              ? t("keypad.clear")
+              : value
+        }
       >
         {isAction ? (
           <Feather
-            name={value === "back" ? "delete" : "check"}
+            name={value === "back" ? "delete" : "x"}
             size={24}
             color={fg}
           />

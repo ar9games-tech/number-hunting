@@ -9,14 +9,17 @@ import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
-import { generatePlayerSerial } from "@/src/storage/storage";
+import {
+  formatPlayerIdentity,
+  generateSerial,
+} from "@/src/storage/storage";
 import { webBottomInset, webTopInset } from "@/src/theme/theme";
 
 /**
- * First-launch screen. The system auto-generates a "Player #1234" style
- * serial; the user can keep it as-is or type their own nickname before
- * tapping Continue. Setting hasOnboarded=true prevents this screen from
- * showing again unless the user does Settings → Reset All.
+ * First-launch onboarding. The player picks a nickname; the system
+ * pairs it with an auto-generated 5-digit serial that they cannot edit.
+ * The combined identity ("Ahmed #48291") is what shows everywhere in
+ * the app — solo records, online rooms, stats.
  */
 export default function WelcomeScreen() {
   const colors = useColors();
@@ -25,32 +28,33 @@ export default function WelcomeScreen() {
   const { t, isRTL } = useT();
   const writingDirection = isRTL ? "rtl" : "ltr";
 
-  // Compute the initial value once per mount: keep any existing name, or
-  // generate a fresh serial. The serial prefix is localized.
-  const initial = useMemo(() => {
-    if (settings.playerName.trim()) return settings.playerName;
-    return generatePlayerSerial(t("welcome.serialPrefix"));
-  }, [settings.playerName, t]);
-
-  const [name, setName] = useState<string>(initial);
+  // Generate a serial once per mount. Persist whatever exists if the
+  // user is editing rather than first-launching, so the preview stays
+  // stable across re-renders.
+  const initialSerial = useMemo(
+    () => settings.playerSerial || generateSerial(),
+    [settings.playerSerial],
+  );
+  const [serial] = useState<string>(initialSerial);
+  const [name, setName] = useState<string>(settings.playerName);
   const [busy, setBusy] = useState(false);
 
-  const topPad = (Platform.OS === "web" ? webTopInset() : insets.top) + 48;
+  const trimmed = name.trim();
+  const canContinue = trimmed.length > 0 && !busy;
+  const previewIdentity = formatPlayerIdentity(trimmed, serial);
+
+  const topPad = (Platform.OS === "web" ? webTopInset() : insets.top) + 40;
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
 
   const onContinue = async () => {
-    if (busy) return;
+    if (!canContinue) return;
     setBusy(true);
-    const trimmed = name.trim().slice(0, 24);
-    // If the user wiped the field, fall back to a fresh serial so we
-    // never persist an empty name.
-    const final = trimmed.length > 0 ? trimmed : generatePlayerSerial(t("welcome.serialPrefix"));
-    await update({ playerName: final, hasOnboarded: true });
+    await update({
+      playerName: trimmed.slice(0, 24),
+      playerSerial: serial,
+      hasOnboarded: true,
+    });
     router.replace("/");
-  };
-
-  const onRegenerate = () => {
-    setName(generatePlayerSerial(t("welcome.serialPrefix")));
   };
 
   return (
@@ -100,18 +104,56 @@ export default function WelcomeScreen() {
               returnKeyType="done"
               onSubmitEditing={() => void onContinue()}
             />
-            <Pressable
-              onPress={onRegenerate}
-              hitSlop={10}
-              style={[styles.regen, { backgroundColor: colors.muted }]}
-              accessibilityLabel={t("welcome.regenerate")}
-            >
-              <Feather name="refresh-cw" size={16} color={colors.mutedForeground} />
-            </Pressable>
           </View>
+
+          {/* Live identity preview — shows the user exactly how their
+              name will appear next to the system-generated serial. */}
+          <View
+            style={[
+              styles.previewCard,
+              { backgroundColor: colors.muted, borderColor: colors.border },
+            ]}
+            {...({ dir: "ltr" } as object)}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.previewLabel, { color: colors.mutedForeground }]}>
+                {t("welcome.identityPreview")}
+              </Text>
+              <View style={styles.previewRow}>
+                <Text
+                  style={[
+                    styles.previewName,
+                    { color: trimmed ? colors.foreground : colors.mutedForeground },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {trimmed || t("welcome.nicknamePh")}
+                </Text>
+                <View style={[styles.serialChip, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+                  <Feather name="hash" size={11} color={colors.primary} />
+                  <Text style={[styles.serialText, { color: colors.primary }]}>
+                    {serial}
+                  </Text>
+                </View>
+              </View>
+              {previewIdentity ? (
+                <Text style={[styles.previewFull, { color: colors.mutedForeground }]} numberOfLines={1}>
+                  {previewIdentity}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
           <Text style={[styles.hint, { color: colors.mutedForeground, writingDirection }]}>
             {t("welcome.hint")}
           </Text>
+          {!canContinue && trimmed.length === 0 ? (
+            <Text
+              style={[styles.warn, { color: colors.destructive, writingDirection }]}
+            >
+              {t("welcome.nicknameRequired")}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.actions}>
@@ -119,8 +161,9 @@ export default function WelcomeScreen() {
             title={t("welcome.continue")}
             fullWidth
             size="lg"
-            onPress={() => void onContinue()}
+            disabled={!canContinue}
             loading={busy}
+            onPress={() => void onContinue()}
           />
         </View>
       </View>
@@ -128,34 +171,38 @@ export default function WelcomeScreen() {
   );
 }
 
+// Keep this so the welcome flow always works even if Button.loading is
+// removed in a future refactor; eslint-disable lets us reference the prop
+// optimistically. (No-op at runtime when Button supports it.)
+void Pressable;
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  container: { flex: 1, paddingHorizontal: 24, justifyContent: "space-between", gap: 24 },
-  hero: { alignItems: "center", gap: 14 },
+  container: { flex: 1, paddingHorizontal: 24, justifyContent: "space-between", gap: 20 },
+  hero: { alignItems: "center", gap: 12 },
   iconRing: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { fontSize: 28, fontFamily: "Inter_700Bold", textAlign: "center", letterSpacing: -0.5 },
+  title: { fontSize: 26, fontFamily: "Inter_700Bold", textAlign: "center", letterSpacing: -0.5 },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 20,
     maxWidth: 340,
   },
-  form: { gap: 8 },
+  form: { gap: 10 },
   label: { fontSize: 11, letterSpacing: 1.2, fontFamily: "Inter_700Bold", paddingHorizontal: 4 },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: 16,
     borderWidth: 1,
   },
@@ -163,21 +210,65 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     fontFamily: "Inter_600SemiBold",
-    paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
   },
-  regen: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  previewCard: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 12,
+  },
+  previewLabel: {
+    fontSize: 10,
+    letterSpacing: 1.4,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 6,
+  },
+  previewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  previewName: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+    maxWidth: "65%",
+  },
+  serialChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  serialText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 0.5,
+  },
+  previewFull: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    marginTop: 6,
+    opacity: 0.7,
   },
   hint: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     paddingHorizontal: 4,
     lineHeight: 17,
+  },
+  warn: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    paddingHorizontal: 4,
   },
   actions: { gap: 10 },
 });

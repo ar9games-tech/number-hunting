@@ -48,6 +48,7 @@ export type TranslationKey =
   | "lobby.notFound"
   | "lobby.notFoundMsg"
   | "lobby.note"
+  | "lobby.playingAs"
   // Room
   | "room.title"
   | "room.waitingOpponent"
@@ -62,6 +63,14 @@ export type TranslationKey =
   | "room.returningLobby"
   | "room.closedTitle"
   | "room.closedMsg"
+  | "room.you"
+  | "room.opponent"
+  | "room.waitingForJoin"
+  | "room.leave"
+  | "room.connectErrorTitle"
+  | "room.connectErrorMsg"
+  | "room.sendErrorTitle"
+  | "room.sendErrorMsg"
   // Result
   | "result.solo"
   | "result.online"
@@ -90,6 +99,9 @@ export type TranslationKey =
   | "settings.profile"
   | "settings.playerName"
   | "settings.playerPh"
+  | "settings.serial"
+  | "settings.resetProfile"
+  | "settings.resetProfileMsg"
   | "settings.appearance"
   | "settings.theme"
   | "settings.themeSystem"
@@ -149,8 +161,11 @@ export type TranslationKey =
   | "welcome.nicknamePh"
   | "welcome.hint"
   | "welcome.continue"
-  | "welcome.regenerate"
-  | "welcome.serialPrefix"
+  | "welcome.identityPreview"
+  | "welcome.nicknameRequired"
+  // Keypad accessibility
+  | "keypad.backspace"
+  | "keypad.clear"
   // Home
   | "home.achievements"
   // Achievements screen
@@ -230,6 +245,7 @@ const en: Record<TranslationKey, string> = {
   "lobby.codePh": "ABC123",
   "lobby.invalidCode": "Invalid code",
   "lobby.invalidCodeMsg": "Please enter a valid room code.",
+  "lobby.playingAs": "PLAYING AS",
   "lobby.notFound": "Room not found",
   "lobby.notFoundMsg": "Double-check the code with the host.",
   "lobby.note":
@@ -248,6 +264,14 @@ const en: Record<TranslationKey, string> = {
   "room.returningLobby": "Returning to lobby.",
   "room.closedTitle": "Room closed",
   "room.closedMsg": "The other player left the room.",
+  "room.you": "YOU",
+  "room.opponent": "OPPONENT",
+  "room.waitingForJoin": "Waiting for opponent…",
+  "room.leave": "Leave room",
+  "room.connectErrorTitle": "Couldn't connect",
+  "room.connectErrorMsg": "We couldn't reach the room. Check your connection and try again.",
+  "room.sendErrorTitle": "Guess not sent",
+  "room.sendErrorMsg": "Something blocked that guess. Please try again.",
 
   "result.solo": "Solo Result",
   "result.online": "Round Over",
@@ -276,6 +300,9 @@ const en: Record<TranslationKey, string> = {
   "settings.profile": "Profile",
   "settings.playerName": "Player name",
   "settings.playerPh": "Your name",
+  "settings.serial": "Serial",
+  "settings.resetProfile": "Reset profile",
+  "settings.resetProfileMsg": "Clears your nickname and serial. Your stats and records stay. You'll pick a new nickname next.",
   "settings.appearance": "Appearance",
   "settings.theme": "Theme",
   "settings.themeSystem": "System",
@@ -341,8 +368,10 @@ const en: Record<TranslationKey, string> = {
   "welcome.nicknamePh": "Your nickname",
   "welcome.hint": "We picked a random one for you — keep it, or type your own.",
   "welcome.continue": "Continue",
-  "welcome.regenerate": "Generate a new name",
-  "welcome.serialPrefix": "Player",
+  "welcome.identityPreview": "YOUR IDENTITY",
+  "welcome.nicknameRequired": "Please enter a nickname to continue.",
+  "keypad.backspace": "Backspace",
+  "keypad.clear": "Clear",
 
   "ach.title": "Achievements",
   "ach.progress": "PROGRESS",
@@ -421,6 +450,7 @@ const ar: Record<TranslationKey, string> = {
   "lobby.codePh": "ABC123",
   "lobby.invalidCode": "رمز غير صالح",
   "lobby.invalidCodeMsg": "يرجى إدخال رمز غرفة صالح.",
+  "lobby.playingAs": "تلعب باسم",
   "lobby.notFound": "الغرفة غير موجودة",
   "lobby.notFoundMsg": "تأكد من الرمز مع المضيف.",
   "lobby.note":
@@ -439,6 +469,14 @@ const ar: Record<TranslationKey, string> = {
   "room.returningLobby": "العودة إلى الردهة.",
   "room.closedTitle": "أُغلقت الغرفة",
   "room.closedMsg": "غادر اللاعب الآخر الغرفة.",
+  "room.you": "أنت",
+  "room.opponent": "الخصم",
+  "room.waitingForJoin": "بانتظار الخصم…",
+  "room.leave": "مغادرة الغرفة",
+  "room.connectErrorTitle": "تعذّر الاتصال",
+  "room.connectErrorMsg": "لم نتمكن من الوصول إلى الغرفة. تحقق من اتصالك وحاول مجدداً.",
+  "room.sendErrorTitle": "لم يُرسل التخمين",
+  "room.sendErrorMsg": "حدث ما يمنع إرسال التخمين. حاول مرة أخرى.",
 
   "result.solo": "النتيجة الفردية",
   "result.online": "انتهت الجولة",
@@ -467,6 +505,9 @@ const ar: Record<TranslationKey, string> = {
   "settings.profile": "الملف الشخصي",
   "settings.playerName": "اسم اللاعب",
   "settings.playerPh": "اسمك",
+  "settings.serial": "الرقم التسلسلي",
+  "settings.resetProfile": "إعادة تعيين الملف الشخصي",
+  "settings.resetProfileMsg": "يمسح اسمك ورقمك التسلسلي. تبقى إحصائياتك وسجلاتك. ستختار اسماً جديداً بعدها.",
   "settings.appearance": "المظهر",
   "settings.theme": "السمة",
   "settings.themeSystem": "النظام",
@@ -531,8 +572,10 @@ const ar: Record<TranslationKey, string> = {
   "welcome.nicknamePh": "اسمك المستعار",
   "welcome.hint": "اخترنا لك اسماً عشوائياً — احتفظ به أو اكتب اسمك.",
   "welcome.continue": "متابعة",
-  "welcome.regenerate": "توليد اسم جديد",
-  "welcome.serialPrefix": "اللاعب",
+  "welcome.identityPreview": "هويتك",
+  "welcome.nicknameRequired": "الرجاء إدخال اسم مستعار للمتابعة.",
+  "keypad.backspace": "مسح حرف",
+  "keypad.clear": "مسح الكل",
 
   "ach.title": "الإنجازات",
   "ach.progress": "التقدّم",

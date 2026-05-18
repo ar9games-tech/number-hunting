@@ -23,6 +23,15 @@ import {
   type Feedback,
 } from "@/src/utils/gameLogic";
 
+/**
+ * How long to lock the keypad after an auto-submitted guess fires. Long
+ * enough to swallow any stray double-tap on the digit key that completed
+ * the input, but short enough that fast players can chain guesses.
+ */
+const AUTO_SUBMIT_LOCK_MS = 250;
+/** Tiny delay so the user visually sees the final digit land before submit. */
+const AUTO_SUBMIT_DELAY_MS = 130;
+
 export default function SoloGameScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -45,13 +54,22 @@ export default function SoloGameScreen() {
   const startedAt = useRef(Date.now());
   const finished = useRef(false);
 
+  // Lock that prevents the same completed guess from being submitted twice
+  // — e.g. if a digit press fires the auto-submit and the user taps a key
+  // again during the brief delay window.
+  const submittingRef = useRef(false);
+  const [locked, setLocked] = useState(false);
+
   const showCount = digits >= 3;
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 12;
 
-  const onSubmit = () => {
-    if (!isValidGuess(input, digits) || finished.current) return;
-    const fb = evaluateGuess(input, hidden, digits);
-    const guess = input;
+  const submitGuess = (guess: string) => {
+    if (submittingRef.current || finished.current) return;
+    if (!isValidGuess(guess, digits)) return;
+    submittingRef.current = true;
+    setLocked(true);
+
+    const fb = evaluateGuess(guess, hidden, digits);
     const nextCount = history.length + 1;
     setLastGuess(guess);
     setLastFeedback(fb);
@@ -82,7 +100,6 @@ export default function SoloGameScreen() {
           pathname: "/result",
           params: {
             mode: "solo",
-            // Comma-joined IDs; result.tsx splits and renders banners.
             unlocks: newUnlocks.join(","),
             digits: String(digits),
             timeSec: String(finalElapsed),
@@ -93,7 +110,27 @@ export default function SoloGameScreen() {
           },
         });
       })();
+      return; // keep lock engaged until navigation
     }
+
+    setTimeout(() => {
+      submittingRef.current = false;
+      setLocked(false);
+    }, AUTO_SUBMIT_LOCK_MS);
+  };
+
+  const onDigit = (d: string) => {
+    if (submittingRef.current || finished.current) return;
+    setInput((v) => {
+      if (v.length >= digits) return v;
+      const next = v + d;
+      // Auto-submit the moment the input is full. Small delay lets the
+      // final digit render in GuessInput before the row clears.
+      if (next.length === digits) {
+        setTimeout(() => submitGuess(next), AUTO_SUBMIT_DELAY_MS);
+      }
+      return next;
+    });
   };
 
   return (
@@ -129,10 +166,10 @@ export default function SoloGameScreen() {
         <View style={styles.bottom}>
           <GuessInput value={input} digits={digits} />
           <NumericKeypad
-            onDigit={(d) => setInput((v) => (v.length < digits ? v + d : v))}
+            onDigit={onDigit}
             onBackspace={() => setInput((v) => v.slice(0, -1))}
-            onSubmit={onSubmit}
-            canSubmit={isValidGuess(input, digits)}
+            onClear={() => setInput("")}
+            disabled={locked || finished.current}
           />
         </View>
       </View>
