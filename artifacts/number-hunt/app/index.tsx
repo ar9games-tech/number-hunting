@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -10,21 +10,39 @@ import { Button } from "@/src/components/Button";
 import { useT } from "@/src/i18n/useT";
 import { webBottomInset, webTopInset } from "@/src/theme/theme";
 
+const HERO_DIGITS = ["7", "3", "9"] as const;
+
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t, lz, isRTL } = useT();
   const fade = useRef(new Animated.Value(0)).current;
   const lift = useRef(new Animated.Value(20)).current;
-  const digitsAnim = useRef(new Animated.Value(0)).current;
+  // One animated value per hero digit so we can stagger their entry —
+  // this gives the home screen its "animated splash" feel without
+  // needing a separate splash route.
+  const digitAnims = useMemo(
+    () => HERO_DIGITS.map(() => new Animated.Value(0)),
+    [],
+  );
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fade, { toValue: 1, duration: 700, useNativeDriver: true }),
       Animated.spring(lift, { toValue: 0, useNativeDriver: true, speed: 12, bounciness: 6 }),
-      Animated.timing(digitsAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
+      Animated.stagger(
+        140,
+        digitAnims.map((v) =>
+          Animated.spring(v, {
+            toValue: 1,
+            useNativeDriver: true,
+            speed: 14,
+            bounciness: 12,
+          }),
+        ),
+      ),
     ]).start();
-  }, [fade, lift, digitsAnim]);
+  }, [fade, lift, digitAnims]);
 
   const topPad = (Platform.OS === "web" ? webTopInset() : insets.top) + 24;
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
@@ -51,18 +69,42 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={[styles.hero, { opacity: fade, transform: [{ translateY: lift }] }]}>
-          <Animated.View style={{ opacity: digitsAnim }}>
-            <View style={styles.digitsRow} {...({ dir: "ltr" } as object)}>
-              {["7", "3", "9"].map((d, i) => (
-                <View
-                  key={i}
-                  style={[styles.digitChip, { backgroundColor: colors.card, borderColor: colors.border }]}
-                >
-                  <Text style={[styles.digitText, { color: colors.primary }]}>{lz(d)}</Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
+          <View style={styles.digitsRow} {...({ dir: "ltr" } as object)}>
+            {HERO_DIGITS.map((d, i) => (
+              <Animated.View
+                key={i}
+                style={[
+                  styles.digitChip,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.primary,
+                    opacity: digitAnims[i]!,
+                    transform: [
+                      {
+                        scale: digitAnims[i]!.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.4, 1],
+                        }),
+                      },
+                      {
+                        translateY: digitAnims[i]!.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-12, 0],
+                        }),
+                      },
+                    ],
+                    shadowColor: colors.primary,
+                    shadowOpacity: 0.35,
+                    shadowRadius: 14,
+                    shadowOffset: { width: 0, height: 6 },
+                    elevation: 4,
+                  },
+                ]}
+              >
+                <Text style={[styles.digitText, { color: colors.primary }]}>{lz(d)}</Text>
+              </Animated.View>
+            ))}
+          </View>
           <Text style={[styles.title, { color: colors.foreground, writingDirection }]}>
             {t("home.title")}
           </Text>

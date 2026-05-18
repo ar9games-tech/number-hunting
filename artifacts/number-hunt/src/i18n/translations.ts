@@ -124,6 +124,23 @@ export type TranslationKey =
   | "fb.makeFirst"
   | "fb.correctDigit"
   | "fb.correctDigits"
+  // Stats (lifetime aggregates on the Records screen)
+  | "stats.overview"
+  | "stats.empty"
+  | "stats.games"
+  | "stats.wins"
+  | "stats.losses"
+  | "stats.winRate"
+  | "stats.currentStreak"
+  | "stats.bestStreak"
+  | "stats.bestTimes"
+  | "stats.avgGuesses"
+  | "stats.winsCount"
+  | "stats.noWinsYet"
+  // Result extras
+  | "result.youLost"
+  | "result.opponentWon"
+  | "result.defeat"
   // Misc
   | "misc.noGuesses"
   | "misc.player1"
@@ -259,6 +276,23 @@ const en: Record<TranslationKey, string> = {
   "fb.correctDigit": "{n} correct digit",
   "fb.correctDigits": "{n} correct digits",
 
+  "stats.overview": "LIFETIME STATS",
+  "stats.empty": "Finish a game to start tracking your stats.",
+  "stats.games": "Games",
+  "stats.wins": "Wins",
+  "stats.losses": "Losses",
+  "stats.winRate": "Win rate",
+  "stats.currentStreak": "Current",
+  "stats.bestStreak": "Best streak",
+  "stats.bestTimes": "BEST TIMES & AVERAGES",
+  "stats.avgGuesses": "Avg {n} guesses",
+  "stats.winsCount": "{n} wins",
+  "stats.noWinsYet": "No wins yet at this length.",
+
+  "result.youLost": "So close!",
+  "result.opponentWon": "{name} cracked it first",
+  "result.defeat": "Defeat",
+
   "misc.noGuesses": "No guesses yet",
   "misc.player1": "Player 1",
   "misc.player2": "Player 2",
@@ -392,6 +426,23 @@ const ar: Record<TranslationKey, string> = {
   "fb.makeFirst": "ابدأ بأول تخمين",
   "fb.correctDigit": "{n} رقم صحيح",
   "fb.correctDigits": "{n} أرقام صحيحة",
+
+  "stats.overview": "إحصائيات شاملة",
+  "stats.empty": "أنهِ مباراة لبدء تتبع إحصائياتك.",
+  "stats.games": "المباريات",
+  "stats.wins": "الانتصارات",
+  "stats.losses": "الهزائم",
+  "stats.winRate": "نسبة الفوز",
+  "stats.currentStreak": "الحالية",
+  "stats.bestStreak": "أفضل سلسلة",
+  "stats.bestTimes": "أفضل الأوقات والمعدلات",
+  "stats.avgGuesses": "متوسط {n} تخمينات",
+  "stats.winsCount": "{n} انتصارات",
+  "stats.noWinsYet": "لا توجد انتصارات بعد في هذا الطول.",
+
+  "result.youLost": "كان وشيكاً!",
+  "result.opponentWon": "{name} كشفه أولاً",
+  "result.defeat": "هزيمة",
 
   "misc.noGuesses": "لا توجد تخمينات بعد",
   "misc.player1": "اللاعب 1",

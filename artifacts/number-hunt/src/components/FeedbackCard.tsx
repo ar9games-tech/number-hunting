@@ -1,11 +1,20 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
+import { errorHaptic, successHaptic } from "@/src/utils/sound";
 import { type Feedback } from "@/src/utils/gameLogic";
 
+/**
+ * Renders the most recent guess outcome with a tone-coloured icon, animated
+ * fade/slide entry, and a glow border that pulses each time a new feedback
+ * arrives. Also fires haptics:
+ *   - success on a correct guess
+ *   - error on a "tooHigh"/"tooLow" (far-from-target) guess
+ */
 export function FeedbackCard({
   feedback,
   showCorrectCount,
@@ -16,20 +25,38 @@ export function FeedbackCard({
   guess?: string;
 }) {
   const colors = useColors();
+  const { settings } = useSettings();
   const { t, lz, isRTL } = useT();
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(8)).current;
+  // Glow drives both the animated border colour and the shadow opacity.
+  // useNativeDriver:false because we interpolate colours and shadowOpacity,
+  // neither of which the native driver supports.
+  const glow = useRef(new Animated.Value(0)).current;
   const wd = isRTL ? "rtl" : "ltr";
 
   useEffect(() => {
     if (!feedback) return;
     fade.setValue(0);
     slide.setValue(8);
+    glow.setValue(0);
     Animated.parallel([
       Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }),
       Animated.spring(slide, { toValue: 0, useNativeDriver: true, speed: 18, bounciness: 6 }),
+      Animated.sequence([
+        Animated.timing(glow, { toValue: 1, duration: 280, useNativeDriver: false }),
+        Animated.timing(glow, { toValue: 0.4, duration: 700, useNativeDriver: false }),
+      ]),
     ]).start();
-  }, [feedback, fade, slide]);
+
+    // Haptic cue: success for a correct guess, error sting for a far guess
+    // (the "too" variants). Near guesses stay silent to avoid spam.
+    if (feedback.correct) {
+      successHaptic(settings.hapticsOn);
+    } else if (feedback.level === "tooHigh" || feedback.level === "tooLow") {
+      errorHaptic(settings.hapticsOn);
+    }
+  }, [feedback, fade, slide, glow, settings.hapticsOn]);
 
   if (!feedback) {
     return (
@@ -64,15 +91,30 @@ export function FeedbackCard({
   const label = t(labelKey);
   const icon = feedback.correct ? "check-circle" : isHigh ? "arrow-down" : "arrow-up";
 
+  // Animated tint that interpolates between the resting border and the
+  // tone colour at peak glow.
+  const animatedBorder = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.border, tone],
+  });
+
   return (
     <Animated.View
       style={[
         styles.card,
         {
           backgroundColor: colors.card,
-          borderColor: tone,
+          borderColor: animatedBorder,
           opacity: fade,
           transform: [{ translateY: slide }],
+          // shadow / glow halo
+          shadowColor: tone,
+          shadowOpacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] }),
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 0 },
+          // Android shadow approximation (elevation can't animate, so we
+          // give it a constant lift and rely on the border tint).
+          elevation: Platform.OS === "android" ? 4 : 0,
         },
       ]}
     >

@@ -7,16 +7,23 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
+import { GlassCard } from "@/src/components/GlassCard";
 import { NumberDisplay } from "@/src/components/NumberDisplay";
+import { ParticleBurst } from "@/src/components/ParticleBurst";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
 import { leaveRoom, requestRematch } from "@/src/net/socketPlaceholder";
+import { recordLoss, recordWin } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
+import { errorHaptic, playLose, playWin, successHaptic } from "@/src/utils/sound";
+import type { Digits } from "@/src/utils/gameLogic";
 import { formatTime } from "@/src/utils/scoring";
 
 export default function ResultScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { settings } = useSettings();
   const { t, lz } = useT();
   const params = useLocalSearchParams<{
     mode?: string;
@@ -41,10 +48,17 @@ export default function ResultScreen() {
   const code = params.code ?? "";
   const role = (params.role === "guest" ? "guest" : "host") as "host" | "guest";
   const youWon = params.won === "1";
+  // Solo always shows the "you won" card (solo can't lose). Online uses
+  // `youWon` from params.
+  const showVictory = isOnline ? youWon : true;
+  const tone = showVictory ? colors.success : colors.destructive;
 
   const fade = useRef(new Animated.Value(0)).current;
   const lift = useRef(new Animated.Value(20)).current;
   const burst = useRef(new Animated.Value(0)).current;
+  // Particle burst only renders on victory. Driven by a boolean toggled
+  // shortly after mount so the explosion lines up with the card landing.
+  const [showParticles, setShowParticles] = React.useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -59,76 +73,128 @@ export default function ResultScreen() {
         ]),
       ).start();
     }
-  }, [fade, lift, burst, isNewRecord]);
+    if (showVictory) {
+      const id = setTimeout(() => setShowParticles(true), 150);
+      return () => clearTimeout(id);
+    }
+    return undefined;
+  }, [fade, lift, burst, isNewRecord, showVictory]);
+
+  // Outcome side-effects: lifetime stats + sound + haptic. Runs once per
+  // mount, only for online (solo already persisted in the solo screen so we
+  // don't double-count).
+  const persistedRef = useRef(false);
+  useEffect(() => {
+    if (persistedRef.current) return;
+    persistedRef.current = true;
+
+    if (isOnline) {
+      if (youWon) {
+        // Online digits come from the same param so safely narrow.
+        const d = (Math.min(4, Math.max(2, digits)) || 3) as Digits;
+        void recordWin(d, guesses);
+      } else {
+        void recordLoss();
+      }
+    }
+
+    if (showVictory) {
+      playWin(settings.soundOn);
+      successHaptic(settings.hapticsOn);
+    } else {
+      playLose(settings.soundOn);
+      errorHaptic(settings.hapticsOn);
+    }
+  }, [isOnline, youWon, digits, guesses, showVictory, settings.soundOn, settings.hapticsOn]);
 
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <LinearGradient
-        colors={[colors.gradientSoftFrom, colors.background]}
+        colors={
+          showVictory
+            ? [colors.gradientSoftFrom, colors.background]
+            : [colors.destructive + "22", colors.background]
+        }
         style={StyleSheet.absoluteFill}
       />
       <ScreenHeader title={isOnline ? t("result.online") : t("result.solo")} />
       <View style={[styles.container, { paddingBottom: bottomPad }]}>
-        <Animated.View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              opacity: fade,
-              transform: [{ translateY: lift }],
-            },
-          ]}
-        >
-          {isNewRecord ? (
-            <Animated.View
-              style={[
-                styles.recordBadge,
-                {
-                  backgroundColor: colors.accent,
-                  transform: [
-                    {
-                      scale: burst.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }),
-                    },
-                  ],
-                },
-              ]}
+        <View style={styles.cardWrap}>
+          {/* Confetti sits behind the card and is positionally absolute. */}
+          <ParticleBurst active={showParticles && showVictory} color={colors.accent} />
+
+          <Animated.View
+            style={{ opacity: fade, transform: [{ translateY: lift }] }}
+          >
+            <GlassCard
+              tone={showVictory ? "success" : "danger"}
+              style={styles.card}
             >
-              <Feather name="award" size={16} color={colors.accentForeground} />
-              <Text style={[styles.recordText, { color: colors.accentForeground }]}>
-                {t("result.newRecord")}
+              {isNewRecord ? (
+                <Animated.View
+                  style={[
+                    styles.recordBadge,
+                    {
+                      backgroundColor: colors.accent,
+                      transform: [
+                        {
+                          scale: burst.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, 1.06],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <Feather name="award" size={16} color={colors.accentForeground} />
+                  <Text style={[styles.recordText, { color: colors.accentForeground }]}>
+                    {t("result.newRecord")}
+                  </Text>
+                </Animated.View>
+              ) : null}
+
+              <View style={[styles.iconCircle, { backgroundColor: tone + "22" }]}>
+                <Feather
+                  name={showVictory ? "check-circle" : "x-circle"}
+                  size={36}
+                  color={tone}
+                />
+              </View>
+              <Text style={[styles.title, { color: colors.foreground }]}>
+                {isOnline
+                  ? youWon
+                    ? t("result.youGotIt")
+                    : t("result.opponentWon", { name: params.winnerName ?? "Player" })
+                  : t("result.youGotIt")}
               </Text>
-            </Animated.View>
-          ) : null}
+              {isOnline && !youWon ? (
+                <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                  {t("result.youLost")}
+                </Text>
+              ) : null}
 
-          <View style={[styles.iconCircle, { backgroundColor: colors.success + "22" }]}>
-            <Feather name="check-circle" size={36} color={colors.success} />
-          </View>
-          <Text style={[styles.title, { color: colors.foreground }]}>
-            {isOnline
-              ? youWon
-                ? t("result.youGotIt")
-                : t("result.someoneWon", { name: params.winnerName ?? "Player" })
-              : t("result.youGotIt")}
-          </Text>
+              {hidden ? (
+                <View style={{ alignItems: "center", gap: 8, marginTop: 8 }}>
+                  <Text style={[styles.label, { color: colors.mutedForeground }]}>
+                    {t("result.hidden")}
+                  </Text>
+                  <NumberDisplay digits={digits} reveal={hidden} />
+                </View>
+              ) : null}
 
-          {hidden ? (
-            <View style={{ alignItems: "center", gap: 8, marginTop: 8 }}>
-              <Text style={[styles.label, { color: colors.mutedForeground }]}>
-                {t("result.hidden")}
-              </Text>
-              <NumberDisplay digits={digits} reveal={hidden} />
-            </View>
-          ) : null}
-
-          <View style={styles.statsRow}>
-            {!isOnline ? <Stat label={t("result.time")} value={lz(formatTime(timeSec))} icon="clock" /> : null}
-            <Stat label={t("result.guesses")} value={lz(guesses)} icon="hash" />
-            <Stat label={t("result.digits")} value={lz(digits)} icon="layers" />
-          </View>
-        </Animated.View>
+              <View style={styles.statsRow}>
+                {!isOnline ? (
+                  <Stat label={t("result.time")} value={lz(formatTime(timeSec))} icon="clock" />
+                ) : null}
+                <Stat label={t("result.guesses")} value={lz(guesses)} icon="hash" />
+                <Stat label={t("result.digits")} value={lz(digits)} icon="layers" />
+              </View>
+            </GlassCard>
+          </Animated.View>
+        </View>
 
         <View style={styles.actions}>
           {isOnline ? (
@@ -188,7 +254,7 @@ function Stat({
 }: { label: string; value: string; icon: keyof typeof Feather.glyphMap }) {
   const colors = useColors();
   return (
-    <View style={[styles.stat, { backgroundColor: colors.background, borderColor: colors.border }]}>
+    <View style={[styles.stat, { backgroundColor: colors.background + "cc", borderColor: colors.border }]}>
       <Feather name={icon} size={16} color={colors.mutedForeground} />
       <Text style={[styles.statValue, { color: colors.foreground }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{label}</Text>
@@ -200,8 +266,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 18, justifyContent: "space-between",
   },
+  cardWrap: { position: "relative" },
   card: {
-    padding: 24, borderRadius: 24, borderWidth: 1,
+    padding: 24,
     alignItems: "center", gap: 14, position: "relative",
   },
   recordBadge: {
@@ -215,6 +282,7 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   title: { fontSize: 24, fontFamily: "Inter_700Bold", textAlign: "center" },
+  subtitle: { fontSize: 14, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: -6 },
   label: { fontSize: 11, letterSpacing: 1.2, fontFamily: "Inter_600SemiBold" },
   statsRow: { flexDirection: "row", gap: 10, marginTop: 10, width: "100%" },
   stat: {

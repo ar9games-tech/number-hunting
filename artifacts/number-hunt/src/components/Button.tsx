@@ -1,10 +1,8 @@
 import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
 import React, { useRef } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +13,7 @@ import {
 
 import { useColors } from "@/hooks/useColors";
 import { useSettings } from "@/src/contexts/SettingsContext";
+import { playTap, tapHaptic } from "@/src/utils/sound";
 
 type Variant = "primary" | "secondary" | "ghost" | "destructive";
 
@@ -52,9 +51,8 @@ export function Button({
 
   const handlePressIn = () => {
     animateTo(0.97);
-    if (settings.hapticsOn && Platform.OS !== "web") {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    tapHaptic(settings.hapticsOn);
+    playTap(settings.soundOn);
   };
   const handlePressOut = () => animateTo(1);
 

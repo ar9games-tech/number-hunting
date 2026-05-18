@@ -13,7 +13,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { Timer } from "@/src/components/Timer";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
-import { saveRecordIfBest } from "@/src/storage/storage";
+import { recordWin, saveRecordIfBest } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import {
   evaluateGuess,
@@ -66,7 +66,12 @@ export default function SoloGameScreen() {
       );
       setRunning(false);
       void (async () => {
-        const { wasBest } = await saveRecordIfBest(digits, finalElapsed, nextCount);
+        // Persist both the single-best snapshot (records) and the lifetime
+        // aggregate (stats). Running in parallel so navigation isn't blocked.
+        const [{ wasBest }] = await Promise.all([
+          saveRecordIfBest(digits, finalElapsed, nextCount),
+          recordWin(digits, nextCount),
+        ]);
         router.replace({
           pathname: "/result",
           params: {

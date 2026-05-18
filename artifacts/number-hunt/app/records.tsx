@@ -5,27 +5,45 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
+import { GlassCard } from "@/src/components/GlassCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { StatsOverview } from "@/src/components/StatsOverview";
 import { useT } from "@/src/i18n/useT";
-import { clearRecords, getRecords, type Records } from "@/src/storage/storage";
+import {
+  DEFAULT_STATS,
+  clearRecords,
+  clearStats,
+  getRecords,
+  getStats,
+  type Records,
+  type Stats,
+} from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { formatDate, formatTime } from "@/src/utils/scoring";
+
+const DIGITS_LIST = [2, 3, 4] as const;
 
 export default function RecordsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t, lz } = useT();
+  const { t, lz, isRTL } = useT();
+  const wd = isRTL ? "rtl" : "ltr";
   const [records, setRecords] = useState<Records>({});
+  const [stats, setStats] = useState<Stats>(DEFAULT_STATS);
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
 
   const load = useCallback(async () => {
-    setRecords(await getRecords());
+    const [r, s] = await Promise.all([getRecords(), getStats()]);
+    setRecords(r);
+    setStats(s);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  // Reset wipes both surfaces — the single-best snapshots AND the lifetime
+  // aggregates. Single dialog, single action.
   const onReset = () => {
     Alert.alert(t("records.resetTitle"), t("records.resetMsg"), [
       { text: t("common.cancel"), style: "cancel" },
@@ -33,7 +51,7 @@ export default function RecordsScreen() {
         text: t("common.reset"),
         style: "destructive",
         onPress: async () => {
-          await clearRecords();
+          await Promise.all([clearRecords(), clearStats()]);
           await load();
         },
       },
@@ -47,13 +65,20 @@ export default function RecordsScreen() {
         contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
       >
-        {([2, 3, 4] as const).map((d) => {
+        <StatsOverview stats={stats} />
+
+        <Text
+          style={[styles.sectionHeading, { color: colors.mutedForeground, writingDirection: wd }]}
+        >
+          {t("stats.bestTimes")}
+        </Text>
+
+        {DIGITS_LIST.map((d) => {
           const r = records[d];
+          const pd = stats.perDigit[d];
+          const avg = pd.wins > 0 ? Math.round((pd.totalGuessesWon / pd.wins) * 10) / 10 : null;
           return (
-            <View
-              key={d}
-              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-            >
+            <GlassCard key={d} style={styles.card}>
               <View style={styles.rowTop}>
                 <View style={[styles.badge, { backgroundColor: colors.secondary }]}>
                   <Text style={[styles.badgeText, { color: colors.secondaryForeground }]}>
@@ -77,11 +102,36 @@ export default function RecordsScreen() {
                   </View>
                 </>
               ) : (
-                <Text style={[styles.empty, { color: colors.mutedForeground }]}>
-                  {t("records.empty")}
-                </Text>
+                <View style={styles.emptyBlock}>
+                  <Text
+                    style={[styles.empty, { color: colors.mutedForeground, writingDirection: wd }]}
+                  >
+                    {t("records.empty")}
+                  </Text>
+                </View>
               )}
-            </View>
+
+              {/* Aggregate row — always visible, even with no best time yet.
+                  Shows lifetime wins + average guesses for this difficulty. */}
+              <View style={[styles.aggRow, { borderTopColor: colors.border }]}>
+                <View style={styles.aggCell}>
+                  <Feather name="trending-up" size={13} color={colors.mutedForeground} />
+                  <Text style={[styles.aggText, { color: colors.mutedForeground }]}>
+                    {pd.wins > 0
+                      ? t("stats.winsCount", { n: pd.wins })
+                      : t("stats.noWinsYet")}
+                  </Text>
+                </View>
+                {avg != null ? (
+                  <View style={styles.aggCell}>
+                    <Feather name="activity" size={13} color={colors.mutedForeground} />
+                    <Text style={[styles.aggText, { color: colors.mutedForeground }]}>
+                      {t("stats.avgGuesses", { n: avg })}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </GlassCard>
           );
         })}
         <Button title={t("records.reset")} variant="ghost" fullWidth onPress={onReset} />
@@ -102,7 +152,14 @@ function Meta({ icon, label }: { icon: keyof typeof Feather.glyphMap; label: str
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 20, paddingTop: 8, gap: 14 },
-  card: { padding: 18, borderRadius: 20, borderWidth: 1, gap: 8 },
+  sectionHeading: {
+    fontSize: 12,
+    letterSpacing: 1.2,
+    fontFamily: "Inter_700Bold",
+    marginTop: 6,
+    marginBottom: -4,
+  },
+  card: { padding: 18, gap: 8 },
   rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
@@ -110,5 +167,16 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", gap: 14, marginTop: 2 },
   meta: { flexDirection: "row", alignItems: "center", gap: 6 },
   metaText: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  empty: { fontSize: 14, fontFamily: "Inter_400Regular", paddingVertical: 8 },
+  empty: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  emptyBlock: { paddingVertical: 4 },
+  aggRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    paddingTop: 10,
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  aggCell: { flexDirection: "row", alignItems: "center", gap: 6 },
+  aggText: { fontSize: 12, fontFamily: "Inter_500Medium" },
 });
