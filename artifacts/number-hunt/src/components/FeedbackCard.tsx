@@ -41,8 +41,11 @@ export function FeedbackCard({
     slide.setValue(8);
     glow.setValue(0);
     Animated.parallel([
-      Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.spring(slide, { toValue: 0, useNativeDriver: true, speed: 18, bounciness: 6 }),
+      // All driven on JS — the same Animated.View animates borderColor and
+      // shadowOpacity (which require JS driver), so opacity/transform must
+      // also be JS to avoid "node moved to native earlier" crashes.
+      Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: false }),
+      Animated.spring(slide, { toValue: 0, useNativeDriver: false, speed: 18, bounciness: 6 }),
       Animated.sequence([
         Animated.timing(glow, { toValue: 1, duration: 280, useNativeDriver: false }),
         Animated.timing(glow, { toValue: 0.4, duration: 700, useNativeDriver: false }),

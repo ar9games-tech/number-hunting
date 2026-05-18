@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
@@ -19,6 +19,7 @@ import {
   evaluateGuess,
   generateHidden,
   isValidGuess,
+  normalizeDigits,
   type Digits,
   type Feedback,
 } from "@/src/utils/gameLogic";
@@ -63,17 +64,32 @@ export default function SoloGameScreen() {
   const showCount = digits >= 3;
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 12;
 
-  const submitGuess = (guess: string) => {
+  const submitGuess = (rawGuess: string) => {
     if (submittingRef.current || finished.current) return;
+    // Normalise Arabic digits → English BEFORE any validation or storage.
+    const guess = normalizeDigits(rawGuess);
+    // Safe validation: digitLength, hiddenNumber, guess existence, length,
+    // digit-only — never crash on missing values.
+    if (!digits || !hidden || !guess) return;
     if (!isValidGuess(guess, digits)) return;
     submittingRef.current = true;
     setLocked(true);
 
-    const fb = evaluateGuess(guess, hidden, digits);
+    let fb: Feedback;
+    try {
+      fb = evaluateGuess(guess, hidden, digits);
+    } catch {
+      submittingRef.current = false;
+      setLocked(false);
+      setInput("");
+      Alert.alert(t("game.errorTitle"), t("game.errorMsg"));
+      return;
+    }
     const nextCount = history.length + 1;
     setLastGuess(guess);
     setLastFeedback(fb);
     setHistory((h) => [{ guess, feedback: fb }, ...h]);
+    // Clear input only AFTER feedback is calculated and stored.
     setInput("");
 
     if (fb.correct) {
@@ -82,20 +98,32 @@ export default function SoloGameScreen() {
         elapsedRef.current,
         Math.floor((Date.now() - startedAt.current) / 1000),
       );
+      // Stop the timer only on a correct guess.
       setRunning(false);
       void (async () => {
         // Persist both the single-best snapshot (records) and the lifetime
         // aggregate (stats) + evaluate achievements. Running in parallel
         // so navigation isn't blocked.
-        const [{ wasBest }, { newUnlocks }] = await Promise.all([
-          saveRecordIfBest(digits, finalElapsed, nextCount),
-          recordWin({
-            mode: "solo",
-            digits,
-            guesses: nextCount,
-            timeSec: finalElapsed,
-          }),
-        ]);
+        // Only persist when both digits + hidden + elapsed are valid.
+        let wasBest = false;
+        let newUnlocks: string[] = [];
+        try {
+          if (digits && hidden && Number.isFinite(finalElapsed)) {
+            const [a, b] = await Promise.all([
+              saveRecordIfBest(digits, finalElapsed, nextCount),
+              recordWin({
+                mode: "solo",
+                digits,
+                guesses: nextCount,
+                timeSec: finalElapsed,
+              }),
+            ]);
+            wasBest = a.wasBest;
+            newUnlocks = b.newUnlocks;
+          }
+        } catch {
+          // Persisting is best-effort — never block the result screen.
+        }
         router.replace({
           pathname: "/result",
           params: {

@@ -98,6 +98,8 @@ export type TranslationKey =
   | "room.cantStartYet"
   | "room.digitsShort"
   | "room.unknownWinner"
+  | "game.errorTitle"
+  | "game.errorMsg"
   // Result
   | "result.solo"
   | "result.online"
@@ -325,6 +327,8 @@ const en: Record<TranslationKey, string> = {
   "room.cantStartYet": "The room isn't full yet.",
   "room.digitsShort": "DIGITS",
   "room.unknownWinner": "A player",
+  "game.errorTitle": "Couldn't submit guess",
+  "game.errorMsg": "That guess couldn't be processed. Please try again.",
 
   "result.solo": "Solo Result",
   "result.online": "Round Over",
@@ -556,6 +560,8 @@ const ar: Record<TranslationKey, string> = {
   "room.cantStartYet": "الغرفة لم تكتمل بعد.",
   "room.digitsShort": "خانات",
   "room.unknownWinner": "أحد اللاعبين",
+  "game.errorTitle": "تعذّر إرسال التخمين",
+  "game.errorMsg": "لم نتمكن من معالجة هذا التخمين. حاول مرة أخرى.",
 
   "result.solo": "النتيجة الفردية",
   "result.online": "انتهت الجولة",

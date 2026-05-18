@@ -23,9 +23,11 @@ import {
 } from "@/src/net/socketPlaceholder";
 import { formatPlayerIdentity } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
-import { isValidGuess } from "@/src/utils/gameLogic";
+import { isValidGuess, normalizeDigits } from "@/src/utils/gameLogic";
 
-const AUTO_SUBMIT_LOCK_MS = 250;
+/** Safety fallback only — the lock is normally released as soon as the
+ *  server acknowledges the guess by extending the player's history. */
+const AUTO_SUBMIT_LOCK_MS = 3000;
 const AUTO_SUBMIT_DELAY_MS = 130;
 
 export default function RoomScreen() {
@@ -39,7 +41,21 @@ export default function RoomScreen() {
   const [guessInput, setGuessInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef(false);
+  // History length the server must reach before we release the lock. -1
+  // means "not waiting for an ack right now".
+  const pendingHistoryLenRef = useRef(-1);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [locked, setLocked] = useState(false);
+
+  const releaseLock = () => {
+    submittingRef.current = false;
+    pendingHistoryLenRef.current = -1;
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+    setLocked(false);
+  };
 
   // Guard: online play needs a profile. Bounce missing identities back to
   // the welcome screen.
@@ -134,23 +150,54 @@ export default function RoomScreen() {
   const digits = state?.digits ?? null;
   const showCount = (digits ?? 0) >= 3;
 
-  const submitNow = (guess: string) => {
+  const submitNow = (rawGuess: string) => {
     if (submittingRef.current) return;
     if (!state || state.status !== "playing" || !digits) return;
-    if (!isValidGuess(guess, digits)) return;
+    // Normalise Arabic digits → English before validating or sending.
+    const guess = normalizeDigits(rawGuess);
+    if (!guess || !isValidGuess(guess, digits)) return;
     submittingRef.current = true;
     setLocked(true);
+    // Expect the server to grow our history by exactly one entry. The
+    // ack-watcher effect (below) releases the lock the moment that lands.
+    pendingHistoryLenRef.current = state.yourHistory.length + 1;
     try {
       sendGuess(state.code, guess);
     } catch {
       Alert.alert(t("room.sendErrorTitle"), t("room.sendErrorMsg"));
+      releaseLock();
+      setGuessInput("");
+      return;
     }
+    // Clear input only after the send attempt has been made (and any error
+    // surfaced) — never leave the input populated mid-flight.
     setGuessInput("");
-    setTimeout(() => {
-      submittingRef.current = false;
-      setLocked(false);
+    // Safety net in case the server drops the ack — release after 3s even
+    // without confirmation so the player is never permanently locked out.
+    fallbackTimerRef.current = setTimeout(() => {
+      releaseLock();
     }, AUTO_SUBMIT_LOCK_MS);
   };
+
+  // Ack-based unlock: when the server confirms our guess by extending
+  // yourHistory, release the lock immediately so the player can submit
+  // again without waiting for the fixed timeout.
+  useEffect(() => {
+    const len = state?.yourHistory.length ?? 0;
+    if (
+      pendingHistoryLenRef.current >= 0 &&
+      len >= pendingHistoryLenRef.current
+    ) {
+      releaseLock();
+    }
+  }, [state?.yourHistory.length]);
+
+  // Clear any pending fallback timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+    };
+  }, []);
 
   const onDigit = (d: string) => {
     if (submittingRef.current) return;

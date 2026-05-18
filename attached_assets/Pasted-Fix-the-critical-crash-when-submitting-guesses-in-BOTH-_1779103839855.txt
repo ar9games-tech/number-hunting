@@ -1,0 +1,88 @@
+Fix the critical crash when submitting guesses in BOTH Solo Mode and Online Mode.
+
+Problem:
+When the player enters the full number, the guess auto-submits, then the game shows “Something went wrong” and stops. This happens even in Solo Mode.
+
+Focus on:
+- Auto-submit logic
+- Guess validation
+- digitLength validation
+- hiddenNumber generation
+- feedback calculation
+- correct digit count calculation
+- repeated digits handling
+- Arabic digit conversion
+- duplicate submissions from state updates
+
+Required fixes:
+- Add safe validation before every guess submit:
+  - digitLength exists
+  - hiddenNumber exists
+  - guess exists
+  - guess length equals digitLength
+  - guess contains only digits
+  - game status is playing
+- Convert Arabic digits to English digits before validation.
+- Store guesses internally as English digits only.
+- Convert guess and hiddenNumber to strings before digit-count logic.
+- Convert guess and hiddenNumber to numbers only for High/Low comparison.
+- Never call functions with undefined/null values.
+- Never crash the app if something is missing.
+- Show friendly error message instead of “Something went wrong”.
+
+Solo Mode fixes:
+- Auto-submit after full digit length.
+- Prevent duplicate auto-submit.
+- Add isSubmittingGuess state or debounce lock.
+- Clear input only after feedback is calculated.
+- Add guess to history safely.
+- Stop timer only when guess is correct.
+- Save record only after correct guess.
+- Do not save record if hiddenNumber or elapsedTime is missing.
+
+Online Mode fixes:
+- Apply the same safe auto-submit system.
+- Do not submit while waiting for server feedback.
+- Clear input only after feedback/error response.
+- Handle guessError without crashing.
+
+Utility fixes:
+- Create or fix:
+  src/utils/gameLogic.js
+  src/utils/numberLocalization.js
+
+Functions must be safe:
+- generateHiddenNumber(digitLength)
+- validateGuess(guess, digitLength)
+- getHighLowFeedback(guess, hiddenNumber, digitLength)
+- countCorrectDigits(guess, hiddenNumber)
+- toEnglishDigits(value)
+
+Feedback rules:
+- Use only:
+  - Low
+  - Too Low
+  - High
+  - Too High
+  - Correct
+
+Thresholds:
+- 2 digits:
+  - difference <= 10 = Low/High
+  - difference > 10 = Too Low/Too High
+- 3 digits:
+  - difference <= 50 = Low/High
+  - difference > 50 = Too Low/Too High
+- 4 digits:
+  - difference <= 200 = Low/High
+  - difference > 200 = Too Low/Too High
+
+Testing checklist:
+- Solo 2-digit guesses do not crash.
+- Solo 3-digit guesses do not crash.
+- Solo 4-digit guesses do not crash.
+- Arabic digit input does not crash.
+- Wrong guesses show feedback.
+- Correct guess opens result screen.
+- Online wrong guesses do not crash.
+- Duplicate guesses are not submitted.

@@ -1,3 +1,5 @@
+import { toEnglishDigits } from "@/src/utils/numberLocalization";
+
 export type Digits = 2 | 3 | 4;
 
 export type FeedbackLevel = "low" | "tooLow" | "high" | "tooHigh";
@@ -15,7 +17,23 @@ export const DISTANCE_THRESHOLDS: Record<Digits, number> = {
   4: 200,
 };
 
+function isDigits(n: unknown): n is Digits {
+  return n === 2 || n === 3 || n === 4;
+}
+
+/** Defensive normaliser used at every boundary. Accepts anything, returns an
+ *  English-digit string ("" if input is null/undefined). Never throws. */
+export function normalizeDigits(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  try {
+    return toEnglishDigits(String(value));
+  } catch {
+    return "";
+  }
+}
+
 export function generateHidden(digits: Digits, allowLeadingZero: boolean): string {
+  if (!isDigits(digits)) return "";
   let result = "";
   for (let i = 0; i < digits; i++) {
     let d: number;
@@ -29,9 +47,23 @@ export function generateHidden(digits: Digits, allowLeadingZero: boolean): strin
   return result;
 }
 
-export function isValidGuess(guess: string, digits: Digits): boolean {
-  if (guess.length !== digits) return false;
-  return /^[0-9]+$/.test(guess);
+/** Spec alias. */
+export function generateHiddenNumber(digits: Digits, allowLeadingZero = false): string {
+  return generateHidden(digits, allowLeadingZero);
+}
+
+/** True iff `guess` is a string of exactly `digits` English digits 0-9.
+ *  Accepts unknown input safely — converts Arabic digits first. */
+export function isValidGuess(guess: unknown, digits: unknown): boolean {
+  if (!isDigits(digits)) return false;
+  const g = normalizeDigits(guess);
+  if (g.length !== digits) return false;
+  return /^[0-9]+$/.test(g);
+}
+
+/** Spec alias for isValidGuess. */
+export function validateGuess(guess: unknown, digits: unknown): boolean {
+  return isValidGuess(guess, digits);
 }
 
 function countSharedDigits(a: string, b: string): number {
@@ -47,22 +79,54 @@ function countSharedDigits(a: string, b: string): number {
   return shared;
 }
 
-export function evaluateGuess(guess: string, hidden: string, digits: Digits): Feedback {
-  const g = parseInt(guess, 10);
-  const h = parseInt(hidden, 10);
-  const correct = guess === hidden;
-  const correctDigitCount = countSharedDigits(guess, hidden);
+/** Counts how many digits the guess shares with the hidden number,
+ *  honouring repeats. Safe against missing/garbage input — returns 0. */
+export function countCorrectDigits(guess: unknown, hidden: unknown): number {
+  const g = normalizeDigits(guess);
+  const h = normalizeDigits(hidden);
+  if (!g || !h) return 0;
+  return countSharedDigits(g, h);
+}
+
+/** Pure high/low feedback (no `correct`). Returns null on bad input. */
+export function getHighLowFeedback(
+  guess: unknown,
+  hidden: unknown,
+  digits: unknown,
+): FeedbackLevel | null {
+  if (!isDigits(digits)) return null;
+  const g = normalizeDigits(guess);
+  const h = normalizeDigits(hidden);
+  if (g.length !== digits || h.length !== digits) return null;
+  if (!/^[0-9]+$/.test(g) || !/^[0-9]+$/.test(h)) return null;
+  if (g === h) return null;
+  const gi = parseInt(g, 10);
+  const hi = parseInt(h, 10);
+  if (!Number.isFinite(gi) || !Number.isFinite(hi)) return null;
+  const diff = Math.abs(gi - hi);
+  const threshold = DISTANCE_THRESHOLDS[digits];
+  if (gi < hi) return diff <= threshold ? "low" : "tooLow";
+  return diff <= threshold ? "high" : "tooHigh";
+}
+
+/** Full feedback for a guess. Always returns a Feedback object; never throws.
+ *  If inputs are invalid, returns a safe "incorrect with no level" sentinel. */
+export function evaluateGuess(guess: unknown, hidden: unknown, digits: unknown): Feedback {
+  const g = normalizeDigits(guess);
+  const h = normalizeDigits(hidden);
+  const safeDigits = isDigits(digits) ? digits : null;
+  if (!safeDigits || g.length !== safeDigits || h.length !== safeDigits) {
+    return { correct: false, level: null, correctDigitCount: 0 };
+  }
+  if (!/^[0-9]+$/.test(g) || !/^[0-9]+$/.test(h)) {
+    return { correct: false, level: null, correctDigitCount: 0 };
+  }
+  const correct = g === h;
+  const correctDigitCount = countSharedDigits(g, h);
   if (correct) {
     return { correct: true, level: null, correctDigitCount };
   }
-  const diff = Math.abs(g - h);
-  const threshold = DISTANCE_THRESHOLDS[digits];
-  let level: FeedbackLevel;
-  if (g < h) {
-    level = diff <= threshold ? "low" : "tooLow";
-  } else {
-    level = diff <= threshold ? "high" : "tooHigh";
-  }
+  const level = getHighLowFeedback(g, h, safeDigits);
   return { correct: false, level, correctDigitCount };
 }
 
@@ -90,3 +154,6 @@ export function generateRoomCode(): string {
   }
   return code;
 }
+
+// Re-export for convenience so callers can import everything from gameLogic.
+export { toEnglishDigits };
