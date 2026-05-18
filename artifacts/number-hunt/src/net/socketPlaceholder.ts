@@ -79,7 +79,7 @@ export type PunishmentReveal = {
   cooldownUntil: number;
 };
 
-export const PUNISHMENT_MIN_PLAYERS = 4;
+export const PUNISHMENT_MIN_PLAYERS = 2;
 
 export type JoinOutcome =
   | { ok: true; state: RoomState }

@@ -66,7 +66,7 @@ const PUNISHMENT_CARDS: PunishmentCardId[] = [
   "sandal",
   "animalSound",
 ];
-const PUNISHMENT_MIN_PLAYERS = 4;
+const PUNISHMENT_MIN_PLAYERS = 2;
 const PUNISHMENT_COOLDOWN_MS = 10_000;
 
 type OpponentSummary = {
