@@ -6,6 +6,7 @@ import {
   Alert,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -162,7 +163,18 @@ export default function MultiplayerLobbyScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader title={t("lobby.title")} />
-      <View style={[styles.container, { paddingBottom: bottomPad }]}>
+      {/* ScrollView so all three cards (Create / Join / Random Match)
+          remain reachable on short phones — without it the bottom card
+          gets clipped behind the home indicator / nav bar. */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: bottomPad + 40, flexGrow: 1 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Show the player's saved identity so they know which name will
             appear to the opponent — no prompt, no edit field here. */}
         <View style={[styles.identityBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
@@ -251,10 +263,10 @@ export default function MultiplayerLobbyScreen() {
           />
         </View>
 
-        <Text style={[styles.note, { color: colors.mutedForeground, writingDirection: wd }]}>
+        <Text style={[styles.note, { color: colors.mutedForeground, writingDirection: wd, marginTop: 8 }]}>
           {t("lobby.note")}
         </Text>
-      </View>
+      </ScrollView>
 
       {/* Searching modal — stays up until either a match is found (auto
           navigates to /room) or the user taps Cancel Search. */}
@@ -302,7 +314,7 @@ export default function MultiplayerLobbyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 16 },
+  container: { paddingHorizontal: 20, paddingTop: 8, gap: 16 },
   identityBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -326,7 +338,7 @@ const styles = StyleSheet.create({
     fontSize: 24, fontFamily: "Inter_700Bold", letterSpacing: 6, textAlign: "center",
   },
   note: {
-    marginTop: "auto", fontSize: 12, fontFamily: "Inter_400Regular",
+    fontSize: 12, fontFamily: "Inter_400Regular",
     textAlign: "center", lineHeight: 18, paddingHorizontal: 12,
   },
   modalBackdrop: {
