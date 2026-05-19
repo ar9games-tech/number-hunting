@@ -5,20 +5,26 @@
  * Components call them directly (each takes `soundOn` so call sites can
  * fire unconditionally) and never touch the audio backend themselves.
  *
+ * Audio backend: `expo-audio` (the official Expo SDK 53+ replacement for
+ * the deprecated `expo-av`). The public API used here — load asset,
+ * play, seek, pause, set volume, loop — mirrors expo-av 1:1.
+ *
  * --------------------------------------------------------------------
- * DROPPING IN REAL AUDIO ASSETS
+ * WHY NO SOUNDS ARE PLAYING YET
  * --------------------------------------------------------------------
- * Drop sound files (mp3 / m4a / wav) into:
+ * Every entry in `SOUND_FILES` below is `null` because no `.mp3` files
+ * have been shipped with the app yet. When a `play*()` is called, the
+ * manager logs `"Sound file missing: <id>"` to the console and no-ops.
  *
- *     artifacts/number-hunt/assets/sounds/
+ * To enable audio:
+ *   1. Drop `.mp3` / `.m4a` / `.wav` files into
+ *      `artifacts/number-hunt/assets/sounds/` (see the README in that
+ *      folder for the full file-name list).
+ *   2. Replace the matching `null` in `SOUND_FILES` with
+ *      `require("../../assets/sounds/<file>.mp3")`.
  *
- * Then add a `require(...)` for each one to the SOUND_FILES map below.
- * The expected file names are listed next to each entry. Every entry
- * left at `null` is a safe no-op — missing files never crash anything.
- *
- * See `artifacts/number-hunt/assets/sounds/README.md` for the full list
- * of expected files, recommended formats, and design intent for each
- * sound (general game + punishment pack sequence).
+ * Nothing else needs to change. The cache, volume balancing, mute
+ * gating, overlap prevention, and stop hooks are already wired.
  * --------------------------------------------------------------------
  */
 
@@ -132,6 +138,21 @@ const SOUND_FILES: { [K in SoundId]: AudioSource | null } = {
 const cache: Partial<{ [K in SoundId]: AudioPlayer }> = {};
 
 /**
+ * Tracks which missing-file warnings we've already printed, so the
+ * console doesn't get flooded when a `null` asset is invoked on every
+ * keypad press. Logged exactly once per id per session.
+ */
+const missingWarned = new Set<SoundId>();
+
+/**
+ * Cached global mute state. The settings UI calls `setSoundEnabled()`
+ * whenever the user toggles the switch, so callers that don't have
+ * easy access to the SettingsContext (or `playSound`/`stopSound`
+ * called by name) can still respect the user's preference.
+ */
+let soundEnabled = true;
+
+/**
  * Stage sounds that participate in the punishment-pack opening sequence.
  * `stopPackSounds()` halts all of them so a later stage's sound can play
  * cleanly without overlapping audio from an earlier stage.
@@ -154,14 +175,23 @@ function getPlayer(id: SoundId): AudioPlayer | null {
     const cached = cache[id];
     if (cached) return cached;
     const asset = SOUND_FILES[id];
-    if (!asset) return null;
+    if (!asset) {
+      // One-shot diagnostic so it's obvious why no sound is playing.
+      if (!missingWarned.has(id)) {
+        missingWarned.add(id);
+        console.log(`Sound file missing: ${id}`);
+      }
+      return null;
+    }
     const player = createAudioPlayer(asset);
     // expo-audio: volume is a settable 0..1 number on the player.
     player.volume = SOUND_VOLUME[id];
     cache[id] = player;
+    console.log(`Sound loaded: ${id}`);
     return player;
-  } catch {
+  } catch (err) {
     // Backend missing or asset bundle issue — fall through to no-op.
+    console.log(`Sound load failed: ${id}`, err);
     return null;
   }
 }
@@ -189,16 +219,24 @@ function safeSeekToStart(player: AudioPlayer): void {
 }
 
 function play(id: SoundId, soundOn: boolean): void {
-  if (!soundOn) return;
+  // Honor both the per-call flag (most call sites pass the live
+  // `settings.soundOn`) and the cached global mute, so legacy callers
+  // and the new name-based API agree on the off-state.
+  if (!soundOn || !soundEnabled) {
+    console.log("Sound disabled");
+    return;
+  }
   try {
     const player = getPlayer(id);
     if (!player) return;
+    console.log(`Playing sound: ${id}`);
     // Rewind so rapid re-triggers (key spam) restart from frame 0
     // instead of overlapping/echoing.
     safeSeekToStart(player);
     player.play();
-  } catch {
+  } catch (err) {
     // Intentional: never crash the UI because a sound failed.
+    console.log(`Sound play failed: ${id}`, err);
   }
 }
 
@@ -218,6 +256,75 @@ export function stopPackSounds(): void {
       // ignore
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Imperative, name-based API
+// ---------------------------------------------------------------------------
+// Some callers don't have easy access to the SettingsContext (deep in a
+// utility, an animation timeline, etc.). These four functions give them
+// a thin wrapper that respects the cached global mute set via
+// `setSoundEnabled()`.
+
+/**
+ * Eagerly warm the player cache. Optional — `playSound()` and the
+ * per-event helpers all lazy-load on first use. Useful at app boot to
+ * front-load decode cost off the critical interaction path.
+ *
+ * Audio decoding will only succeed once a user gesture has unlocked
+ * the audio context on web (browser autoplay policy); calling this
+ * before that gesture is still safe and simply prepares the assets.
+ */
+export function loadSounds(ids?: SoundId[]): void {
+  const target = ids ?? (Object.keys(SOUND_FILES) as SoundId[]);
+  for (const id of target) {
+    getPlayer(id);
+  }
+}
+
+/** Play a sound by id, respecting the cached mute flag. */
+export function playSound(id: SoundId): void {
+  play(id, soundEnabled);
+}
+
+/** Stop a single sound by id (pauses and rewinds). */
+export function stopSound(id: SoundId): void {
+  const p = cache[id];
+  if (!p) return;
+  try {
+    p.pause();
+    safeSeekToStart(p);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Update the cached global mute flag. SettingsContext calls this
+ * whenever the user flips the switch so `playSound()` reacts instantly
+ * without needing to re-thread `soundOn` through every caller.
+ */
+export function setSoundEnabled(value: boolean): void {
+  soundEnabled = value;
+  if (!value) {
+    // Cut any currently-playing sounds immediately so a long cue
+    // (search loop, win sting) doesn't keep ringing after mute.
+    for (const id of Object.keys(cache) as SoundId[]) {
+      try {
+        cache[id]?.pause();
+      } catch {
+        // ignore
+      }
+    }
+    console.log("Sound disabled");
+  } else {
+    console.log("Sound enabled");
+  }
+}
+
+/** Read the cached mute flag (mainly for tests / debug screens). */
+export function isSoundEnabled(): boolean {
+  return soundEnabled;
 }
 
 /** Free every cached player. Call from app teardown if needed. */

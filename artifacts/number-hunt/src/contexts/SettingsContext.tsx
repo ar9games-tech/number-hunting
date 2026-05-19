@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { I18nManager, Platform, useColorScheme } from "react-native";
 
+import { setSoundEnabled } from "@/src/services/soundManager";
 import {
   DEFAULT_SETTINGS,
   getSettings,
@@ -39,12 +40,22 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (mounted) {
         setSettings(loaded);
         setReady(true);
+        // Prime the sound manager's cached mute flag from disk before
+        // anything tries to play.
+        setSoundEnabled(loaded.soundOn);
       }
     })();
     return () => {
       mounted = false;
     };
   }, []);
+
+  // Keep the sound manager's cached mute flag in sync with every
+  // change to the persisted setting. The manager also stops any
+  // currently-playing audio on a true→false transition.
+  useEffect(() => {
+    setSoundEnabled(settings.soundOn);
+  }, [settings.soundOn]);
 
   const update = useCallback(
     async (patch: Partial<Settings>) => {
