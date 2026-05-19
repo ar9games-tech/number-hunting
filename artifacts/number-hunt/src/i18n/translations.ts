@@ -222,6 +222,8 @@ export type TranslationKey =
   | "result.opponentWon"
   | "result.defeat"
   | "result.newAchievements"
+  | "result.achievementsUnlocked"
+  | "result.viewAchievements"
   // Punishment cards
   | "punishment.button"
   | "punishment.opening"
@@ -583,6 +585,8 @@ const en: Record<TranslationKey, string> = {
   "result.opponentWon": "{name} cracked it first",
   "result.defeat": "Defeat",
   "result.newAchievements": "NEW UNLOCKS",
+  "result.achievementsUnlocked": "{count} Achievements Unlocked",
+  "result.viewAchievements": "View",
 
   "punishment.button": "Punishment",
   "punishment.opening": "Opening pack…",
@@ -979,6 +983,8 @@ const ar: Record<TranslationKey, string> = {
   "result.opponentWon": "{name} كشفه أولاً",
   "result.defeat": "هزيمة",
   "result.newAchievements": "إنجازات جديدة",
+  "result.achievementsUnlocked": "{count} إنجازات مفتوحة",
+  "result.viewAchievements": "عرض",
 
   "punishment.button": "عقاب",
   "punishment.opening": "جاري فتح البطاقة…",

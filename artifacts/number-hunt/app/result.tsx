@@ -7,6 +7,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -14,7 +15,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { AchievementBanner } from "@/src/components/AchievementBanner";
 import { Button } from "@/src/components/Button";
 import { GlassCard } from "@/src/components/GlassCard";
 import { NumberDisplay } from "@/src/components/NumberDisplay";
@@ -377,7 +377,19 @@ export default function ResultScreen() {
         style={StyleSheet.absoluteFill}
       />
       <ScreenHeader title={isOnline ? t("result.online") : t("result.solo")} />
-      <View style={[styles.container, { paddingBottom: bottomPad }]}>
+      {/*
+        Scrollable body — keeps every action (Punishment, Rematch / Play
+        Random Again, Leave Room, redirect "Draw new card") reachable
+        even when many achievements unlock at once or the screen is
+        short. `flexGrow:1` + `justifyContent: space-between` preserves
+        the original "card at top, actions at bottom" layout when the
+        content fits without scrolling.
+      */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.cardWrap}>
           {/* Confetti sits behind the card and is positionally absolute. */}
           <ParticleBurst active={showParticles && showVictory} color={colors.accent} />
@@ -454,16 +466,58 @@ export default function ResultScreen() {
         </View>
 
         {unlocks.length > 0 ? (
-          <View style={styles.unlocks}>
-            <Text
-              style={[styles.unlocksHead, { color: colors.mutedForeground }]}
+          // Compact summary card — replaces the old stacked
+          // AchievementBanner list which could push the action buttons
+          // off-screen when many achievements unlocked at once. Tap
+          // "View" to open the full achievements screen with details.
+          <Pressable
+            onPress={() => router.push("/achievements")}
+            style={({ pressed }) => [
+              styles.unlocksSummary,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.unlocksIcon,
+                { backgroundColor: colors.accent + "22" },
+              ]}
             >
-              {t("result.newAchievements")}
-            </Text>
-            {unlocks.map((id, i) => (
-              <AchievementBanner key={id} id={id} index={i} />
-            ))}
-          </View>
+              <Feather name="award" size={20} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text
+                style={[styles.unlocksHead, { color: colors.mutedForeground }]}
+              >
+                {t("result.newAchievements")}
+              </Text>
+              <Text
+                style={[styles.unlocksCount, { color: colors.foreground }]}
+                numberOfLines={1}
+              >
+                {t("result.achievementsUnlocked").replace(
+                  "{count}",
+                  lz(unlocks.length),
+                )}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.unlocksView,
+                { borderColor: colors.border, backgroundColor: colors.muted },
+              ]}
+            >
+              <Text
+                style={[styles.unlocksViewText, { color: colors.foreground }]}
+              >
+                {t("result.viewAchievements")}
+              </Text>
+            </View>
+          </Pressable>
         ) : null}
 
         <View style={styles.actions}>
@@ -617,7 +671,7 @@ export default function ResultScreen() {
             </>
           )}
         </View>
-      </View>
+      </ScrollView>
       <PunishmentCardModal
         reveal={punishment}
         visible={punishmentVisible}
@@ -851,7 +905,16 @@ function Stat({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 18, justifyContent: "space-between",
+    // Used as ScrollView contentContainerStyle. `flexGrow:1` lets the
+    // content stretch to fill the viewport when short (so `justifyContent`
+    // still spreads card → actions), but allows growth past the viewport
+    // when many unlocks land — making the action buttons reachable by
+    // scrolling instead of hidden off-screen.
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    gap: 18,
+    justifyContent: "space-between",
   },
   cardWrap: { position: "relative" },
   card: {
@@ -891,11 +954,40 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 2,
   },
-  unlocks: { gap: 8 },
+  unlocksSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  unlocksIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   unlocksHead: {
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 1.2,
     fontFamily: "Inter_700Bold",
-    paddingHorizontal: 4,
+  },
+  unlocksCount: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+  },
+  unlocksView: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  unlocksViewText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.3,
   },
 });
