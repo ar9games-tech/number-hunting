@@ -142,6 +142,15 @@ type Pending = {
   timer: ReturnType<typeof setTimeout>;
 };
 
+/** Random matchmaking error reasons mirrored from the server. */
+export type RandomQueueErrorReason = "alreadyQueued" | "inRoom" | "noName";
+
+/** Payload delivered when the server pairs two random-queue sockets. */
+export type RandomMatchFound = {
+  code: string;
+  state: RoomState;
+};
+
 type ServerResponse = {
   type: string;
   reqId?: string;
@@ -156,12 +165,16 @@ type ServerResponse = {
   targetName?: string;
   accepted?: boolean;
   canPass?: boolean;
-  reason?: PunishmentErrorReason;
+  // Errors reuse a single `reason` field — widened so both punishment
+  // and random-queue errors can travel through the same envelope.
+  reason?: PunishmentErrorReason | RandomQueueErrorReason;
 };
 
 type PunishmentRevealListener = (reveal: PunishmentReveal) => void;
 type PunishmentResolvedListener = (resolved: PunishmentResolved) => void;
 type PunishmentErrorListener = (reason: PunishmentErrorReason) => void;
+type RandomMatchListener = (m: RandomMatchFound) => void;
+type RandomQueueErrorListener = (reason: RandomQueueErrorReason) => void;
 
 const pending = new Map<string, Pending>();
 const listeners = new Map<string, Set<Listener>>();
@@ -179,6 +192,10 @@ const lastPunishmentReveal = new Map<string, PunishmentReveal>();
 const lastPunishmentResolved = new Map<string, PunishmentResolved>();
 const lastState = new Map<string, RoomState>();
 const activeSubs = new Set<string>();
+// Random matchmaking is a single global flow per socket connection — no
+// per-room keying needed. Each subscriber gets fired on every event.
+const randomMatchListeners = new Set<RandomMatchListener>();
+const randomQueueErrorListeners = new Set<RandomQueueErrorListener>();
 
 let socket: WebSocket | null = null;
 let connecting: Promise<WebSocket> | null = null;
@@ -296,9 +313,30 @@ function connect(): Promise<WebSocket> {
         punishmentResolvedListeners.get(code)?.forEach((l) => l(resolved));
       }
 
+      if (msg.type === "randomMatchFound" && msg.state && msg.code) {
+        const state = msg.state;
+        // Cache the room state BEFORE notifying listeners so the room
+        // screen's getCachedRoom() lookup succeeds on mount.
+        activeSubs.add(state.code);
+        lastState.set(state.code, state);
+        const payload: RandomMatchFound = { code: msg.code, state };
+        randomMatchListeners.forEach((l) => l(payload));
+        // Don't return — let the reqId branch below resolve any waiter.
+      }
+
+      if (msg.type === "randomQueueError" && msg.reason) {
+        // Only fire for queue-shaped reasons. Punishment errors use the
+        // same `reason` field but always travel with a `code`, which
+        // queue errors never carry.
+        if (!msg.code) {
+          const reason = msg.reason as RandomQueueErrorReason;
+          randomQueueErrorListeners.forEach((l) => l(reason));
+        }
+      }
+
       if (msg.type === "punishmentError" && msg.code && msg.reason) {
         const code = msg.code;
-        const reason = msg.reason;
+        const reason = msg.reason as PunishmentErrorReason;
         if (__DEV__) {
           console.log("[punishment] punishmentError received", { code, reason });
         }
@@ -594,6 +632,36 @@ export function onRoomClosed(code: string, cb: CloseListener): () => void {
       s.delete(cb);
       if (s.size === 0) closeListeners.delete(upper);
     }
+  };
+}
+
+// ---- Random matchmaking ----------------------------------------------------
+
+/**
+ * Ask the server to pair us with another waiting player. The server
+ * either pairs immediately (→ `randomMatchFound`) or queues us until
+ * someone else arrives. Errors come back via `onRandomQueueError`.
+ */
+export function joinRandomQueue(playerName: string): void {
+  fire("joinRandomQueue", { playerName });
+}
+
+/** Pull our socket back out of the queue. Safe to call when not queued. */
+export function cancelRandomQueue(): void {
+  fire("cancelRandomQueue", {});
+}
+
+export function onRandomMatchFound(cb: RandomMatchListener): () => void {
+  randomMatchListeners.add(cb);
+  return () => {
+    randomMatchListeners.delete(cb);
+  };
+}
+
+export function onRandomQueueError(cb: RandomQueueErrorListener): () => void {
+  randomQueueErrorListeners.add(cb);
+  return () => {
+    randomQueueErrorListeners.delete(cb);
   };
 }
 

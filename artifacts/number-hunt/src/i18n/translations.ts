@@ -53,6 +53,15 @@ export type TranslationKey =
   | "lobby.joinFullMsg"
   | "lobby.joinStarted"
   | "lobby.joinStartedMsg"
+  | "lobby.random"
+  | "lobby.randomDesc"
+  | "lobby.randomBtn"
+  | "lobby.searching"
+  | "lobby.searchingDesc"
+  | "lobby.cancelSearch"
+  | "lobby.randomErrorTitle"
+  | "lobby.randomErrorInRoom"
+  | "lobby.randomErrorNoName"
   // Create room (N-player picker)
   | "create.title"
   | "create.lead"
@@ -338,6 +347,15 @@ const en: Record<TranslationKey, string> = {
   "lobby.joinFullMsg": "That room can't take any more players.",
   "lobby.joinStarted": "Game already started",
   "lobby.joinStartedMsg": "This room has already begun — try a different code.",
+  "lobby.random": "Random Match",
+  "lobby.randomDesc": "We'll match you with the next available player. No code needed.",
+  "lobby.randomBtn": "Find Opponent",
+  "lobby.searching": "Searching for opponent…",
+  "lobby.searchingDesc": "Hang tight — we'll start the game the moment another player joins.",
+  "lobby.cancelSearch": "Cancel Search",
+  "lobby.randomErrorTitle": "Couldn't start matchmaking",
+  "lobby.randomErrorInRoom": "You're already in a room. Leave it before searching for a random match.",
+  "lobby.randomErrorNoName": "Set your nickname on the welcome screen before searching.",
   "create.title": "Create Room",
   "create.lead": "How many players will be in the room?",
   "create.players": "{n} players",
@@ -629,6 +647,15 @@ const ar: Record<TranslationKey, string> = {
   "lobby.joinFullMsg": "لا يمكن لهذه الغرفة استقبال المزيد من اللاعبين.",
   "lobby.joinStarted": "اللعبة بدأت بالفعل",
   "lobby.joinStartedMsg": "هذه الغرفة بدأت اللعبة بالفعل — جرّب رمزاً آخر.",
+  "lobby.random": "لعب عشوائي",
+  "lobby.randomDesc": "سنقوم بإقرانك مع أول لاعب متاح. لا حاجة إلى رمز.",
+  "lobby.randomBtn": "ابحث عن خصم",
+  "lobby.searching": "جاري البحث عن خصم…",
+  "lobby.searchingDesc": "انتظر قليلاً — ستبدأ اللعبة فور انضمام لاعب آخر.",
+  "lobby.cancelSearch": "إلغاء البحث",
+  "lobby.randomErrorTitle": "تعذّر بدء البحث",
+  "lobby.randomErrorInRoom": "أنت بالفعل داخل غرفة. غادرها قبل البحث عن لعب عشوائي.",
+  "lobby.randomErrorNoName": "اضبط اسمك في شاشة الترحيب قبل البحث.",
   "create.title": "إنشاء غرفة",
   "create.lead": "كم عدد اللاعبين في الغرفة؟",
   "create.players": "{n} لاعبين",

@@ -328,7 +328,36 @@ type ClientMessage =
   | { type: "requestPunishment"; reqId?: string; code: string; targetId: string }
   | { type: "respondPunishment"; reqId?: string; code: string; accepted: boolean }
   | { type: "reassignPunishment"; reqId?: string; code: string; newTargetId: string }
+  | { type: "joinRandomQueue"; reqId?: string; playerName: string }
+  | { type: "cancelRandomQueue"; reqId?: string }
   | { type: "ping"; reqId?: string };
+
+// ---- Random matchmaking queue ---------------------------------------------
+//
+// First-come-first-served queue of sockets waiting for an opponent. When a
+// new socket joins:
+//   - if the queue is empty → push and send `randomQueueJoined`.
+//   - else → pair with the head, create a 2-player room with a randomly
+//     chosen digit length, broadcast `randomMatchFound` to BOTH peers and
+//     start play immediately (status="playing").
+// Sockets are removed from the queue on `cancelRandomQueue` and on
+// disconnect, so a stale entry can never pair with someone who's gone.
+
+type QueueEntry = {
+  ws: WebSocket;
+  playerName: string;
+  joinedAt: number;
+};
+type RandomQueueErrorReason = "alreadyQueued" | "inRoom" | "noName";
+
+const randomQueue: QueueEntry[] = [];
+
+function removeFromRandomQueue(ws: WebSocket): boolean {
+  const idx = randomQueue.findIndex((q) => q.ws === ws);
+  if (idx < 0) return false;
+  randomQueue.splice(idx, 1);
+  return true;
+}
 
 type PunishmentErrorReason =
   | "notInRoom"
@@ -363,6 +392,10 @@ type JoinError = "notFound" | "full" | "started";
 function handleMessage(ws: WebSocket, raw: ClientMessage) {
   switch (raw.type) {
     case "create": {
+      // Creating a room is mutually exclusive with random matchmaking —
+      // drop any stale queue entry so the same socket can't be paired
+      // into a second room behind its own back.
+      removeFromRandomQueue(ws);
       const maxPlayers = clampMaxPlayers(raw.maxPlayers);
       const hostId = idFor(ws);
       let code = generateRoomCode();
@@ -403,6 +436,9 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
     }
 
     case "join": {
+      // See note on "create" — joining a room is mutually exclusive
+      // with random matchmaking.
+      removeFromRandomQueue(ws);
       const code = String(raw.code || "").toUpperCase();
       const room = getRoom(code);
       if (!room) {
@@ -791,6 +827,122 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       break;
     }
 
+    case "joinRandomQueue": {
+      const playerName = sanitizeName(raw.playerName, "");
+      const sendErr = (reason: RandomQueueErrorReason) => {
+        safeSend(ws, {
+          type: "randomQueueError",
+          reqId: raw.reqId,
+          reason,
+        });
+      };
+      // Reject: empty name, already in a room, or already queued.
+      if (!playerName) return sendErr("noName");
+      if (socketIdentity.get(ws)) return sendErr("inRoom");
+      if (randomQueue.some((q) => q.ws === ws)) return sendErr("alreadyQueued");
+
+      // Pair with the oldest waiter, if any. Otherwise, queue and wait.
+      const opponent = randomQueue.shift();
+      if (!opponent) {
+        randomQueue.push({ ws, playerName, joinedAt: Date.now() });
+        safeSend(ws, { type: "randomQueueJoined", reqId: raw.reqId });
+        logger.info(
+          { queueSize: randomQueue.length, playerName },
+          "ws: random queue: waiting",
+        );
+        return;
+      }
+
+      // Safety: opponent socket dropped between pop and pair, or somehow
+      // landed in another room since being queued — discard the stale
+      // entry and queue the new arrival instead of pairing.
+      if (opponent.ws.readyState !== 1 || socketIdentity.get(opponent.ws)) {
+        randomQueue.push({ ws, playerName, joinedAt: Date.now() });
+        safeSend(ws, { type: "randomQueueJoined", reqId: raw.reqId });
+        logger.info(
+          { queueSize: randomQueue.length, playerName },
+          "ws: random queue: opponent stale, requeued caller",
+        );
+        return;
+      }
+
+      const hostId = idFor(opponent.ws);
+      const guestId = idFor(ws);
+      // Random digit length per spec — 2, 3, or 4 — picked server-side
+      // so neither player needs to vote and play starts instantly.
+      const digitChoices = [2, 3, 4] as const;
+      const digits = digitChoices[Math.floor(Math.random() * digitChoices.length)]!;
+      let code = generateRoomCode();
+      while (rooms.has(code)) code = generateRoomCode();
+      const room: RoomInternal = {
+        code,
+        maxPlayers: 2,
+        players: [
+          {
+            socketId: hostId,
+            name: opponent.playerName,
+            joinedAt: opponent.joinedAt,
+          },
+          {
+            socketId: guestId,
+            name: playerName,
+            joinedAt: Date.now(),
+          },
+        ],
+        digits,
+        hidden: generateHidden(digits),
+        status: "playing",
+        winnerId: null,
+        punishmentUsed: false,
+        punishmentTargetName: null,
+        punishmentTargetSocketId: null,
+        punishmentCardId: null,
+        punishmentResolution: null,
+        punishmentCanPass: false,
+        histories: new Map(),
+        punishmentLockUntil: 0,
+      };
+      rooms.set(code, { room, updatedAt: Date.now() });
+      socketIdentity.set(opponent.ws, { code, socketId: hostId });
+      socketIdentity.set(ws, { code, socketId: guestId });
+      subscribe(opponent.ws, code);
+      subscribe(ws, code);
+      // Send each socket its own per-player view (opponents list /
+      // yourId / etc. differ per viewer). Mirror the create/join
+      // pattern so the client can cache and navigate immediately.
+      safeSend(opponent.ws, {
+        type: "randomMatchFound",
+        code,
+        state: buildView(room, hostId),
+      });
+      safeSend(ws, {
+        type: "randomMatchFound",
+        reqId: raw.reqId,
+        code,
+        state: buildView(room, guestId),
+      });
+      logger.info(
+        {
+          code,
+          digits,
+          host: opponent.playerName,
+          guest: playerName,
+        },
+        "ws: random match paired",
+      );
+      break;
+    }
+
+    case "cancelRandomQueue": {
+      const removed = removeFromRandomQueue(ws);
+      safeSend(ws, {
+        type: "randomQueueCanceled",
+        reqId: raw.reqId,
+        removed,
+      });
+      break;
+    }
+
     case "ping": {
       safeSend(ws, { type: "pong", reqId: raw.reqId });
       break;
@@ -930,6 +1082,9 @@ export function attachGameWs(server: Server) {
 
     ws.on("close", () => {
       clearInterval(heartbeat);
+      // Always drop a disconnecting socket from the random matchmaking
+      // queue so it can't be paired with a peer that's already gone.
+      removeFromRandomQueue(ws);
       // Drop subscriptions.
       const codes = socketRooms.get(ws);
       if (codes) {

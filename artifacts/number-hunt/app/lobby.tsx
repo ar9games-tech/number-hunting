@@ -1,7 +1,16 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { Alert, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
@@ -9,7 +18,13 @@ import { Button } from "@/src/components/Button";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
-import { getRoomMeta } from "@/src/net/socketPlaceholder";
+import {
+  cancelRandomQueue,
+  getRoomMeta,
+  joinRandomQueue,
+  onRandomMatchFound,
+  onRandomQueueError,
+} from "@/src/net/socketPlaceholder";
 import { formatPlayerIdentity } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 
@@ -23,6 +38,13 @@ export default function MultiplayerLobbyScreen() {
   const wd = isRTL ? "rtl" : "ltr";
 
   const [joining, setJoining] = useState(false);
+  // Random matchmaking: modal stays open while we're queued. The same
+  // flag also gates the Find Opponent button so a stray double-tap can't
+  // enqueue twice.
+  const [searching, setSearching] = useState(false);
+  // Guard so a randomMatchFound event from a previous (stale) attempt
+  // can't navigate us into a room we already left.
+  const searchingRef = useRef(false);
 
   // Online play requires a saved identity — never prompt for a nickname
   // inside the multiplayer flow. Send the user to welcome if it's missing.
@@ -35,6 +57,69 @@ export default function MultiplayerLobbyScreen() {
   }, [needsProfile]);
 
   const identity = formatPlayerIdentity(settings.playerName, settings.playerSerial);
+
+  // Subscribe to random-match events while mounted. The match-found
+  // handler ALWAYS navigates — the server is authoritative, so if it
+  // paired us (even in the tiny window between our cancel-tap and the
+  // server reading that message), the room exists and we belong in it.
+  // The error handler still uses the ref so stale "alreadyQueued"
+  // chatter from a previous attempt can't surprise the user.
+  useEffect(() => {
+    const offFound = onRandomMatchFound(({ code }) => {
+      searchingRef.current = false;
+      setSearching(false);
+      router.replace({ pathname: "/room", params: { code } });
+    });
+    const offErr = onRandomQueueError((reason) => {
+      if (!searchingRef.current) return;
+      const msg =
+        reason === "inRoom"
+          ? t("lobby.randomErrorInRoom")
+          : reason === "noName"
+            ? t("lobby.randomErrorNoName")
+            : // "alreadyQueued" means the server already has us — keep
+              // the modal open and ignore.
+              null;
+      if (msg) {
+        searchingRef.current = false;
+        setSearching(false);
+        Alert.alert(t("lobby.randomErrorTitle"), msg);
+      }
+    });
+    return () => {
+      offFound();
+      offErr();
+    };
+  }, [t]);
+
+  // If the user navigates away while still queued, pull them back out
+  // so we don't strand the server with a stale entry.
+  useEffect(() => {
+    return () => {
+      if (searchingRef.current) {
+        searchingRef.current = false;
+        cancelRandomQueue();
+      }
+    };
+  }, []);
+
+  const handleRandomMatch = () => {
+    if (searchingRef.current) return;
+    if (!identity) {
+      Alert.alert(t("lobby.randomErrorTitle"), t("lobby.randomErrorNoName"));
+      return;
+    }
+    searchingRef.current = true;
+    setSearching(true);
+    joinRandomQueue(identity);
+  };
+
+  const handleCancelSearch = () => {
+    if (!searchingRef.current) return;
+    searchingRef.current = false;
+    setSearching(false);
+    cancelRandomQueue();
+  };
 
   const handleJoin = async () => {
     const trimmed = code.trim().toUpperCase();
@@ -147,10 +232,71 @@ export default function MultiplayerLobbyScreen() {
           />
         </View>
 
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.iconWrap, { backgroundColor: colors.secondary }]}>
+            <Feather name="shuffle" size={24} color={colors.success} />
+          </View>
+          <Text style={[styles.cardTitle, { color: colors.foreground, writingDirection: wd }]}>
+            {t("lobby.random")}
+          </Text>
+          <Text style={[styles.cardSub, { color: colors.mutedForeground, writingDirection: wd }]}>
+            {t("lobby.randomDesc")}
+          </Text>
+          <Button
+            title={t("lobby.randomBtn")}
+            fullWidth
+            variant="secondary"
+            disabled={searching}
+            onPress={handleRandomMatch}
+          />
+        </View>
+
         <Text style={[styles.note, { color: colors.mutedForeground, writingDirection: wd }]}>
           {t("lobby.note")}
         </Text>
       </View>
+
+      {/* Searching modal — stays up until either a match is found (auto
+          navigates to /room) or the user taps Cancel Search. */}
+      <Modal
+        visible={searching}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelSearch}
+      >
+        <View style={[styles.modalBackdrop, { backgroundColor: "rgba(0,0,0,0.6)" }]}>
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: colors.foreground, writingDirection: wd },
+              ]}
+            >
+              {t("lobby.searching")}
+            </Text>
+            <Text
+              style={[
+                styles.modalBody,
+                { color: colors.mutedForeground, writingDirection: wd },
+              ]}
+            >
+              {t("lobby.searchingDesc")}
+            </Text>
+            <Button
+              title={t("lobby.cancelSearch")}
+              fullWidth
+              variant="ghost"
+              onPress={handleCancelSearch}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -182,5 +328,18 @@ const styles = StyleSheet.create({
   note: {
     marginTop: "auto", fontSize: 12, fontFamily: "Inter_400Regular",
     textAlign: "center", lineHeight: 18, paddingHorizontal: 12,
+  },
+  modalBackdrop: {
+    flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32,
+  },
+  modalCard: {
+    width: "100%", maxWidth: 360, borderWidth: 1, borderRadius: 20,
+    padding: 24, alignItems: "center", gap: 14,
+  },
+  modalTitle: {
+    fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center", marginTop: 4,
+  },
+  modalBody: {
+    fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 19,
   },
 });
