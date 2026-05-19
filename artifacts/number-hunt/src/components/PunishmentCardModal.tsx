@@ -41,6 +41,13 @@ function actionModeFor(reveal: PunishmentReveal): ActionMode {
 }
 
 /**
+ * Unified neutral color used by EVERY pre-reveal pack — sparkles, halo,
+ * pack border / glow / label. Kept constant across cards so the target
+ * can't read the result from the wrapper before the card is shown.
+ */
+const PACK_PURPLE = "#8b5cf6";
+
+/**
  * Full-screen pack-opening reveal for a punishment card.
  *
  * Animation phases:
@@ -215,16 +222,14 @@ export function PunishmentCardModal({
 
   if (!reveal) return null;
   const card = getPunishmentCard(reveal.cardId);
-  const accent =
-    card.tone === "destructive"
-      ? colors.destructive
-      : card.tone === "primary"
-        ? colors.primary
-        : card.tone === "warning"
-          ? colors.warning
-          : card.tone === "success"
-            ? colors.success
-            : colors.accent;
+  // Result accent (used only on the revealed card itself): red for the
+  // single elimination card, green for everything else — Vote, Another
+  // Chance, and Choose Another all share the "safe" green border so the
+  // visual outcome is immediately readable. The per-card `card.tone` is
+  // intentionally ignored here; the spec collapses the palette to red /
+  // green at reveal time.
+  const revealAccent =
+    reveal.cardId === "directElimination" ? colors.destructive : colors.success;
   const mode = actionModeFor(reveal);
 
   const shakeTranslate = shake.interpolate({
@@ -269,14 +274,16 @@ export function PunishmentCardModal({
               inputRange: [0, 0.2, 1],
               outputRange: [0, 1, 0],
             });
+            // Sparkles always glow purple — they belong to the pack
+            // ambience and must never hint at the result color.
             return (
               <Animated.View
                 key={i}
                 style={[
                   styles.sparkle,
                   {
-                    backgroundColor: accent,
-                    shadowColor: accent,
+                    backgroundColor: PACK_PURPLE,
+                    shadowColor: PACK_PURPLE,
                     opacity,
                     transform: [{ translateX: tx }, { translateY: ty }],
                   },
@@ -299,13 +306,16 @@ export function PunishmentCardModal({
           <View style={styles.stage}>
             {/* Sealed pack */}
             {phase === "shaking" || phase === "revealing" ? (
+              // The sealed pack is uniformly purple regardless of the
+              // card inside — pack border, glow halo, and label all use
+              // PACK_PURPLE so the target can't infer the result early.
               <Animated.View
                 style={[
                   styles.pack,
                   {
                     backgroundColor: colors.card,
-                    borderColor: accent,
-                    shadowColor: accent,
+                    borderColor: PACK_PURPLE,
+                    shadowColor: PACK_PURPLE,
                     opacity: packOpacity,
                     transform: [
                       { translateX: phase === "shaking" ? shakeTranslate : 0 },
@@ -319,27 +329,28 @@ export function PunishmentCardModal({
                   style={[
                     styles.glowHalo,
                     {
-                      backgroundColor: accent + "33",
+                      backgroundColor: PACK_PURPLE + "33",
                       opacity: glowOpacity,
                     },
                   ]}
                 />
                 <Text style={styles.packQuestion}>?</Text>
-                <Text style={[styles.packLabel, { color: accent }]}>
+                <Text style={[styles.packLabel, { color: PACK_PURPLE }]}>
                   {t("punishment.opening")}
                 </Text>
               </Animated.View>
             ) : null}
 
-            {/* Revealed card */}
+            {/* Revealed card — now wears the result color (red for
+                Direct Elimination, green for all other cards). */}
             {phase !== "shaking" ? (
               <Animated.View
                 style={[
                   styles.card,
                   {
                     backgroundColor: colors.card,
-                    borderColor: accent,
-                    shadowColor: accent,
+                    borderColor: revealAccent,
+                    shadowColor: revealAccent,
                     opacity: cardOpacity,
                     transform: [
                       { translateY: cardTranslate },
@@ -349,7 +360,7 @@ export function PunishmentCardModal({
                 ]}
               >
                 <LinearGradient
-                  colors={[accent + "55", "transparent"]}
+                  colors={[revealAccent + "55", "transparent"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={StyleSheet.absoluteFill}
@@ -376,7 +387,7 @@ export function PunishmentCardModal({
                   <Text
                     style={[
                       styles.targetLabel,
-                      { color: accent, writingDirection: wd },
+                      { color: revealAccent, writingDirection: wd },
                     ]}
                   >
                     {t("punishment.targetLabel", { name: reveal.targetName })}

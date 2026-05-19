@@ -268,24 +268,81 @@ export default function RoomScreen() {
   const playerCount = state.players.length;
   const isFull = playerCount >= state.maxPlayers;
   const inLobby = state.status === "waiting";
+  const isPlaying = state.status === "playing" && !!digits;
+
+  const header = (
+    <ScreenHeader
+      title={t("room.title", { code: state.code })}
+      rightSlot={
+        <Pressable
+          onPress={() => {
+            leaveRoom(state.code);
+            router.replace("/lobby");
+          }}
+          hitSlop={12}
+          accessibilityLabel={t("room.leave")}
+        >
+          <Feather name="log-out" size={20} color={colors.destructive} />
+        </Pressable>
+      }
+    />
+  );
+
+  // Playing view uses a FIXED layout so the numeric keypad stays pinned
+  // to the bottom no matter how many guesses pile up — guess history
+  // scrolls independently in the flex:1 middle slot. The lobby/waiting
+  // view keeps its old ScrollView since it's content-heavy but never
+  // shows the keypad.
+  if (isPlaying && digits) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {header}
+        <View style={[styles.playingContainer, { paddingBottom: bottomPad }]}>
+          {state.opponents.length > 0 ? (
+            <View style={styles.oppRow}>
+              {state.opponents.map((o, i) => (
+                <View key={`${o.name}-${i}`} style={[styles.oppChip, { backgroundColor: colors.muted }]}>
+                  <Text style={[styles.oppName, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    {o.name}
+                  </Text>
+                  <View style={[styles.oppCount, { backgroundColor: colors.card }]}>
+                    <Feather name="hash" size={10} color={colors.mutedForeground} />
+                    <Text style={[styles.oppCountText, { color: colors.mutedForeground }]}>
+                      {lz(o.guessCount)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          <View style={styles.historyWrapPlaying}>
+            <Text style={[styles.label, { color: colors.mutedForeground, writingDirection: wd }]}>
+              {t("room.yourGuesses")}
+            </Text>
+            {/* GuessHistory uses an internal ScrollView with flex:1, so
+                new guesses scroll inside this slot instead of pushing
+                the keypad down. */}
+            <GuessHistory items={historyItems} showCorrectCount={showCount} />
+          </View>
+
+          <View style={styles.bottom}>
+            <GuessInput value={guessInput} digits={digits} />
+            <NumericKeypad
+              onDigit={onDigit}
+              onBackspace={() => setGuessInput((v) => v.slice(0, -1))}
+              onClear={() => setGuessInput("")}
+              disabled={locked}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScreenHeader
-        title={t("room.title", { code: state.code })}
-        rightSlot={
-          <Pressable
-            onPress={() => {
-              leaveRoom(state.code);
-              router.replace("/lobby");
-            }}
-            hitSlop={12}
-            accessibilityLabel={t("room.leave")}
-          >
-            <Feather name="log-out" size={20} color={colors.destructive} />
-          </Pressable>
-        }
-      />
+      {header}
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
@@ -444,44 +501,9 @@ export default function RoomScreen() {
           )
         ) : null}
 
-        {/* Playing — own history + keypad */}
-        {state.status === "playing" && digits ? (
-          <>
-            {state.opponents.length > 0 ? (
-              <View style={styles.oppRow}>
-                {state.opponents.map((o, i) => (
-                  <View key={`${o.name}-${i}`} style={[styles.oppChip, { backgroundColor: colors.muted }]}>
-                    <Text style={[styles.oppName, { color: colors.mutedForeground }]} numberOfLines={1}>
-                      {o.name}
-                    </Text>
-                    <View style={[styles.oppCount, { backgroundColor: colors.card }]}>
-                      <Feather name="hash" size={10} color={colors.mutedForeground} />
-                      <Text style={[styles.oppCountText, { color: colors.mutedForeground }]}>
-                        {lz(o.guessCount)}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
-            <View style={styles.historyWrap}>
-              <Text style={[styles.label, { color: colors.mutedForeground, writingDirection: wd }]}>
-                {t("room.yourGuesses")}
-              </Text>
-              <GuessHistory items={historyItems} showCorrectCount={showCount} />
-            </View>
-            <View style={styles.bottom}>
-              <GuessInput value={guessInput} digits={digits} />
-              <NumericKeypad
-                onDigit={onDigit}
-                onBackspace={() => setGuessInput((v) => v.slice(0, -1))}
-                onClear={() => setGuessInput("")}
-                disabled={locked}
-              />
-            </View>
-          </>
-        ) : null}
+        {/* The playing view is rendered separately above (fixed layout
+            with pinned keypad); this ScrollView only covers the
+            lobby/waiting flow. */}
       </ScrollView>
     </View>
   );
@@ -556,5 +578,15 @@ const styles = StyleSheet.create({
   oppCountText: { fontSize: 11, fontFamily: "Inter_700Bold", fontVariant: ["tabular-nums"] },
   label: { fontSize: 11, letterSpacing: 1.2, fontFamily: "Inter_600SemiBold" },
   historyWrap: { gap: 8 },
+  // Playing screen layout: container takes all space below the header,
+  // history slot flexes to fill remaining room (and scrolls internally),
+  // keypad bottom stays a fixed-height row that never shifts.
+  playingContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 12,
+  },
+  historyWrapPlaying: { flex: 1, gap: 8, minHeight: 0 },
   bottom: { gap: 12 },
 });
