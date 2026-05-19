@@ -1,0 +1,57 @@
+Fix the “Choose Another Player” punishment card flow.
+
+Rule:
+- If the revealed punishment card is:
+  Arabic: اختر لاعبًا آخر
+  English: Choose Another Player
+- The selected punished player must choose another player, then press the Punishment button again.
+
+Flow:
+1. Winner presses Punishment.
+2. Winner selects a target player.
+3. Random punishment card is revealed.
+4. If card is “Choose Another Player”:
+   - The original target player sees a player selection list.
+   - The original target must choose another eligible player.
+   - After selecting the new target, they press “Punishment” again.
+   - Then a new random punishment card is revealed for the new target.
+
+Important rules:
+- The original target cannot choose themselves.
+- The winner can be excluded if punishment should apply only to losers.
+- The new target must be broadcast to all players.
+- The next punishment reveal must use the same dramatic pack-opening animation.
+- Prevent infinite loops by allowing “Choose Another Player” only once per punishment chain.
+- If “Choose Another Player” appears again, replace it with another random card.
+
+Server requirements:
+- Add punishmentChainActive state.
+- Add redirectedByPlayerId.
+- Add new punishment event:
+  - redirectPunishmentTarget
+- Validate:
+  - requester is the current punishment target
+  - selected new target is valid
+  - selected new target is not requester
+  - punishment chain has not already been redirected
+- After redirect, broadcast:
+  - punishmentTargetChanged
+- Then allow the redirected target flow to reveal a new punishment card.
+
+Client requirements:
+- Only the current target sees:
+  - Choose player list
+  - Punishment button
+- Other players only see waiting message.
+- After new target is selected and Punishment is pressed:
+  - Show pack-opening animation again
+  - Reveal final punishment card
+- Accept / Refuse buttons appear only for the final target when needed.
+
+Testing:
+- Winner reveals “Choose Another Player”.
+- Target selects another player.
+- Target presses Punishment.
+- New card reveals.
+- Other players cannot press it.
+- No infinite loop happens.

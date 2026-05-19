@@ -173,6 +173,9 @@ type ServerResponse = {
   name?: string;
   reaction?: string;
   timestamp?: number;
+  // chooseAnother redirect chain (punishmentTargetChanged)
+  redirectedById?: string;
+  redirectedByName?: string;
 };
 
 /** Payload delivered when any player in the room sends a reaction. */
@@ -190,6 +193,24 @@ export type ReactionEvent = {
 type ReactionListener = (e: ReactionEvent) => void;
 
 type PunishmentRevealListener = (reveal: PunishmentReveal) => void;
+
+/**
+ * Broadcast when the current chooseAnother target hands the punishment
+ * off to a new player. The card itself is intentionally cleared on the
+ * server — the redirector must then send a fresh requestPunishment to
+ * draw a new card for the new target.
+ */
+export type PunishmentTargetChanged = {
+  /** Stable id of the player who redirected (the original target). */
+  redirectedById: string;
+  /** Display name of the redirector — UI only. */
+  redirectedByName: string;
+  /** Stable id of the newly chosen target. */
+  targetId: string;
+  /** Display name of the newly chosen target. */
+  targetName: string;
+};
+type PunishmentTargetChangedListener = (evt: PunishmentTargetChanged) => void;
 type PunishmentResolvedListener = (resolved: PunishmentResolved) => void;
 type PunishmentErrorListener = (reason: PunishmentErrorReason) => void;
 type RandomMatchListener = (m: RandomMatchFound) => void;
@@ -201,6 +222,10 @@ const closeListeners = new Map<string, Set<CloseListener>>();
 const punishmentRevealListeners = new Map<string, Set<PunishmentRevealListener>>();
 const punishmentResolvedListeners = new Map<string, Set<PunishmentResolvedListener>>();
 const punishmentErrorListeners = new Map<string, Set<PunishmentErrorListener>>();
+const punishmentTargetChangedListeners = new Map<
+  string,
+  Set<PunishmentTargetChangedListener>
+>();
 /**
  * Per-room reaction subscribers. No replay cache — reactions are
  * ephemeral, so a late subscriber simply misses any in-flight reactions
@@ -318,6 +343,35 @@ function connect(): Promise<WebSocket> {
         lastPunishmentResolved.delete(code);
         punishmentRevealListeners.get(code)?.forEach((l) => l(reveal));
         // Fall through so any reqId on the requester also resolves below.
+      }
+
+      if (
+        msg.type === "punishmentTargetChanged" &&
+        msg.code &&
+        typeof msg.redirectedById === "string" &&
+        typeof msg.targetId === "string"
+      ) {
+        const code = msg.code;
+        const evt: PunishmentTargetChanged = {
+          redirectedById: msg.redirectedById,
+          redirectedByName: msg.redirectedByName ?? "",
+          targetId: msg.targetId,
+          targetName: msg.targetName ?? "",
+        };
+        // A redirect supersedes any cached reveal/resolution from the
+        // current match — drop them so a late re-subscriber doesn't
+        // replay the chooseAnother card on top of the redirect UI.
+        lastPunishmentReveal.delete(code);
+        lastPunishmentResolved.delete(code);
+        if (__DEV__) {
+          console.log("[punishment] punishmentTargetChanged received", {
+            code,
+            redirectedByName: evt.redirectedByName,
+            targetName: evt.targetName,
+          });
+        }
+        punishmentTargetChangedListeners.get(code)?.forEach((l) => l(evt));
+        // Fall through to reqId resolution below.
       }
 
       if (msg.type === "punishmentResolved" && msg.code && typeof msg.accepted === "boolean") {
@@ -517,6 +571,7 @@ export function leaveRoom(code: string): void {
   punishmentRevealListeners.delete(upper);
   punishmentResolvedListeners.delete(upper);
   punishmentErrorListeners.delete(upper);
+  punishmentTargetChangedListeners.delete(upper);
   reactionListeners.delete(upper);
   lastPunishmentReveal.delete(upper);
   lastPunishmentResolved.delete(upper);
@@ -545,12 +600,12 @@ export function requestPunishmentCard(code: string, targetId: string): void {
  * success the server re-broadcasts `punishmentRevealed` for the new
  * target with `canPass=false`.
  */
-export function reassignPunishmentTarget(code: string, newTargetId: string): void {
+export function redirectPunishmentTarget(code: string, newTargetId: string): void {
   const upper = code.toUpperCase();
   if (__DEV__) {
-    console.log("[punishment] emit reassignPunishment", { code: upper, newTargetId });
+    console.log("[punishment] emit redirectPunishmentTarget", { code: upper, newTargetId });
   }
-  fire("reassignPunishment", { code: upper, newTargetId });
+  fire("redirectPunishmentTarget", { code: upper, newTargetId });
 }
 
 /**
@@ -613,6 +668,26 @@ export function onPunishmentResolved(
     if (s) {
       s.delete(cb);
       if (s.size === 0) punishmentResolvedListeners.delete(upper);
+    }
+  };
+}
+
+export function onPunishmentTargetChanged(
+  code: string,
+  cb: PunishmentTargetChangedListener,
+): () => void {
+  const upper = code.toUpperCase();
+  let set = punishmentTargetChangedListeners.get(upper);
+  if (!set) {
+    set = new Set();
+    punishmentTargetChangedListeners.set(upper, set);
+  }
+  set.add(cb);
+  return () => {
+    const s = punishmentTargetChangedListeners.get(upper);
+    if (s) {
+      s.delete(cb);
+      if (s.size === 0) punishmentTargetChangedListeners.delete(upper);
     }
   };
 }

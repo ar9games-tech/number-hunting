@@ -257,6 +257,9 @@ export type TranslationKey =
   | "punishment.continue"
   | "punishment.forgivenTitle"
   | "punishment.forgivenBody"
+  | "punishment.drawNewCard"
+  | "punishment.redirectWaiting"
+  | "punishment.redirectYourTurn"
   // Welcome / first-run nickname
   | "welcome.title"
   | "welcome.subtitle"
@@ -613,6 +616,9 @@ const en: Record<TranslationKey, string> = {
   "punishment.passToPlayer": "Pass to {name}",
   "punishment.continue": "Continue",
   "punishment.forgivenTitle": "Forgiven",
+  "punishment.drawNewCard": "Draw new card",
+  "punishment.redirectWaiting": "Waiting for {name} to draw a new card…",
+  "punishment.redirectYourTurn": "Your turn — draw a new card for {name}",
   "punishment.forgivenBody": "{name} is forgiven and plays another round.",
 
   "welcome.title": "Welcome to Number Hunt",
@@ -1005,6 +1011,9 @@ const ar: Record<TranslationKey, string> = {
   "punishment.passToPlayer": "مرّر إلى {name}",
   "punishment.continue": "متابعة",
   "punishment.forgivenTitle": "مُسامَح",
+  "punishment.drawNewCard": "اسحب بطاقة جديدة",
+  "punishment.redirectWaiting": "بانتظار {name} لسحب بطاقة جديدة…",
+  "punishment.redirectYourTurn": "دورك — اسحب بطاقة جديدة لـ {name}",
   "punishment.forgivenBody": "{name} تمت مسامحته ويلعب جولة أخرى.",
 
   "welcome.title": "أهلاً بك في صيد الأرقام",

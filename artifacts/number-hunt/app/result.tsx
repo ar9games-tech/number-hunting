@@ -30,12 +30,14 @@ import {
   onPunishmentError,
   onPunishmentResolved,
   onPunishmentRevealed,
-  reassignPunishmentTarget,
+  onPunishmentTargetChanged,
+  redirectPunishmentTarget,
   requestPunishmentCard,
   requestRematch,
   respondPunishment,
   type PunishmentResolved,
   type PunishmentReveal,
+  type PunishmentTargetChanged,
 } from "@/src/net/socketPlaceholder";
 import {
   playNewMatch,
@@ -144,6 +146,12 @@ export default function ResultScreen() {
   // Separate picker state for the chooseAnother "pass" flow — opened by
   // the target from inside the reveal modal, not by the winner.
   const [reassignPickerVisible, setReassignPickerVisible] = React.useState(false);
+  // When the chooseAnother chain is mid-redirect: the card has been
+  // cleared on the server and we're waiting for the redirector (the
+  // original target) to tap Punishment again. The new target has
+  // already been picked. Cleared when the second reveal lands or on
+  // rematch/leave.
+  const [redirect, setRedirect] = React.useState<PunishmentTargetChanged | null>(null);
 
   // Pull the live room snapshot so we know our own stable id and the
   // opponent list. We identify the target by id, not name, because
@@ -188,11 +196,32 @@ export default function ResultScreen() {
       // pass) — close any stale picker so the new target sees a clean
       // reveal animation instead of two overlapping modals.
       setReassignPickerVisible(false);
+      // The chain's second reveal closes the redirect waiting state.
+      setRedirect(null);
       // Two distinct cues: the "pack opening" rumble plays as the
       // sealed pack appears, and the reveal sting hits when the card
       // slides out. Both are gated by the central soundOn setting.
       playPunishmentPackOpen(settings.soundOn);
       playPunishmentReveal(settings.soundOn);
+    });
+    const unsubRedirect = onPunishmentTargetChanged(code, (evt) => {
+      if (__DEV__) {
+        console.log("[punishment] target changed (redirect started)", {
+          redirectedByName: evt.redirectedByName,
+          targetName: evt.targetName,
+        });
+      }
+      // Close the old chooseAnother modal everywhere and clear the
+      // stale reveal so peers don't see the previous card under the
+      // waiting UI. The redirector will see a "Draw new card" button;
+      // everyone else sees a waiting message.
+      setPunishmentVisible(false);
+      setPunishment(null);
+      setPunishmentResolved(null);
+      setReassignPickerVisible(false);
+      setPunishmentLoading(false);
+      setPunishmentError(null);
+      setRedirect(evt);
     });
     const unsubResolved = onPunishmentResolved(code, (resolved) => {
       if (__DEV__) {
@@ -250,6 +279,7 @@ export default function ResultScreen() {
     });
     return () => {
       unsubReveal();
+      unsubRedirect();
       unsubResolved();
       unsubErr();
     };
@@ -423,7 +453,7 @@ export default function ResultScreen() {
         <View style={styles.actions}>
           {isOnline ? (
             <>
-              {youWon ? (
+              {youWon && !redirect ? (
                 <>
                   <PunishmentButton
                     used={punishmentUsed}
@@ -446,6 +476,54 @@ export default function ResultScreen() {
                     </Text>
                   ) : null}
                 </>
+              ) : null}
+              {redirect && redirect.redirectedById === yourId ? (
+                // Original target's second-press: draw a new card for
+                // the player they just picked. No picker — the target
+                // is already chosen. The reveal animation runs for
+                // everyone via the standard onPunishmentRevealed path.
+                <>
+                  <Text
+                    style={[styles.redirectHint, { color: colors.mutedForeground }]}
+                  >
+                    {t("punishment.redirectYourTurn").replace(
+                      "{name}",
+                      redirect.targetName,
+                    )}
+                  </Text>
+                  <PunishmentButton
+                    used={false}
+                    loading={punishmentLoading}
+                    idleLabel={t("punishment.drawNewCard")}
+                    onPress={() => {
+                      if (!code || punishmentLoading) return;
+                      if (__DEV__) {
+                        console.log("[punishment] redirect draw pressed", {
+                          code,
+                          targetId: redirect.targetId,
+                        });
+                      }
+                      setPunishmentError(null);
+                      setPunishmentLoading(true);
+                      requestPunishmentCard(code, redirect.targetId);
+                    }}
+                  />
+                  {punishmentError ? (
+                    <Text style={[styles.punishErr, { color: colors.destructive }]}>
+                      {punishmentError}
+                    </Text>
+                  ) : null}
+                </>
+              ) : null}
+              {redirect && redirect.redirectedById !== yourId ? (
+                <Text
+                  style={[styles.redirectHint, { color: colors.mutedForeground }]}
+                >
+                  {t("punishment.redirectWaiting").replace(
+                    "{name}",
+                    redirect.redirectedByName,
+                  )}
+                </Text>
               ) : null}
               <Button
                 title={t("result.rematch")}
@@ -561,7 +639,12 @@ export default function ResultScreen() {
             });
           }
           setReassignPickerVisible(false);
-          reassignPunishmentTarget(code, opp.id);
+          // Optimistic loading state — until the server confirms the
+          // redirect, we don't want the original modal to stay open if
+          // the user double-taps. The actual UI swap happens when
+          // `punishmentTargetChanged` lands.
+          setPunishmentLoading(true);
+          redirectPunishmentTarget(code, opp.id);
         }}
       />
     </View>
@@ -756,6 +839,12 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     textAlign: "center",
     marginTop: -2,
+  },
+  redirectHint: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    marginBottom: 2,
   },
   unlocks: { gap: 8 },
   unlocksHead: {

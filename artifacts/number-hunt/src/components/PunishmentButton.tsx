@@ -14,11 +14,18 @@ export function PunishmentButton({
   onPress,
   used,
   loading = false,
+  /**
+   * Override for the default "Punishment" label — e.g. the chooseAnother
+   * redirect chain reuses this button with a "Draw new card" label. The
+   * disabled-state and loading-state labels still use their defaults.
+   */
+  idleLabel,
 }: {
   onPress: () => void;
   used: boolean;
   /** True while we're waiting for the server's reveal broadcast. */
   loading?: boolean;
+  idleLabel?: string;
 }) {
   const colors = useColors();
   const { t } = useT();
@@ -27,7 +34,7 @@ export function PunishmentButton({
     ? t("punishment.alreadyUsed")
     : loading
       ? t("punishment.opening")
-      : t("punishment.button");
+      : (idleLabel ?? t("punishment.button"));
   const iconName = used ? "check-circle" : loading ? "loader" : "zap";
 
   return (

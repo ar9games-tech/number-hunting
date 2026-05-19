@@ -83,6 +83,21 @@ type RoomInternal = {
    * forever. Any other card always has this as false.
    */
   punishmentCanPass: boolean;
+  /**
+   * True between a `redirectPunishmentTarget` and the follow-up
+   * `requestPunishment` second draw. While true, the room is awaiting
+   * the redirector's tap to reveal a fresh card for the new target.
+   * Caps the chooseAnother chain to exactly one redirect per match.
+   */
+  punishmentChainActive: boolean;
+  /**
+   * The original target's socketId during an active redirect chain.
+   * This player (a loser) is the one allowed to press Punishment again
+   * to draw the second card for the newly chosen target.
+   */
+  punishmentRedirectedById: string | null;
+  /** Display name of the redirector — UI only. */
+  punishmentRedirectedByName: string | null;
 };
 
 /** Punishment cards. IDs match what the client renders in its modal. */
@@ -327,7 +342,7 @@ type ClientMessage =
   | { type: "leave"; code: string }
   | { type: "requestPunishment"; reqId?: string; code: string; targetId: string }
   | { type: "respondPunishment"; reqId?: string; code: string; accepted: boolean }
-  | { type: "reassignPunishment"; reqId?: string; code: string; newTargetId: string }
+  | { type: "redirectPunishmentTarget"; reqId?: string; code: string; newTargetId: string }
   | { type: "joinRandomQueue"; reqId?: string; playerName: string }
   | { type: "cancelRandomQueue"; reqId?: string }
   | { type: "sendReaction"; code: string; reaction: string }
@@ -431,6 +446,9 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         punishmentCardId: null,
         punishmentResolution: null,
         punishmentCanPass: false,
+        punishmentChainActive: false,
+        punishmentRedirectedById: null,
+        punishmentRedirectedByName: null,
         histories: new Map(),
         punishmentLockUntil: 0,
       };
@@ -596,6 +614,9 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       room.punishmentCardId = null;
       room.punishmentResolution = null;
       room.punishmentCanPass = false;
+      room.punishmentChainActive = false;
+      room.punishmentRedirectedById = null;
+      room.punishmentRedirectedByName = null;
       broadcast(code);
       logger.info({ code }, "ws: rematch armed (awaiting digits)");
       break;
@@ -624,8 +645,21 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       const requester = playerById(room, id.socketId);
       if (!requester) return sendErr("notInRoom");
       if (room.status !== "won") return sendErr("notWon");
-      if (room.winnerId !== id.socketId) return sendErr("notWinner");
-      if (room.punishmentUsed) return sendErr("alreadyUsed");
+      // Two acceptance paths:
+      //   (a) First draw — winner draws once per match for a chosen loser.
+      //   (b) Second draw of a chooseAnother chain — the original target
+      //       (the "redirector") draws a fresh card for the new target
+      //       they just picked. The chain is one-shot: validated by the
+      //       three-way match below.
+      const isChainSecondDraw =
+        room.punishmentChainActive &&
+        room.punishmentCardId === null &&
+        room.punishmentRedirectedById === id.socketId &&
+        room.punishmentTargetSocketId === targetId;
+      if (!isChainSecondDraw) {
+        if (room.winnerId !== id.socketId) return sendErr("notWinner");
+        if (room.punishmentUsed) return sendErr("alreadyUsed");
+      }
       if (!targetId) return sendErr("noTarget");
       // Target is keyed by stable per-connection id — names aren't
       // guaranteed unique. Target must (a) exist in the room and (b) not
@@ -638,12 +672,27 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       if (now < room.punishmentLockUntil) return sendErr("alreadyUsed");
       room.punishmentLockUntil = now + PUNISHMENT_LOCK_MS;
       room.punishmentUsed = true;
-      const cardId =
+      // Draw a card. On the chain's second draw the chooseAnother card
+      // is excluded — the chain has already redirected once and the
+      // spec caps it there to prevent infinite loops; if we'd otherwise
+      // roll chooseAnother again we silently swap it for another card.
+      let cardId =
         PUNISHMENT_CARDS[Math.floor(Math.random() * PUNISHMENT_CARDS.length)]!;
+      if (isChainSecondDraw && cardId === "chooseAnother") {
+        const alternates = PUNISHMENT_CARDS.filter((c) => c !== "chooseAnother");
+        cardId = alternates[Math.floor(Math.random() * alternates.length)]!;
+      }
       room.punishmentCardId = cardId;
       room.punishmentTargetName = target.name;
       room.punishmentTargetSocketId = target.socketId;
       room.punishmentResolution = null;
+      // The chain (if any) ends with this reveal — clear redirect state
+      // so a stale redirector can't trigger a third draw.
+      if (isChainSecondDraw) {
+        room.punishmentChainActive = false;
+        room.punishmentRedirectedById = null;
+        room.punishmentRedirectedByName = null;
+      }
       // The chooseAnother card grants the original target exactly one
       // pass — capped so the chain can't loop forever. We *also* only
       // grant the pass when there's an eligible alternate loser to pass
@@ -654,7 +703,12 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       const hasReassignCandidate = room.players.some(
         (p) => p.socketId !== room.winnerId && p.socketId !== target.socketId,
       );
-      room.punishmentCanPass = cardId === "chooseAnother" && hasReassignCandidate;
+      // Only the first draw can grant the one-shot pass — once a chain
+      // is active (isChainSecondDraw), canPass is always false.
+      room.punishmentCanPass =
+        !isChainSecondDraw &&
+        cardId === "chooseAnother" &&
+        hasReassignCandidate;
       const subs = subscribers.get(code);
       const peerCount = subs ? subs.size : 0;
       if (subs) {
@@ -686,20 +740,21 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       break;
     }
 
-    case "reassignPunishment": {
-      // Special-case action for the chooseAnother card: the current
-      // target hands the punishment off to someone else. Server
-      // re-broadcasts a fresh `punishmentRevealed` with the new target,
-      // and flips `canPass` to false so the chain ends after one hop.
+    case "redirectPunishmentTarget": {
+      // chooseAnother flow, step 1 of 2: the current target hands the
+      // punishment off to a new player. We clear the revealed card and
+      // open a redirect chain — the redirector must then send a fresh
+      // requestPunishment to draw a NEW random card for the new target
+      // (with chooseAnother excluded on that re-draw to cap loops).
       const code = String(raw.code).toUpperCase();
       const newTargetId = String(raw.newTargetId ?? "").trim();
       const id = socketIdentity.get(ws);
       logger.info(
         { code, socketId: id?.socketId ?? null, newTargetId },
-        "ws: reassignPunishment received",
+        "ws: redirectPunishmentTarget received",
       );
       const sendErr = (reason: PunishmentErrorReason) => {
-        logger.info({ code, reason }, "ws: punishment reassign rejected");
+        logger.info({ code, reason }, "ws: punishment redirect rejected");
         safeSend(ws, {
           type: "punishmentError",
           reqId: raw.reqId,
@@ -720,10 +775,17 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         return sendErr("noPunishment");
       }
       if (room.punishmentResolution) return sendErr("alreadyResolved");
-      // Only the current target may pass, and only when the card is
-      // chooseAnother *and* the one-pass budget is intact.
+      // Only the current target may redirect, and only when the card is
+      // chooseAnother *and* the one-pass budget is intact. The
+      // punishmentChainActive flag is the same one-shot guard viewed
+      // from the post-redirect side — if it's already true, someone
+      // already redirected this match.
       if (id.socketId !== room.punishmentTargetSocketId) return sendErr("notTarget");
-      if (room.punishmentCardId !== "chooseAnother" || !room.punishmentCanPass) {
+      if (
+        room.punishmentCardId !== "chooseAnother" ||
+        !room.punishmentCanPass ||
+        room.punishmentChainActive
+      ) {
         return sendErr("alreadyResolved");
       }
       if (!newTargetId) return sendErr("noTarget");
@@ -737,21 +799,29 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       ) {
         return sendErr("invalidTarget");
       }
+      // Open the chain: clear the revealed card and remember who the
+      // redirector is so only they can trigger the next draw.
       room.punishmentTargetName = newTarget.name;
       room.punishmentTargetSocketId = newTarget.socketId;
+      room.punishmentCardId = null;
       room.punishmentCanPass = false;
+      room.punishmentChainActive = true;
+      room.punishmentRedirectedById = caller.socketId;
+      room.punishmentRedirectedByName = caller.name;
+      // Clear the brief mutex so the redirector's follow-up draw isn't
+      // rejected by punishmentLockUntil from the original reveal.
+      room.punishmentLockUntil = 0;
       const subs = subscribers.get(code);
       const peerCount = subs ? subs.size : 0;
       if (subs) {
         for (const peer of subs) {
           safeSend(peer, {
-            type: "punishmentRevealed",
+            type: "punishmentTargetChanged",
             code,
-            cardId: room.punishmentCardId,
-            drawnBy: caller.name, // The passer is the "drawer" of the new reveal.
+            redirectedById: caller.socketId,
+            redirectedByName: caller.name,
             targetId: newTarget.socketId,
             targetName: newTarget.name,
-            canPass: false,
           });
         }
       }
@@ -759,12 +829,12 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       logger.info(
         {
           code,
-          cardId: room.punishmentCardId,
+          redirectedById: caller.socketId,
           newTargetId: newTarget.socketId,
           newTargetName: newTarget.name,
           peerCount,
         },
-        "ws: punishment reassigned + broadcast",
+        "ws: punishment redirected + broadcast",
       );
       break;
     }
@@ -947,6 +1017,9 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         punishmentCardId: null,
         punishmentResolution: null,
         punishmentCanPass: false,
+        punishmentChainActive: false,
+        punishmentRedirectedById: null,
+        punishmentRedirectedByName: null,
         histories: new Map(),
         punishmentLockUntil: 0,
       };
@@ -1022,6 +1095,42 @@ function removePlayer(
   if (room.players.length === 0) {
     closeRoom(code, `${reason} (empty)`);
     return;
+  }
+
+  // If the redirector leaves during an active chooseAnother chain (after
+  // they handed the punishment off, before they re-pressed Punishment),
+  // the new target would otherwise be stuck waiting for a draw that
+  // can't happen. Tear the chain down cleanly: auto-refuse on behalf
+  // of the (intended) new target so the room can move on. The auto-
+  // resolve broadcast below still fires for the *target-left* case, so
+  // here we just clear chain state and emit our own resolution.
+  if (
+    room.punishmentChainActive &&
+    room.punishmentRedirectedById === socketId &&
+    !room.punishmentResolution
+  ) {
+    const targetName = room.punishmentTargetName ?? "";
+    const targetId = room.punishmentTargetSocketId ?? "";
+    room.punishmentChainActive = false;
+    room.punishmentRedirectedById = null;
+    room.punishmentRedirectedByName = null;
+    room.punishmentResolution = { accepted: false };
+    const subs = subscribers.get(code);
+    if (subs) {
+      for (const peer of subs) {
+        safeSend(peer, {
+          type: "punishmentResolved",
+          code,
+          accepted: false,
+          targetId,
+          targetName,
+        });
+      }
+    }
+    logger.info(
+      { code, targetId, targetName, reason },
+      "ws: punishment chain auto-refused (redirector left)",
+    );
   }
 
   // If the chosen punishment target left before responding, auto-resolve
