@@ -438,18 +438,21 @@ export default function RoomScreen() {
           </View>
 
           {/* Reactions overlay — absolutely positioned so it never
-              affects the keypad/history layout. The floating stack
-              renders just above the keypad; the button sits at the
-              top corner opposite the leave button (start side under
-              RTL). pointerEvents="box-none" lets taps fall through
-              the empty space back to the keypad. */}
+              affects the keypad/history layout.
+              - The button sits at the TOP corner (start side under
+                RTL, end side under LTR), just below the header. It is
+                deliberately *not* near the keypad anymore — the prior
+                bottom-anchored placement overlapped the keypad and
+                guess input on short screens.
+              - The floating reaction stack (transient incoming
+                reactions) is anchored to the upper-middle area so
+                pop-ups never cover the keypad area either.
+              `pointerEvents` keeps unrelated taps falling through to
+              the underlying gameplay. */}
           {settings.enableReactions ? (
             <>
               <View
-                style={[
-                  styles.reactionStack,
-                  { bottom: bottomPad + 140 },
-                ]}
+                style={styles.reactionStack}
                 pointerEvents="none"
               >
                 {activeReactions.map((r) => (
@@ -470,7 +473,6 @@ export default function RoomScreen() {
                 style={[
                   styles.reactionButtonWrap,
                   isRTL ? { left: 14 } : { right: 14 },
-                  { bottom: bottomPad + 140 + 10 },
                 ]}
                 pointerEvents="box-none"
               >
@@ -720,7 +722,18 @@ const styles = StyleSheet.create({
     borderRadius: 14, borderWidth: 1,
   },
   waitingHostText: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1 },
-  oppRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  // Reserve a 60px gutter on the end so opponent chips can never run
+  // under the floating Reactions button (48px wide + 14px inset). The
+  // gutter sits on the *visual* end side; RN flips paddingEnd
+  // automatically in RTL so the button-side stays clear in both
+  // English (top-right) and Arabic (top-left).
+  oppRow: {
+    flexDirection: "row",
+    gap: 6,
+    flexWrap: "wrap",
+    paddingEnd: 60,
+    minHeight: 48,
+  },
   oppChip: {
     flexDirection: "row", alignItems: "center", gap: 6,
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
@@ -745,14 +758,23 @@ const styles = StyleSheet.create({
   },
   historyWrapPlaying: { flex: 1, gap: 8, minHeight: 0 },
   bottom: { gap: 12 },
+  // Transient incoming-reaction popups — anchored to the upper-middle
+  // of the playing area so they never overlap the keypad or guess
+  // input. They animate out via FloatingReaction's own lifecycle.
   reactionStack: {
     position: "absolute",
+    top: 64,
     left: 0,
     right: 0,
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
   },
+  // The Reactions button sits at the top corner of the playing
+  // container (just below the header), opposite the leave button.
+  // Absolute + top offset keeps it far from the keypad on every
+  // screen size; the side (left/right) is set inline per direction.
   reactionButtonWrap: {
     position: "absolute",
+    top: 4,
   },
 });
