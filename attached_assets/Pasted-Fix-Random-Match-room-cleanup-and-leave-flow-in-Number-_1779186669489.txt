@@ -1,0 +1,74 @@
+Fix Random Match room cleanup and leave flow in Number Hunt.
+
+Current bug:
+- After a Random Match ends, the player cannot leave properly.
+- If the player goes back and tries Random Match again, server says:
+  “You are still in a room”.
+- This means the player is not being removed from the old random room.
+
+Required fixes:
+
+1. Add proper Leave Room after Random Match
+- On the Winner/Game Over screen, show:
+  - Leave Room
+  - Play Random Again
+- Leave Room must:
+  - Emit "leaveRoom"
+  - Remove player from the current room on server
+  - Clear local roomCode
+  - Clear currentRoom state
+  - Clear game state
+  - Navigate back to Online Multiplayer screen
+
+2. Add Play Random Again button
+- When tapped:
+  - First leave/cleanup old room
+  - Then join random queue again
+- Do not keep old room data.
+
+3. Server cleanup
+- Add/fix Socket.io event:
+  "leaveRoom"
+- Server must:
+  - Find player by socketId/playerId
+  - Remove player from room.players
+  - If room becomes empty, delete room
+  - If player was in random queue, remove from queue
+  - Clear playerRoom mapping
+  - Broadcast updated room state to remaining players
+
+4. Disconnect cleanup
+- On socket disconnect:
+  - Remove player from any room
+  - Remove player from random queue
+  - Delete empty rooms
+  - Clear playerRoom mapping
+
+5. Prevent false “still in room”
+- Before joining Random Match:
+  - Check if player has an old room
+  - If old room ended or empty, cleanup automatically
+  - Allow player to join new random match
+- Do not block player if their previous room already ended.
+
+6. Client cleanup
+- On leaveRoom success:
+  - setRoomCode(null)
+  - setCurrentRoom(null)
+  - setGameStatus("idle")
+  - setOpponent(null)
+  - clear guess history
+  - clear punishment state
+  - clear winner state
+  - stop timers
+  - navigate to Online Multiplayer
+
+Testing:
+- Start Random Match.
+- Finish match.
+- Tap Leave Room.
+- Start Random Match again.
+- No “still in room” error appears.
+- Tap Play Random Again.
+- New random matchmaking starts.
+- Closing app/disconnect cleans old room.

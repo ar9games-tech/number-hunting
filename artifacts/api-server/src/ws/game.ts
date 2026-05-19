@@ -956,7 +956,30 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       };
       // Reject: empty name, already in a room, or already queued.
       if (!playerName) return sendErr("noName");
-      if (socketIdentity.get(ws)) return sendErr("inRoom");
+      // "Still in a room" guard — but auto-cleanup if that room is
+      // actually finished or has vanished. This is the common case for
+      // "Random Match → finish → Find Opponent again": the socket's
+      // identity is still attached to the previous (now `won`) room
+      // because the user navigated to result without explicitly
+      // pressing Leave Room. Free the identity instead of rejecting,
+      // so a stale finished room never blocks rematchmaking.
+      const existing = socketIdentity.get(ws);
+      if (existing) {
+        const existingRoom = getRoom(existing.code);
+        if (!existingRoom) {
+          // Room already vanished (closed/TTL'd) — `removePlayer` bails
+          // early in that case, so manually drop the dangling identity
+          // + subscription bookkeeping ourselves. Without this the next
+          // pairing pass would treat us as "still in a room" and skip
+          // us, stranding the queue.
+          socketIdentity.delete(ws);
+          socketRooms.get(ws)?.delete(existing.code);
+        } else if (existingRoom.status === "won") {
+          removePlayer(ws, existing.code, existing.socketId, "rejoin random (stale)");
+        } else {
+          return sendErr("inRoom");
+        }
+      }
       if (randomQueue.some((q) => q.ws === ws)) return sendErr("alreadyQueued");
 
       // Pair with the oldest waiter, if any. Otherwise, queue and wait.

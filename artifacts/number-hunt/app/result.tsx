@@ -56,6 +56,7 @@ import {
   recordWin,
   saveRecordIfBest,
 } from "@/src/storage/storage";
+import { peekPendingRandomMatch } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { errorHaptic, playLose, playWin, successHaptic } from "@/src/utils/sound";
 import type { Digits } from "@/src/utils/gameLogic";
@@ -86,6 +87,21 @@ export default function ResultScreen() {
   const timeSec = parseInt(params.timeSec ?? "0", 10);
   const guesses = parseInt(params.guesses ?? "0", 10);
   const [isNewRecord, setIsNewRecord] = React.useState<boolean>(params.isNewRecord === "1");
+  // Was this game launched from the Random Match queue? Drives the
+  // post-match CTA: random matches show "Play Random Again" (which
+  // tears down the finished room and re-queues), code-rooms keep
+  // "Rematch" (which replays the same room). Peeked non-destructively
+  // so the win-attribution path's consume still runs.
+  const [isRandomMatch, setIsRandomMatch] = React.useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void peekPendingRandomMatch().then((v) => {
+      if (!cancelled) setIsRandomMatch(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const isOnline = mode === "online";
   const hidden = params.hidden ?? "";
   const code = params.code ?? "";
@@ -525,30 +541,54 @@ export default function ResultScreen() {
                   )}
                 </Text>
               ) : null}
-              <Button
-                title={t("result.rematch")}
-                fullWidth
-                onPress={() => {
-                  playNewMatch(settings.soundOn);
-                  // Only the host's rematch request actually resets the
-                  // room on the server. For everyone else, fire-and-forget
-                  // is fine — the room screen will receive the reset state
-                  // via subscription. Either way we re-attach to the same
-                  // room and let the room screen drive the next phase
-                  // (waiting → host picks digits → playing).
-                  if (code) requestRematch(code);
-                  router.replace({
-                    pathname: "/room",
-                    params: { code },
-                  });
-                }}
-              />
+              {isRandomMatch ? (
+                // Random match: the previous opponent is gone for good.
+                // "Play Random Again" tears down the finished room
+                // server-side (leaveRoom) and re-queues from the lobby
+                // via the `autoRandom` param. We never offer Rematch
+                // here — random pairings are one-shot by design.
+                <Button
+                  title={t("result.playRandomAgain")}
+                  fullWidth
+                  onPress={() => {
+                    playNewMatch(settings.soundOn);
+                    if (code) leaveRoom(code);
+                    void clearPendingRandomMatch();
+                    router.replace({
+                      pathname: "/lobby",
+                      params: { autoRandom: "1" },
+                    });
+                  }}
+                />
+              ) : (
+                <Button
+                  title={t("result.rematch")}
+                  fullWidth
+                  onPress={() => {
+                    playNewMatch(settings.soundOn);
+                    // Only the host's rematch request actually resets the
+                    // room on the server. For everyone else, fire-and-forget
+                    // is fine — the room screen will receive the reset state
+                    // via subscription. Either way we re-attach to the same
+                    // room and let the room screen drive the next phase
+                    // (waiting → host picks digits → playing).
+                    if (code) requestRematch(code);
+                    router.replace({
+                      pathname: "/room",
+                      params: { code },
+                    });
+                  }}
+                />
+              )}
               <Button
                 title={t("result.leaveRoom")}
                 fullWidth
                 variant="ghost"
                 onPress={() => {
                   if (code) leaveRoom(code);
+                  // Drop the random-match flag so a stale value from
+                  // this round can't influence the next screen.
+                  void clearPendingRandomMatch();
                   router.replace("/lobby");
                 }}
               />

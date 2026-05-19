@@ -124,6 +124,7 @@ export type TranslationKey =
   | "result.home"
   | "result.rematch"
   | "result.leaveRoom"
+  | "result.playRandomAgain"
   // Records
   | "records.title"
   | "records.label"
@@ -479,6 +480,7 @@ const en: Record<TranslationKey, string> = {
   "result.home": "Home",
   "result.rematch": "Rematch",
   "result.leaveRoom": "Leave Room",
+  "result.playRandomAgain": "Play Random Again",
 
   "records.title": "Records",
   "records.label": "{n}-digit",
@@ -875,6 +877,7 @@ const ar: Record<TranslationKey, string> = {
   "result.home": "الرئيسية",
   "result.rematch": "مباراة جديدة",
   "result.leaveRoom": "مغادرة الغرفة",
+  "result.playRandomAgain": "العب عشوائيًا مرة أخرى",
 
   "records.title": "السجلات",
   "records.label": "{n} خانات",

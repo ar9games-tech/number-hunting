@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -43,6 +43,10 @@ export default function MultiplayerLobbyScreen() {
   const insets = useSafeAreaInsets();
   const { settings, ready } = useSettings();
   const { t, isRTL } = useT();
+  // `autoRandom=1` is set when the user picks "Play Random Again" on
+  // the result screen — auto-trigger matchmaking once the lobby mounts
+  // so they don't have to tap Find Opponent themselves.
+  const { autoRandom } = useLocalSearchParams<{ autoRandom?: string }>();
   const [code, setCode] = useState("");
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
   const wd = isRTL ? "rtl" : "ltr";
@@ -143,6 +147,22 @@ export default function MultiplayerLobbyScreen() {
     void recordRandomMatchStarted().catch(() => {});
     joinRandomQueue(identity);
   };
+
+  // Auto-start matchmaking once when arriving from "Play Random Again".
+  // Guarded by a ref so a re-render (e.g. theme/settings refresh) can't
+  // re-fire it, and we clear the URL param after consuming so back-nav
+  // doesn't re-trigger.
+  const autoRandomFiredRef = useRef(false);
+  useEffect(() => {
+    if (!ready || needsProfile) return;
+    if (autoRandom !== "1") return;
+    if (autoRandomFiredRef.current) return;
+    if (searchingRef.current) return;
+    autoRandomFiredRef.current = true;
+    router.setParams({ autoRandom: undefined });
+    handleRandomMatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, needsProfile, autoRandom]);
 
   const handleCancelSearch = () => {
     if (!searchingRef.current) return;

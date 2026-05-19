@@ -426,6 +426,21 @@ export async function consumePendingRandomMatch(): Promise<boolean> {
 }
 
 /**
+ * Non-destructive read of the random-match flag — used by the result
+ * screen to decide whether to surface "Play Random Again" vs "Rematch"
+ * without consuming the flag (the win-attribution path still owns the
+ * one-shot consume).
+ */
+export async function peekPendingRandomMatch(): Promise<boolean> {
+  try {
+    const v = await AsyncStorage.getItem(PENDING_RANDOM_KEY);
+    return v === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Clear the random-match flag without consuming its value. Used on
  * terminal non-win paths (losses, leaving the room) so a stale flag from
  * a previous random match can't be misattributed to a later non-random
