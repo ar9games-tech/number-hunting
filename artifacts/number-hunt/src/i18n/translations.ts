@@ -163,6 +163,8 @@ export type TranslationKey =
   | "settings.allowLeading"
   | "settings.haptics"
   | "settings.sound"
+  | "settings.soundOnA11y"
+  | "settings.soundOffA11y"
   | "settings.note"
   | "settings.resetAll"
   | "settings.resetAllConfirm"
@@ -459,8 +461,10 @@ const en: Record<TranslationKey, string> = {
   "settings.allowLeading": "Allow leading zero",
   "settings.haptics": "Haptic feedback",
   "settings.sound": "Sound effects",
+  "settings.soundOnA11y": "Sound on",
+  "settings.soundOffA11y": "Sound off",
   "settings.note":
-    "Sound is a placeholder for a future update. Settings save automatically.",
+    "Settings save automatically. Toggle sound at any time — changes apply instantly.",
   "settings.resetAll": "Reset all settings",
   "settings.resetAllConfirm": "This will restore all preferences to their defaults.",
   "settings.rtlNote":
@@ -759,7 +763,9 @@ const ar: Record<TranslationKey, string> = {
   "settings.allowLeading": "السماح بصفر في البداية",
   "settings.haptics": "اهتزاز اللمس",
   "settings.sound": "المؤثرات الصوتية",
-  "settings.note": "الصوت محجوز لتحديث مستقبلي. يتم حفظ الإعدادات تلقائياً.",
+  "settings.soundOnA11y": "الصوت مفعّل",
+  "settings.soundOffA11y": "الصوت مكتوم",
+  "settings.note": "يتم حفظ الإعدادات تلقائياً. يمكنك تبديل الصوت في أي وقت — التغييرات تُطبَّق فوراً.",
   "settings.resetAll": "إعادة تعيين كل الإعدادات",
   "settings.resetAllConfirm": "سيؤدي هذا إلى استعادة جميع التفضيلات إلى قيمها الافتراضية.",
   "settings.rtlNote":

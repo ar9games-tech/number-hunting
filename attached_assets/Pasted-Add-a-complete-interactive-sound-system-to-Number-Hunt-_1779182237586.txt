@@ -1,0 +1,85 @@
+Add a complete interactive sound system to Number Hunt using Expo AV.
+
+Goal:
+Make the game feel alive, satisfying, and polished with game sounds and punishment pack sounds.
+
+Requirements:
+- Use Expo AV for audio playback.
+- Create:
+  - src/services/soundManager.js
+- Add safe audio loading with try/catch.
+- Prevent crashes if a sound file is missing.
+- Add global sound on/off toggle in Settings.
+- Save sound setting using AsyncStorage.
+- If sound is OFF:
+  - No sounds should play.
+
+General game sounds:
+1. Button tap sound
+2. Number keypad press sound
+3. Wrong guess sound
+4. Correct guess sound
+5. Win sound
+6. Lose sound
+7. New record sound
+8. Room created sound
+9. Player joined sound
+10. Match found sound
+11. Random match searching sound
+12. Countdown/start match sound
+13. Rematch sound
+
+Punishment pack sounds:
+Add a premium mystery-pack opening sound sequence.
+
+Pack opening flow:
+1. Button pressed:
+   - Play soft activation sound
+
+2. Pack shaking animation:
+   - Play suspense ticking/shaking sound
+
+3. Glow buildup:
+   - Add rising energy sound
+
+4. Card reveal:
+   - Play dramatic reveal sound
+
+5. Result sounds:
+   - Direct Elimination:
+     - Strong dramatic red-alert sound
+   - Vote:
+     - Crowd/vote sound
+   - Another Chance:
+     - Positive reward sound
+   - Choose Another Player:
+     - Mischievous/funny sound
+
+Sound behavior:
+- Sounds should not overlap aggressively.
+- Stop previous pack sound when next stage starts.
+- Add volume balancing.
+- Use async audio cleanup properly.
+
+UI additions:
+- Add sound indicator icon in Settings.
+- Add mute/unmute animation.
+- Add small sound feedback on:
+  - Hover
+  - Tap
+  - Card reveal
+  - Victory screen
+
+Files:
+- src/services/soundManager.js
+- src/assets/sounds/
+
+Add placeholder sound files or placeholder comments explaining where to replace sounds later.
+
+Testing:
+- Sounds play correctly in Solo Mode.
+- Sounds play correctly in Online Mode.
+- Pack sounds sync with animations.
+- Muting works instantly.
+- No sound crashes occur.
+- Sounds stop correctly when leaving screen.

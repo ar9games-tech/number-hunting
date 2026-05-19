@@ -147,11 +147,22 @@ export default function SettingsScreen() {
               trackColor={{ true: colors.primary }}
             />
           </Row>
-          <Row label={t("settings.sound")} icon="volume-2">
+          {/* Sound row: icon flips between volume-2 / volume-x to mirror
+              the toggle state, so the visual matches the switch even at
+              a glance. */}
+          <Row
+            label={t("settings.sound")}
+            icon={settings.soundOn ? "volume-2" : "volume-x"}
+          >
             <Switch
               value={settings.soundOn}
               onValueChange={(v) => void update({ soundOn: v })}
               trackColor={{ true: colors.primary }}
+              accessibilityLabel={
+                settings.soundOn
+                  ? t("settings.soundOnA11y")
+                  : t("settings.soundOffA11y")
+              }
             />
           </Row>
         </Section>
