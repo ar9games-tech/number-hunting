@@ -21,22 +21,26 @@ import type {
 } from "@/src/net/socketPlaceholder";
 
 /**
- * The three button modes the action row can render after the reveal
- * animation finishes (for the target only — non-targets always see the
- * "waiting" message regardless of mode).
+ * The button modes the action row can render after the reveal animation
+ * finishes (for the target only — non-targets always see the "waiting"
+ * message regardless of mode).
  *
- *   - "decide" — normal Accept / Refuse pair. Used for directElimination,
- *     vote, and chooseAnother *after* the pass has been spent.
- *   - "pass" — single "Pick another player" button. Used only for the
- *     first reveal of a chooseAnother card.
+ *   - "decide"   — normal Accept / Refuse pair. Used for directElimination,
+ *                  vote, and chooseAnother *after* the pass has been spent.
+ *   - "redirect" — Accept / Refuse pair where Accept opens the new-target
+ *                  picker (the redirect chain) and Refuse eliminates the
+ *                  current target as usual. Used for the first reveal of
+ *                  a chooseAnother card. The label on Accept is still
+ *                  "Accept" — per spec, accepting the chooseAnother card
+ *                  IS the act of starting the redirect.
  *   - "continue" — single "Continue" button. Used for anotherChance,
- *     which is a forgiveness card with no refuse path.
+ *                  which is a forgiveness card with no refuse path.
  */
-type ActionMode = "decide" | "pass" | "continue";
+type ActionMode = "decide" | "redirect" | "continue";
 
 function actionModeFor(reveal: PunishmentReveal): ActionMode {
   if (reveal.cardId === "anotherChance") return "continue";
-  if (reveal.cardId === "chooseAnother" && reveal.canPass) return "pass";
+  if (reveal.cardId === "chooseAnother" && reveal.canPass) return "redirect";
   return "decide";
 }
 
@@ -71,6 +75,7 @@ export function PunishmentCardModal({
   onAccept,
   onRefuse,
   onPickAnother,
+  redirectInFlight,
   onClose,
 }: {
   reveal: PunishmentReveal | null;
@@ -87,6 +92,13 @@ export function PunishmentCardModal({
    * fires the actual reassign event from there.
    */
   onPickAnother: () => void;
+  /**
+   * True once the target has committed a new target via the picker —
+   * the modal locks both redirect-mode buttons until the server's
+   * `punishmentTargetChanged` broadcast dismisses the modal. Prevents
+   * a Refuse tap during the in-flight redirect window.
+   */
+  redirectInFlight?: boolean;
   onClose: () => void;
 }) {
   const colors = useColors();
@@ -417,14 +429,41 @@ export function PunishmentCardModal({
                   //               (only for the first chooseAnother reveal).
                   //  - continue → single "Continue" button (anotherChance,
                   //               a forgiveness card with no refuse path).
-                  mode === "pass" ? (
-                    <Button
-                      title={t("punishment.pickAnother")}
-                      fullWidth
-                      // Don't lock the button via `responded` — the parent
-                      // opens a picker first; tapping doesn't commit yet.
-                      onPress={onPickAnother}
-                    />
+                  mode === "redirect" ? (
+                    // chooseAnother first reveal — Accept opens the
+                    // new-target picker via `onPickAnother`; it does NOT
+                    // commit the punishment to the current target.
+                    // Refuse still eliminates the current target via the
+                    // normal respondPunishment(false) path. Accept is
+                    // intentionally NOT locked by `responded` so the
+                    // target can re-tap if they cancel the picker; the
+                    // picker itself dismisses the modal once a name is
+                    // chosen (via the punishmentTargetChanged broadcast).
+                    <>
+                      <Button
+                        title={t("punishment.accept")}
+                        fullWidth
+                        // Not visually disabled by `responded` so a
+                        // picker-cancel still allows re-tap. Ignored
+                        // after a committed Refuse OR while a redirect
+                        // is already in flight (post picker-select).
+                        onPress={() => {
+                          if (responded || redirectInFlight) return;
+                          onPickAnother();
+                        }}
+                      />
+                      <Button
+                        title={t("punishment.refuse")}
+                        fullWidth
+                        variant="ghost"
+                        disabled={responded || !!redirectInFlight}
+                        onPress={() => {
+                          if (responded || redirectInFlight) return;
+                          setResponded(true);
+                          onRefuse();
+                        }}
+                      />
+                    </>
                   ) : mode === "continue" ? (
                     <Button
                       title={t("punishment.continue")}

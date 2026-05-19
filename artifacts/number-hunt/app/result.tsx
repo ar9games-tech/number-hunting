@@ -642,6 +642,11 @@ export default function ResultScreen() {
           }
           setReassignPickerVisible(true);
         }}
+        // Locks the redirect-mode buttons once a new target has been
+        // picked — the modal will close on the server's
+        // `punishmentTargetChanged` broadcast, but in the meantime no
+        // second action (Refuse, re-Accept) should be possible.
+        redirectInFlight={punishmentLoading}
         onClose={() => setPunishmentVisible(false)}
       />
       <TargetPickerModal
