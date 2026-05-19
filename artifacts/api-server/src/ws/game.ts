@@ -672,13 +672,25 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       if (now < room.punishmentLockUntil) return sendErr("alreadyUsed");
       room.punishmentLockUntil = now + PUNISHMENT_LOCK_MS;
       room.punishmentUsed = true;
-      // Draw a card. On the chain's second draw the chooseAnother card
-      // is excluded — the chain has already redirected once and the
-      // spec caps it there to prevent infinite loops; if we'd otherwise
-      // roll chooseAnother again we silently swap it for another card.
+      // Draw a card. chooseAnother is silently re-rolled to a different
+      // card in two cases:
+      //  (a) chain's second draw — the chain has already redirected
+      //      once and the spec caps it there to prevent loops.
+      //  (b) no eligible redirect candidate — typically a 2-player
+      //      room (winner + 1 loser) where there is literally no third
+      //      player to pass to. Without this re-roll the target would
+      //      see the "Choose Another Player" reveal but the picker
+      //      flow couldn't open, forcing a confusing fall-through to
+      //      plain Accept/Refuse. By excluding chooseAnother at draw
+      //      time the card only ever appears when its redirect flow
+      //      can actually run end-to-end.
+      const hasReassignCandidate = room.players.some(
+        (p) => p.socketId !== room.winnerId && p.socketId !== target.socketId,
+      );
+      const excludeChooseAnother = isChainSecondDraw || !hasReassignCandidate;
       let cardId =
         PUNISHMENT_CARDS[Math.floor(Math.random() * PUNISHMENT_CARDS.length)]!;
-      if (isChainSecondDraw && cardId === "chooseAnother") {
+      if (excludeChooseAnother && cardId === "chooseAnother") {
         const alternates = PUNISHMENT_CARDS.filter((c) => c !== "chooseAnother");
         cardId = alternates[Math.floor(Math.random() * alternates.length)]!;
       }
@@ -693,18 +705,11 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         room.punishmentRedirectedById = null;
         room.punishmentRedirectedByName = null;
       }
-      // The chooseAnother card grants the original target exactly one
-      // pass — capped so the chain can't loop forever. We *also* only
-      // grant the pass when there's an eligible alternate loser to pass
-      // to (room must have ≥1 player who is neither the winner nor the
-      // chosen target); otherwise the target would be stuck staring at
-      // a pass-only modal with zero candidates (e.g. in a 2-player room).
-      // In that case we fall through to the normal Accept / Refuse flow.
-      const hasReassignCandidate = room.players.some(
-        (p) => p.socketId !== room.winnerId && p.socketId !== target.socketId,
-      );
-      // Only the first draw can grant the one-shot pass — once a chain
-      // is active (isChainSecondDraw), canPass is always false.
+      // Only the first draw can grant the one-shot pass, and only when
+      // the drawn card is actually chooseAnother. `hasReassignCandidate`
+      // is already guaranteed here by the re-roll above (chooseAnother
+      // would have been swapped out otherwise), but we keep it in the
+      // expression as a defensive invariant.
       room.punishmentCanPass =
         !isChainSecondDraw &&
         cardId === "chooseAnother" &&

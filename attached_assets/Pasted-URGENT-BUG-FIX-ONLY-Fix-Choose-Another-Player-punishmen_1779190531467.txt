@@ -1,0 +1,75 @@
+URGENT BUG FIX ONLY: Fix “Choose Another Player” punishment flow. Do not refactor unrelated code.
+
+Bug:
+When the punishment card is “Choose Another Player” and the target presses Accept, the app does not let the target choose another player and press Punishment again.
+
+Correct required flow:
+1. Winner presses Punishment.
+2. Winner selects target.
+3. Card reveals: Choose Another Player.
+4. ONLY the target sees Accept / Refuse.
+5. If target presses Accept:
+   - Close/hide Accept and Refuse buttons.
+   - Show player list to the target only.
+   - Target selects another player.
+   - Show “Punishment” button to the target only.
+6. Target presses Punishment.
+7. Open pack animation again.
+8. Reveal a NEW punishment card for the newly selected player.
+9. The second card must NOT be “Choose Another Player”.
+
+Implementation requirements:
+- Add state:
+  punishmentPhase:
+    idle | revealed | redirect_select_target | redirect_ready | redirect_revealing | completed
+  currentPunishmentTargetId
+  redirectedTargetId
+  redirectUsed
+
+Client logic:
+- On Accept when card.id === "choose_another_player":
+  set punishmentPhase = "redirect_select_target"
+- Show player selection only when:
+  punishmentPhase === "redirect_select_target"
+  AND currentUser.id === currentPunishmentTargetId
+- After selecting player:
+  set redirectedTargetId
+  set punishmentPhase = "redirect_ready"
+- Show second Punishment button only when:
+  punishmentPhase === "redirect_ready"
+  AND currentUser.id === currentPunishmentTargetId
+- On second Punishment button press:
+  emit "requestRedirectedPunishment"
+
+Server logic:
+- Add event "requestRedirectedPunishment"
+- Validate:
+  - room exists
+  - requester is currentPunishmentTargetId
+  - redirectedTargetId exists
+  - redirectedTargetId !== requester
+  - redirectUsed === false
+- Set redirectUsed = true
+- Set currentPunishmentTargetId = redirectedTargetId
+- Pick a random punishment card EXCLUDING choose_another_player
+- Broadcast "punishmentCardRevealed" with:
+  card
+  targetPlayerId: redirectedTargetId
+  isRedirected: true
+
+Important:
+- Accept must NOT end the punishment.
+- Accept must open target selection.
+- Refuse should show refused/direct elimination.
+- Other players only see waiting message.
+- Winner cannot control the second punishment unless they are the current target.
+- Add console logs for every phase change.
+
+Testing must pass:
+- Choose Another Player appears.
+- Target presses Accept.
+- Target sees player list.
+- Target selects another player.
+- Target sees Punishment button.
+- Target presses Punishment.
+- New card reveals for selected player.
