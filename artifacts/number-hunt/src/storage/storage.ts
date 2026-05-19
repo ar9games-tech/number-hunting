@@ -49,6 +49,12 @@ export type Settings = {
   allowLeadingZero: boolean;
   soundOn: boolean;
   hapticsOn: boolean;
+  /**
+   * When false, the reactions button is hidden in online rooms AND
+   * incoming reactions from other players are suppressed (no float, no
+   * sound, no haptic). Default on.
+   */
+  enableReactions: boolean;
   language: Language;
   /** User-chosen nickname (no "#" — the serial is stored separately). */
   playerName: string;
@@ -67,6 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allowLeadingZero: false,
   soundOn: true,
   hapticsOn: true,
+  enableReactions: true,
   language: "en",
   playerName: "",
   playerSerial: "",

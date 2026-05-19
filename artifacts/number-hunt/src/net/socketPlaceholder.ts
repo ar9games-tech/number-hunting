@@ -168,7 +168,26 @@ type ServerResponse = {
   // Errors reuse a single `reason` field — widened so both punishment
   // and random-queue errors can travel through the same envelope.
   reason?: PunishmentErrorReason | RandomQueueErrorReason;
+  // Reactions
+  playerId?: string;
+  name?: string;
+  reaction?: string;
+  timestamp?: number;
 };
+
+/** Payload delivered when any player in the room sends a reaction. */
+export type ReactionEvent = {
+  /** Sender's stable socket id (matches RoomState.yourId for self). */
+  playerId: string;
+  /** Display name — typically "Nickname #Serial". */
+  name: string;
+  /** Literal emoji or short text the sender picked. */
+  reaction: string;
+  /** Server-assigned wall-clock timestamp (ms). */
+  timestamp: number;
+};
+
+type ReactionListener = (e: ReactionEvent) => void;
 
 type PunishmentRevealListener = (reveal: PunishmentReveal) => void;
 type PunishmentResolvedListener = (resolved: PunishmentResolved) => void;
@@ -182,6 +201,12 @@ const closeListeners = new Map<string, Set<CloseListener>>();
 const punishmentRevealListeners = new Map<string, Set<PunishmentRevealListener>>();
 const punishmentResolvedListeners = new Map<string, Set<PunishmentResolvedListener>>();
 const punishmentErrorListeners = new Map<string, Set<PunishmentErrorListener>>();
+/**
+ * Per-room reaction subscribers. No replay cache — reactions are
+ * ephemeral, so a late subscriber simply misses any in-flight reactions
+ * (unlike punishment reveals, which the next screen must consume).
+ */
+const reactionListeners = new Map<string, Set<ReactionListener>>();
 /**
  * Last punishment reveal per room. Used to "replay" the reveal to listeners
  * that attach *after* the broadcast (e.g. a losing player still navigating
@@ -311,6 +336,24 @@ function connect(): Promise<WebSocket> {
         }
         lastPunishmentResolved.set(code, resolved);
         punishmentResolvedListeners.get(code)?.forEach((l) => l(resolved));
+      }
+
+      if (
+        msg.type === "reactionReceived" &&
+        msg.code &&
+        typeof msg.playerId === "string" &&
+        typeof msg.name === "string" &&
+        typeof msg.reaction === "string"
+      ) {
+        const code = msg.code;
+        const evt: ReactionEvent = {
+          playerId: msg.playerId,
+          name: msg.name,
+          reaction: msg.reaction,
+          timestamp: typeof msg.timestamp === "number" ? msg.timestamp : Date.now(),
+        };
+        reactionListeners.get(code)?.forEach((l) => l(evt));
+        // Fall through.
       }
 
       if (msg.type === "randomMatchFound" && msg.state && msg.code) {
@@ -474,6 +517,7 @@ export function leaveRoom(code: string): void {
   punishmentRevealListeners.delete(upper);
   punishmentResolvedListeners.delete(upper);
   punishmentErrorListeners.delete(upper);
+  reactionListeners.delete(upper);
   lastPunishmentReveal.delete(upper);
   lastPunishmentResolved.delete(upper);
   lastState.delete(upper);
@@ -615,6 +659,36 @@ export function onUpdate(code: string, cb: Listener): () => void {
     // unmounts when navigating to /result, but we need the cached state to
     // survive so a rematch can re-attach to the same room. Both are cleared
     // only when `leaveRoom` is explicitly called.
+  };
+}
+
+/**
+ * Send a reaction to everyone in `code` (including yourself, for
+ * rendering symmetry). The server enforces a 3-second per-socket
+ * cooldown and a 64-char bound; failed sends silently drop.
+ */
+export function sendReaction(code: string, reaction: string): void {
+  const upper = code.toUpperCase();
+  fire("sendReaction", { code: upper, reaction });
+}
+
+export function onReactionReceived(
+  code: string,
+  cb: ReactionListener,
+): () => void {
+  const upper = code.toUpperCase();
+  let set = reactionListeners.get(upper);
+  if (!set) {
+    set = new Set();
+    reactionListeners.set(upper, set);
+  }
+  set.add(cb);
+  return () => {
+    const s = reactionListeners.get(upper);
+    if (s) {
+      s.delete(cb);
+      if (s.size === 0) reactionListeners.delete(upper);
+    }
   };
 }
 

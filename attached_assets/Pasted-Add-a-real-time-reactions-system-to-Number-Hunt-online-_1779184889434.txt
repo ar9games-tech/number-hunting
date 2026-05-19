@@ -1,0 +1,100 @@
+Add a real-time reactions system to Number Hunt online multiplayer.
+
+Goal:
+Players can send quick emoji/text reactions during online matches.
+
+Requirements:
+- Add a floating reactions button during online gameplay.
+- Button should open a small reactions panel/modal.
+- Players can tap a reaction to send it instantly.
+
+Available reactions:
+Emoji reactions:
+- 😂
+- 😱
+- 🔥
+- 👀
+- 😎
+- 🎯
+- 💀
+- 🤯
+
+Text reactions:
+English:
+- Close!
+- No way!
+- Almost!
+- Lucky!
+- Hurry up!
+- Easy!
+- GG!
+
+Arabic:
+- قريب!
+- مستحيل!
+- أوشكت!
+- محظوظ!
+- أسرع!
+- سهلة!
+- لعبة جيدة!
+
+Behavior:
+- When a player sends a reaction:
+  - Broadcast it to all players in the room using Socket.io.
+  - Show the reaction floating near the sender’s profile/avatar.
+  - Animate the reaction:
+    - Fade in
+    - Float upward
+    - Fade out
+- Add small pop sound placeholder.
+- Add vibration placeholder.
+
+Cooldown:
+- Limit reactions to:
+  - 1 reaction every 3 seconds per player.
+- Show cooldown animation on reaction button.
+
+Socket.io events:
+- sendReaction
+- reactionReceived
+
+Reaction payload:
+- roomCode
+- playerId
+- nickname
+- serial
+- selectedBadge
+- reaction
+- timestamp
+
+UI requirements:
+- Reaction button should not block gameplay.
+- Keep numeric keypad fixed at bottom.
+- Reactions should not cover guess input.
+- Show sender name with reaction:
+  Ahmed #48291 🔥
+- Support Arabic and English.
+- Arabic reactions must display correctly in RTL mode.
+
+Files to add:
+- src/components/ReactionsButton.js
+- src/components/ReactionsPanel.js
+- src/components/FloatingReaction.js
+- src/services/reactionManager.js
+
+Animation requirements:
+- Smooth floating animation.
+- Glow effect for emoji reactions.
+- Soft fade out after 2–3 seconds.
+- Stack multiple reactions cleanly.
+
+Settings:
+- Add “Enable Reactions” toggle in Settings.
+- Save setting using AsyncStorage.
+
+Testing:
+- Multiple players can send reactions.
+- Reactions appear instantly for everyone.
+- Cooldown works.
+- Reactions do not break gameplay.
+- Reactions work in Random Match and normal online rooms.

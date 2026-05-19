@@ -173,6 +173,14 @@ export type TranslationKey =
   | "settings.resetRecordsMsg"
   | "settings.danger"
   | "settings.data"
+  | "settings.reactions"
+  | "settings.reactionsOnA11y"
+  | "settings.reactionsOffA11y"
+  // Reactions
+  | "reactions.openLabel"
+  | "reactions.panelTitle"
+  | "reactions.emojiSection"
+  | "reactions.textSection"
   // How to Play
   | "howto.title"
   | "howto.goal"
@@ -518,6 +526,14 @@ const en: Record<TranslationKey, string> = {
   "settings.resetRecordsMsg": "Erases best times and online lifetime stats. Your profile and unlocked achievements stay.",
   "settings.danger": "Data",
   "settings.data": "Data",
+  "settings.reactions": "In-game reactions",
+  "settings.reactionsOnA11y": "Reactions on",
+  "settings.reactionsOffA11y": "Reactions off",
+
+  "reactions.openLabel": "Send a reaction",
+  "reactions.panelTitle": "Send a reaction",
+  "reactions.emojiSection": "Emoji",
+  "reactions.textSection": "Quick text",
 
   "howto.title": "How to Play",
   "howto.goal": "The goal",
@@ -902,6 +918,14 @@ const ar: Record<TranslationKey, string> = {
   "settings.resetRecordsMsg": "يمسح أفضل الأوقات وإحصائيات الأونلاين التراكمية. يبقى ملفك الشخصي وإنجازاتك.",
   "settings.danger": "البيانات",
   "settings.data": "البيانات",
+  "settings.reactions": "ردود الفعل أثناء اللعبة",
+  "settings.reactionsOnA11y": "ردود الفعل مفعّلة",
+  "settings.reactionsOffA11y": "ردود الفعل متوقفة",
+
+  "reactions.openLabel": "أرسل رد فعل",
+  "reactions.panelTitle": "أرسل رد فعل",
+  "reactions.emojiSection": "إيموجي",
+  "reactions.textSection": "ردود سريعة",
 
   "howto.title": "طريقة اللعب",
   "howto.goal": "الهدف",

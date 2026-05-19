@@ -165,6 +165,18 @@ export default function SettingsScreen() {
               }
             />
           </Row>
+          <Row label={t("settings.reactions")} icon="smile">
+            <Switch
+              value={settings.enableReactions}
+              onValueChange={(v) => void update({ enableReactions: v })}
+              trackColor={{ true: colors.primary }}
+              accessibilityLabel={
+                settings.enableReactions
+                  ? t("settings.reactionsOnA11y")
+                  : t("settings.reactionsOffA11y")
+              }
+            />
+          </Row>
         </Section>
 
         <Button

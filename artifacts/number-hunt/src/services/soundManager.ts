@@ -59,6 +59,8 @@ export type SoundId =
   | "punishmentVote"
   | "punishmentAnotherChance"
   | "punishmentChooseAnother"
+  // Reactions
+  | "reactionPop"
   // Misc
   | "newMatch";
 
@@ -91,6 +93,7 @@ const SOUND_VOLUME: { [K in SoundId]: number } = {
   punishmentVote: 0.7,
   punishmentAnotherChance: 0.75,
   punishmentChooseAnother: 0.7,
+  reactionPop: 0.45,
   newMatch: 0.7,
 };
 
@@ -127,6 +130,7 @@ const SOUND_FILES: { [K in SoundId]: AudioSource | null } = {
   punishmentVote: null, // assets/sounds/punishment_vote.mp3
   punishmentAnotherChance: null, // assets/sounds/punishment_another_chance.mp3
   punishmentChooseAnother: null, // assets/sounds/punishment_choose_another.mp3
+  reactionPop: null, // assets/sounds/reaction_pop.mp3
   newMatch: null, // assets/sounds/new_match.mp3
 };
 
@@ -446,6 +450,7 @@ export function playPunishmentOutcome(card: PunishmentCardId, soundOn: boolean):
 }
 
 export function playNewMatch(soundOn: boolean): void { play("newMatch", soundOn); }
+export function playReactionPop(soundOn: boolean): void { play("reactionPop", soundOn); }
 
 /** Re-exported for debug screens that want to enumerate the asset map. */
 export { SOUND_FILES };

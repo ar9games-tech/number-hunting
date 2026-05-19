@@ -330,7 +330,18 @@ type ClientMessage =
   | { type: "reassignPunishment"; reqId?: string; code: string; newTargetId: string }
   | { type: "joinRandomQueue"; reqId?: string; playerName: string }
   | { type: "cancelRandomQueue"; reqId?: string }
+  | { type: "sendReaction"; code: string; reaction: string }
   | { type: "ping"; reqId?: string };
+
+// ---- Reactions -------------------------------------------------------------
+//
+// Lightweight in-room broadcast — no room state mutation. Server-side
+// per-socket cooldown is the defensive backstop; the client also gates
+// the send button. Reactions are ephemeral: never persisted, never
+// replayed to late subscribers.
+const REACTION_COOLDOWN_MS = 3000;
+const REACTION_MAX_LEN = 64;
+const lastReactionAt = new WeakMap<WebSocket, number>();
 
 // ---- Random matchmaking queue ---------------------------------------------
 //
@@ -824,6 +835,43 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       const id = socketIdentity.get(ws);
       if (!id || id.code !== code) return;
       removePlayer(ws, code, id.socketId, "explicit leave");
+      break;
+    }
+
+    case "sendReaction": {
+      // Light-touch broadcast: validate sender is in the named room, bound
+      // the reaction string, throttle per-socket, then fan out to all
+      // subscribers (including the sender — clients render their own
+      // floating reaction off the broadcast for symmetry).
+      const code = String(raw.code || "").toUpperCase();
+      const id = socketIdentity.get(ws);
+      if (!id || id.code !== code) return;
+      const room = getRoom(code);
+      if (!room) return;
+      // Reactions are an in-game feature only — drop sends during the
+      // lobby (waiting) and post-match (won) phases so peers don't see
+      // pop/haptic outside an active round.
+      if (room.status !== "playing") return;
+      const sender = playerById(room, id.socketId);
+      if (!sender) return;
+      const reaction = typeof raw.reaction === "string" ? raw.reaction.trim() : "";
+      if (!reaction || reaction.length > REACTION_MAX_LEN) return;
+      const now = Date.now();
+      const last = lastReactionAt.get(ws) ?? 0;
+      if (now - last < REACTION_COOLDOWN_MS) return;
+      lastReactionAt.set(ws, now);
+
+      const peers = subscribers.get(code);
+      if (!peers) return;
+      const payload = {
+        type: "reactionReceived",
+        code,
+        playerId: sender.socketId,
+        name: sender.name,
+        reaction,
+        timestamp: now,
+      };
+      for (const peer of peers) safeSend(peer, payload);
       break;
     }
 

@@ -15,14 +15,25 @@ import {
   getCachedRoom,
   joinRoom,
   leaveRoom,
+  onReactionReceived,
   onRoomClosed,
   onUpdate,
+  type ReactionEvent,
+  sendReaction,
   setRoomDigits,
   submitGuess as sendGuess,
   type RoomState,
 } from "@/src/net/socketPlaceholder";
-import { playGameStart, playPlayerJoined } from "@/src/services/soundManager";
+import { FloatingReaction } from "@/src/components/FloatingReaction";
+import { ReactionsButton } from "@/src/components/ReactionsButton";
+import { ReactionsPanel } from "@/src/components/ReactionsPanel";
+import {
+  REACTION_COOLDOWN_MS,
+  REACTION_MAX_STACK,
+} from "@/src/services/reactionManager";
+import { playGameStart, playPlayerJoined, playReactionPop } from "@/src/services/soundManager";
 import { formatPlayerIdentity } from "@/src/storage/storage";
+import { tapHaptic } from "@/src/utils/sound";
 import { webBottomInset } from "@/src/theme/theme";
 import { isValidGuess, normalizeDigits } from "@/src/utils/gameLogic";
 
@@ -52,6 +63,20 @@ export default function RoomScreen() {
   const pendingHistoryLenRef = useRef(-1);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [locked, setLocked] = useState(false);
+
+  // --- Reactions ----------------------------------------------------------
+  // Active floating reactions stacked above the keypad. Each entry has a
+  // monotonically-increasing local key so React's diffing doesn't reuse
+  // an animated row when an identical reaction lands twice in a row.
+  type ActiveReaction = ReactionEvent & { key: number };
+  const [activeReactions, setActiveReactions] = useState<ActiveReaction[]>([]);
+  const reactionKeyRef = useRef(0);
+  const [panelOpen, setPanelOpen] = useState(false);
+  // Cooldown is wall-clock based — survives panel open/close and React
+  // re-renders. The boolean UI flag is just an animation trigger.
+  const lastSentAtRef = useRef(0);
+  const [cooling, setCooling] = useState(false);
+  const coolTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const releaseLock = () => {
     submittingRef.current = false;
@@ -247,8 +272,60 @@ export default function RoomScreen() {
   useEffect(() => {
     return () => {
       if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+      if (coolTimerRef.current) clearTimeout(coolTimerRef.current);
     };
   }, []);
+
+  // Subscribe to incoming reactions for this room. Scoped to the
+  // playing phase only so lobby/won UI never plays a pop or shows a
+  // float. Also gated by the user's "Enable reactions" setting.
+  const code = state?.code;
+  const reactionsActive =
+    !!code && state?.status === "playing" && settings.enableReactions;
+  useEffect(() => {
+    if (!reactionsActive || !code) {
+      // Drop any leftover floats when leaving the playing phase so they
+      // don't reappear if the player rematches and re-enters.
+      if (!reactionsActive) setActiveReactions([]);
+      return;
+    }
+    const unsub = onReactionReceived(code, (evt) => {
+      reactionKeyRef.current += 1;
+      const entry: ActiveReaction = { ...evt, key: reactionKeyRef.current };
+      setActiveReactions((prev) => {
+        // Cap the stack so a flood from one peer never floods the UI.
+        const next = [...prev, entry];
+        return next.length > REACTION_MAX_STACK
+          ? next.slice(next.length - REACTION_MAX_STACK)
+          : next;
+      });
+      // Audio + haptic placeholders (no shipped asset → no-op for sound).
+      playReactionPop(settings.soundOn);
+      tapHaptic(settings.hapticsOn);
+    });
+    return () => {
+      unsub();
+    };
+  }, [code, reactionsActive, settings.soundOn, settings.hapticsOn]);
+
+  const onPickReaction = (reaction: string) => {
+    if (!state) return;
+    const now = Date.now();
+    if (now - lastSentAtRef.current < REACTION_COOLDOWN_MS) return;
+    lastSentAtRef.current = now;
+    setCooling(true);
+    if (coolTimerRef.current) clearTimeout(coolTimerRef.current);
+    coolTimerRef.current = setTimeout(() => {
+      setCooling(false);
+      coolTimerRef.current = null;
+    }, REACTION_COOLDOWN_MS);
+    try {
+      sendReaction(state.code, reaction);
+    } catch {
+      // Ignore — failed sends just don't broadcast; the cooldown still
+      // applies as a UX nicety against rapid retry-spam.
+    }
+  };
 
   const onDigit = (d: string) => {
     if (submittingRef.current) return;
@@ -359,6 +436,61 @@ export default function RoomScreen() {
               disabled={locked}
             />
           </View>
+
+          {/* Reactions overlay — absolutely positioned so it never
+              affects the keypad/history layout. The floating stack
+              renders just above the keypad; the button sits at the
+              top corner opposite the leave button (start side under
+              RTL). pointerEvents="box-none" lets taps fall through
+              the empty space back to the keypad. */}
+          {settings.enableReactions ? (
+            <>
+              <View
+                style={[
+                  styles.reactionStack,
+                  { bottom: bottomPad + 140 },
+                ]}
+                pointerEvents="none"
+              >
+                {activeReactions.map((r) => (
+                  <FloatingReaction
+                    key={r.key}
+                    name={r.name}
+                    reaction={r.reaction}
+                    isRTL={isRTL}
+                    onDone={() => {
+                      setActiveReactions((prev) =>
+                        prev.filter((p) => p.key !== r.key),
+                      );
+                    }}
+                  />
+                ))}
+              </View>
+              <View
+                style={[
+                  styles.reactionButtonWrap,
+                  isRTL ? { left: 14 } : { right: 14 },
+                  { bottom: bottomPad + 140 + 10 },
+                ]}
+                pointerEvents="box-none"
+              >
+                <ReactionsButton
+                  onPress={() => setPanelOpen(true)}
+                  cooling={cooling}
+                  label={t("reactions.openLabel")}
+                />
+              </View>
+              <ReactionsPanel
+                visible={panelOpen}
+                onClose={() => setPanelOpen(false)}
+                onPick={onPickReaction}
+                language={settings.language}
+                title={t("reactions.panelTitle")}
+                emojiLabel={t("reactions.emojiSection")}
+                textLabel={t("reactions.textSection")}
+              />
+            </>
+          ) : null}
         </View>
       </View>
     );
@@ -613,4 +745,14 @@ const styles = StyleSheet.create({
   },
   historyWrapPlaying: { flex: 1, gap: 8, minHeight: 0 },
   bottom: { gap: 12 },
+  reactionStack: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  reactionButtonWrap: {
+    position: "absolute",
+  },
 });
