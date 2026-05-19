@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -13,7 +13,11 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { Timer } from "@/src/components/Timer";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
-import { recordWin, saveRecordIfBest } from "@/src/storage/storage";
+import {
+  recordSoloPlayed,
+  recordWin,
+  saveRecordIfBest,
+} from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import {
   evaluateGuess,
@@ -60,6 +64,17 @@ export default function SoloGameScreen() {
   // again during the brief delay window.
   const submittingRef = useRef(false);
   const [locked, setLocked] = useState(false);
+
+  // Bump the solo-played counter exactly once when this screen mounts so
+  // the "first solo" / "play 5 solo games" achievements can fire even
+  // without (or before) a win. Guarded by a ref so a re-render won't
+  // double-count.
+  const soloRecordedRef = useRef(false);
+  useEffect(() => {
+    if (soloRecordedRef.current) return;
+    soloRecordedRef.current = true;
+    void recordSoloPlayed().catch(() => {});
+  }, []);
 
   const showCount = digits >= 3;
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 12;

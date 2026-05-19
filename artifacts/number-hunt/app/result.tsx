@@ -44,7 +44,16 @@ import {
   playPunishmentRefuse,
   playPunishmentReveal,
 } from "@/src/services/soundManager";
-import { recordLoss, recordWin, saveRecordIfBest } from "@/src/storage/storage";
+import {
+  clearPendingRandomMatch,
+  consumePendingRandomMatch,
+  consumePendingUnlocks,
+  recordLoss,
+  recordPunishmentGiven,
+  recordPunishmentReceived,
+  recordWin,
+  saveRecordIfBest,
+} from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { errorHaptic, playLose, playWin, successHaptic } from "@/src/utils/sound";
 import type { Digits } from "@/src/utils/gameLogic";
@@ -193,6 +202,33 @@ export default function ResultScreen() {
         });
       }
       setPunishmentResolved(resolved);
+      // Server-confirmed punishment trigger. We only credit achievements
+      // on resolution (not on intent/reveal) so the descriptions match
+      // what actually happened: the winner who drew the card gets the
+      // "given" credit, and only the final resolving target — after any
+      // chooseAnother reassignment — gets the "received" credit.
+      if (yourId && winnerId === yourId) {
+        void recordPunishmentGiven()
+          .then((r) => {
+            if (r.newUnlocks.length > 0) {
+              setUnlocks((prev) =>
+                Array.from(new Set([...prev, ...r.newUnlocks])),
+              );
+            }
+          })
+          .catch(() => {});
+      }
+      if (yourId && resolved.targetId === yourId) {
+        void recordPunishmentReceived()
+          .then((r) => {
+            if (r.newUnlocks.length > 0) {
+              setUnlocks((prev) =>
+                Array.from(new Set([...prev, ...r.newUnlocks])),
+              );
+            }
+          })
+          .catch(() => {});
+      }
     });
     const unsubErr = onPunishmentError(code, (reason) => {
       setPunishmentLoading(false);
@@ -236,14 +272,21 @@ export default function ResultScreen() {
         const d = (Math.min(4, Math.max(2, digits)) || 3) as Digits;
         // Save online win: lifetime stats + the per-digit best time.
         // We only save the time record on a WIN, never on a loss.
-        void recordWin({
-          mode: "online",
-          digits: d,
-          guesses,
-          timeSec: Number.isFinite(timeSec) && timeSec > 0 ? timeSec : null,
-        }).then((r) => {
+        // Consume the random-match flag before persisting so the win is
+        // attributed correctly to the random-match queue. opponentCount
+        // is captured from the room snapshot (excludes self).
+        void (async () => {
+          const fromRandomMatch = await consumePendingRandomMatch();
+          const r = await recordWin({
+            mode: "online",
+            digits: d,
+            guesses,
+            timeSec: Number.isFinite(timeSec) && timeSec > 0 ? timeSec : null,
+            opponentCount: opponents.length,
+            fromRandomMatch,
+          });
           if (r.newUnlocks.length > 0) setUnlocks(r.newUnlocks);
-        });
+        })();
         if (Number.isFinite(timeSec) && timeSec > 0) {
           void saveRecordIfBest("online", d, timeSec, guesses).then((r) => {
             if (r.wasBest) setIsNewRecord(true);
@@ -251,8 +294,20 @@ export default function ResultScreen() {
         }
       } else {
         void recordLoss("online");
+        // Clear any stale random-match flag from this round so a later
+        // non-random win doesn't get misattributed as a random-match win.
+        void clearPendingRandomMatch();
       }
     }
+
+    // Surface any unlocks that were queued by non-win recorders since
+    // the last result screen (e.g. recordSoloPlayed on mount). Merge
+    // them with whatever the win-path produced.
+    void consumePendingUnlocks().then((queued) => {
+      if (queued.length > 0) {
+        setUnlocks((prev) => Array.from(new Set([...prev, ...queued])));
+      }
+    });
 
     if (showVictory) {
       playWin(settings.soundOn);
@@ -486,6 +541,9 @@ export default function ResultScreen() {
           }
           setTargetPickerVisible(false);
           setPunishmentLoading(true);
+          // Counter is bumped on server-confirmed resolution (in the
+          // onPunishmentResolved listener), not on intent — so a
+          // rejected request doesn't unlock an achievement.
           requestPunishmentCard(code, opp.id);
         }}
       />

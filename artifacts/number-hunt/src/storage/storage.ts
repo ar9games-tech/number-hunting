@@ -14,6 +14,8 @@ const SETTINGS_KEY = "number-hunt:settings:v1";
 const STATS_KEY = "number-hunt:stats:v1";
 const ONLINE_STATS_KEY = "number-hunt:online-stats:v1";
 const ACH_KEY = "number-hunt:achievements:v1";
+const PENDING_RANDOM_KEY = "number-hunt:pending-random:v1";
+const PENDING_UNLOCKS_KEY = "number-hunt:pending-unlocks:v1";
 
 export type Record = {
   bestTimeSec: number;
@@ -95,6 +97,16 @@ export type Stats = {
   bestStreak: number;
   currentStreak: number;
   perDigit: { 2: DigitStats; 3: DigitStats; 4: DigitStats };
+  // Achievement-feeding counters added with the 50-achievement expansion.
+  // All default to 0 so previously-persisted Stats merge in cleanly.
+  totalGuesses: number;
+  soloPlayed: number;
+  onlineWins: number;
+  randomMatchesUsed: number;
+  randomMatchWins: number;
+  punishmentsGiven: number;
+  punishmentsReceived: number;
+  maxOpponentsWon: number;
 };
 
 export type OnlineStats = Stats;
@@ -111,6 +123,14 @@ export function createDefaultStats(): Stats {
       3: { wins: 0, totalGuessesWon: 0 },
       4: { wins: 0, totalGuessesWon: 0 },
     },
+    totalGuesses: 0,
+    soloPlayed: 0,
+    onlineWins: 0,
+    randomMatchesUsed: 0,
+    randomMatchWins: 0,
+    punishmentsGiven: 0,
+    punishmentsReceived: 0,
+    maxOpponentsWon: 0,
   };
 }
 
@@ -132,6 +152,14 @@ function mergeStats(raw: Partial<Stats> | null | undefined): Stats {
       3: { ...base.perDigit[3], ...(perDigit[3] ?? {}) },
       4: { ...base.perDigit[4], ...(perDigit[4] ?? {}) },
     },
+    totalGuesses: raw.totalGuesses ?? base.totalGuesses,
+    soloPlayed: raw.soloPlayed ?? base.soloPlayed,
+    onlineWins: raw.onlineWins ?? base.onlineWins,
+    randomMatchesUsed: raw.randomMatchesUsed ?? base.randomMatchesUsed,
+    randomMatchWins: raw.randomMatchWins ?? base.randomMatchWins,
+    punishmentsGiven: raw.punishmentsGiven ?? base.punishmentsGiven,
+    punishmentsReceived: raw.punishmentsReceived ?? base.punishmentsReceived,
+    maxOpponentsWon: raw.maxOpponentsWon ?? base.maxOpponentsWon,
   };
 }
 
@@ -234,6 +262,18 @@ export async function recordWin(
   const pd = stats.perDigit[event.digits];
   pd.wins += 1;
   pd.totalGuessesWon += event.guesses;
+  // Achievement-feeding counters: total guesses across all wins/losses;
+  // online win count; random-match win count; max opponents present at win.
+  stats.totalGuesses += event.guesses;
+  if (event.mode === "online") {
+    stats.onlineWins += 1;
+    if (event.fromRandomMatch) stats.randomMatchWins += 1;
+    if (typeof event.opponentCount === "number") {
+      if (event.opponentCount > stats.maxOpponentsWon) {
+        stats.maxOpponentsWon = event.opponentCount;
+      }
+    }
+  }
   await saveStats(stats);
 
   if (event.mode === "online") {
@@ -248,16 +288,7 @@ export async function recordWin(
     await saveOnlineStats(os);
   }
 
-  const ach = await getAchievements();
-  const newUnlocks = evaluateUnlocks(stats, event, ach.unlockedIds);
-  if (newUnlocks.length > 0) {
-    const nowISO = new Date().toISOString();
-    ach.unlockedIds = [...ach.unlockedIds, ...newUnlocks];
-    for (const id of newUnlocks) ach.unlockedAt[id] = nowISO;
-    await saveAchievements(ach);
-  }
-
-  return { stats, newUnlocks };
+  return persistUnlocks(stats, event);
 }
 
 /**
@@ -284,11 +315,151 @@ export async function recordLoss(
   return { stats, newUnlocks: [] };
 }
 
+/**
+ * Shared helper: evaluate the catalog against the just-updated `stats` and
+ * persist any newly unlocked IDs. Used by every recorder so non-win events
+ * (random match started, punishment given/received, solo game started)
+ * can also unlock achievements.
+ */
+async function persistUnlocks(
+  stats: Stats,
+  event: WinEvent | undefined,
+): Promise<{ stats: Stats; newUnlocks: string[] }> {
+  const ach = await getAchievements();
+  const newUnlocks = evaluateUnlocks(stats, event, ach.unlockedIds);
+  if (newUnlocks.length > 0) {
+    const nowISO = new Date().toISOString();
+    ach.unlockedIds = [...ach.unlockedIds, ...newUnlocks];
+    for (const id of newUnlocks) ach.unlockedAt[id] = nowISO;
+    await saveAchievements(ach);
+  }
+  return { stats, newUnlocks };
+}
+
+/**
+ * Bump a single non-win stats counter, persist, evaluate unlocks, and
+ * enqueue any new unlocks so the next screen with a banner can surface
+ * them. Shared by every non-win recorder so they all behave identically.
+ */
+async function recordNonWin(
+  mutate: (stats: Stats) => void,
+): Promise<{ newUnlocks: string[] }> {
+  const stats = await getStats();
+  mutate(stats);
+  await saveStats(stats);
+  const { newUnlocks } = await persistUnlocks(stats, undefined);
+  if (newUnlocks.length > 0) {
+    await enqueuePendingUnlocks(newUnlocks);
+  }
+  return { newUnlocks };
+}
+
+/** Bump the solo-played counter and evaluate non-win achievements. */
+export async function recordSoloPlayed(): Promise<{ newUnlocks: string[] }> {
+  return recordNonWin((s) => {
+    s.soloPlayed += 1;
+  });
+}
+
+/** Bump the random-match-used counter (called when matchmaking starts). */
+export async function recordRandomMatchStarted(): Promise<{
+  newUnlocks: string[];
+}> {
+  return recordNonWin((s) => {
+    s.randomMatchesUsed += 1;
+  });
+}
+
+/** Bump the punishment-given counter and evaluate non-win achievements. */
+export async function recordPunishmentGiven(): Promise<{
+  newUnlocks: string[];
+}> {
+  return recordNonWin((s) => {
+    s.punishmentsGiven += 1;
+  });
+}
+
+/** Bump the punishment-received counter and evaluate non-win achievements. */
+export async function recordPunishmentReceived(): Promise<{
+  newUnlocks: string[];
+}> {
+  return recordNonWin((s) => {
+    s.punishmentsReceived += 1;
+  });
+}
+
 export async function clearStats(): Promise<void> {
   await Promise.all([
     AsyncStorage.removeItem(STATS_KEY),
     AsyncStorage.removeItem(ONLINE_STATS_KEY),
   ]);
+}
+
+/**
+ * One-shot flag set by the lobby when a Random Match navigates into a room,
+ * so the result screen can attribute the win to the random-match queue.
+ * Consumed on next recordWin or when the user goes home.
+ */
+export async function setPendingRandomMatch(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PENDING_RANDOM_KEY, "1");
+  } catch {
+    // Non-fatal: at worst the random_win achievement won't fire.
+  }
+}
+
+export async function consumePendingRandomMatch(): Promise<boolean> {
+  try {
+    const v = await AsyncStorage.getItem(PENDING_RANDOM_KEY);
+    if (v) await AsyncStorage.removeItem(PENDING_RANDOM_KEY);
+    return v === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Clear the random-match flag without consuming its value. Used on
+ * terminal non-win paths (losses, leaving the room) so a stale flag from
+ * a previous random match can't be misattributed to a later non-random
+ * win.
+ */
+export async function clearPendingRandomMatch(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(PENDING_RANDOM_KEY);
+  } catch {
+    // Non-fatal.
+  }
+}
+
+/**
+ * Queue of achievement ids unlocked outside the normal win flow
+ * (recordSoloPlayed, recordRandomMatchStarted, etc.). The next screen
+ * that renders the AchievementBanner consumes and surfaces them.
+ */
+async function enqueuePendingUnlocks(ids: readonly string[]): Promise<void> {
+  if (ids.length === 0) return;
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_UNLOCKS_KEY);
+    const current: string[] = raw ? (JSON.parse(raw) as string[]) : [];
+    // De-duplicate while preserving order — same id can't be queued twice.
+    const merged = Array.from(new Set([...current, ...ids]));
+    await AsyncStorage.setItem(PENDING_UNLOCKS_KEY, JSON.stringify(merged));
+  } catch {
+    // Non-fatal: at worst the banner won't show for these unlocks.
+  }
+}
+
+export async function consumePendingUnlocks(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_UNLOCKS_KEY);
+    if (!raw) return [];
+    await AsyncStorage.removeItem(PENDING_UNLOCKS_KEY);
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed.filter((x) => typeof x === "string") as string[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 export type { WinEvent };

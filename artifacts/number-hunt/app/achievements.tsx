@@ -9,12 +9,37 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useT } from "@/src/i18n/useT";
 import {
   ACHIEVEMENTS,
+  TIER_ORDER,
   type AchievementDef,
+  type AchievementTier,
   type AchievementTone,
 } from "@/src/achievements/catalog";
-import { getAchievements, type Achievements } from "@/src/storage/storage";
+import {
+  getAchievements,
+  getStats,
+  type Achievements,
+  type Stats,
+  createDefaultStats,
+} from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { formatDate } from "@/src/utils/scoring";
+import type { TranslationKey } from "@/src/i18n/translations";
+
+const TIER_COLORS: Readonly<Record<AchievementTier, string>> = {
+  bronze: "#CD7F32",
+  silver: "#C0C0C0",
+  gold: "#FFD700",
+  diamond: "#5BE0E6",
+  legendary: "#B084F5",
+};
+
+const TIER_LABEL_KEYS: Readonly<Record<AchievementTier, TranslationKey>> = {
+  bronze: "ach.tier.bronze",
+  silver: "ach.tier.silver",
+  gold: "ach.tier.gold",
+  diamond: "ach.tier.diamond",
+  legendary: "ach.tier.legendary",
+};
 
 export default function AchievementsScreen() {
   const colors = useColors();
@@ -22,10 +47,13 @@ export default function AchievementsScreen() {
   const { t, isRTL } = useT();
   const wd = isRTL ? "rtl" : "ltr";
   const [data, setData] = useState<Achievements>({ unlockedIds: [], unlockedAt: {} });
+  const [stats, setStats] = useState<Stats>(createDefaultStats());
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
 
   const load = useCallback(async () => {
-    setData(await getAchievements());
+    const [a, s] = await Promise.all([getAchievements(), getStats()]);
+    setData(a);
+    setStats(s);
   }, []);
   useEffect(() => {
     void load();
@@ -34,6 +62,17 @@ export default function AchievementsScreen() {
   const unlockedSet = new Set(data.unlockedIds);
   const total = ACHIEVEMENTS.length;
   const unlockedCount = data.unlockedIds.length;
+
+  // Group catalog entries by tier so the screen renders Bronze → Legendary
+  // sections, each with its own header and unlocked-count badge.
+  const byTier: Record<AchievementTier, AchievementDef[]> = {
+    bronze: [],
+    silver: [],
+    gold: [],
+    diamond: [],
+    legendary: [],
+  };
+  for (const def of ACHIEVEMENTS) byTier[def.tier].push(def);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -62,20 +101,63 @@ export default function AchievementsScreen() {
           </Text>
         ) : null}
 
-        <View style={styles.list}>
-          {ACHIEVEMENTS.map((def) => {
-            const unlocked = unlockedSet.has(def.id);
-            const at = data.unlockedAt[def.id];
-            return (
-              <BadgeRow
-                key={def.id}
-                def={def}
-                unlocked={unlocked}
-                unlockedAtISO={at}
-              />
-            );
-          })}
-        </View>
+        {TIER_ORDER.map((tier) => {
+          const defs = byTier[tier];
+          if (defs.length === 0) return null;
+          const tierUnlocked = defs.filter((d) => unlockedSet.has(d.id)).length;
+          const tierColor = TIER_COLORS[tier];
+          return (
+            <View key={tier} style={styles.tierSection}>
+              <View
+                style={[
+                  styles.tierHeader,
+                  { flexDirection: isRTL ? "row-reverse" : "row" },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.tierDot,
+                    { backgroundColor: tierColor },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.tierLabel,
+                    { color: tierColor, writingDirection: wd },
+                  ]}
+                >
+                  {t(TIER_LABEL_KEYS[tier])}
+                </Text>
+                <View style={{ flex: 1 }} />
+                <Text
+                  style={[
+                    styles.tierCount,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {tierUnlocked} / {defs.length}
+                </Text>
+              </View>
+              <View style={styles.list}>
+                {defs.map((def) => {
+                  const unlocked = unlockedSet.has(def.id);
+                  const at = data.unlockedAt[def.id];
+                  const progress =
+                    !unlocked && def.progress ? def.progress(stats) : null;
+                  return (
+                    <BadgeRow
+                      key={def.id}
+                      def={def}
+                      unlocked={unlocked}
+                      unlockedAtISO={at}
+                      progress={progress}
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -85,26 +167,27 @@ function BadgeRow({
   def,
   unlocked,
   unlockedAtISO,
+  progress,
 }: {
   def: AchievementDef;
   unlocked: boolean;
   unlockedAtISO: string | undefined;
+  progress: { current: number; target: number } | null;
 }) {
   const colors = useColors();
   const { t, isRTL } = useT();
   const wd = isRTL ? "rtl" : "ltr";
   const tone = toneToColor(def.tone, colors);
+  const tierColor = TIER_COLORS[def.tier];
 
   return (
-    <GlassCard style={styles.row} tone={unlocked ? "neutral" : "neutral"}>
+    <GlassCard style={styles.row} tone="neutral">
       <View
         style={[
           styles.iconWrap,
           {
             backgroundColor: unlocked ? tone + "22" : colors.muted,
-            // Subtle ring on unlocked badges so they "pop" against the
-            // grayscale locked ones.
-            borderColor: unlocked ? tone : "transparent",
+            borderColor: unlocked ? tierColor : "transparent",
             borderWidth: unlocked ? 1.5 : 0,
           },
         ]}
@@ -132,12 +215,63 @@ function BadgeRow({
           {t(def.descKey)}
         </Text>
         {unlocked && unlockedAtISO ? (
-          <Text style={[styles.meta, { color: tone, writingDirection: wd }]}>
+          <Text style={[styles.meta, { color: tierColor, writingDirection: wd }]}>
             {t("ach.unlockedOn", { date: formatDate(unlockedAtISO) })}
           </Text>
         ) : null}
+        {!unlocked && progress ? (
+          <ProgressBar
+            current={progress.current}
+            target={progress.target}
+            color={tierColor}
+            mutedColor={colors.muted}
+            textColor={colors.mutedForeground}
+            isRTL={isRTL}
+          />
+        ) : null}
       </View>
     </GlassCard>
+  );
+}
+
+/**
+ * Compact progress bar for locked achievements. Tabular-nums keeps the
+ * "X / Y" label stable across digit changes, and the bar fills up to 100%.
+ */
+function ProgressBar({
+  current,
+  target,
+  color,
+  mutedColor,
+  textColor,
+  isRTL,
+}: {
+  current: number;
+  target: number;
+  color: string;
+  mutedColor: string;
+  textColor: string;
+  isRTL: boolean;
+}) {
+  const pct = target > 0 ? Math.min(1, Math.max(0, current / target)) : 0;
+  return (
+    <View style={styles.progressWrap}>
+      <View style={[styles.progressTrack, { backgroundColor: mutedColor }]}>
+        <View
+          style={[
+            styles.progressFill,
+            {
+              width: `${pct * 100}%`,
+              backgroundColor: color,
+              alignSelf: isRTL ? "flex-end" : "flex-start",
+            },
+          ]}
+        />
+      </View>
+      <Text style={[styles.progressText, { color: textColor }]}>
+        {current} / {target}
+      </Text>
+    </View>
   );
 }
 
@@ -179,6 +313,25 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     lineHeight: 19,
   },
+  tierSection: { gap: 10 },
+  tierHeader: {
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 2,
+    paddingTop: 4,
+  },
+  tierDot: { width: 10, height: 10, borderRadius: 5 },
+  tierLabel: {
+    fontSize: 12,
+    letterSpacing: 1.4,
+    fontFamily: "Inter_700Bold",
+    textTransform: "uppercase",
+  },
+  tierCount: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    fontVariant: ["tabular-nums"],
+  },
   list: { gap: 10 },
   row: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12 },
   iconWrap: {
@@ -191,4 +344,16 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontFamily: "Inter_700Bold" },
   desc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
   meta: { marginTop: 4, fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  progressWrap: { marginTop: 6, gap: 4 },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: { height: "100%", borderRadius: 3 },
+  progressText: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    fontVariant: ["tabular-nums"],
+  },
 });

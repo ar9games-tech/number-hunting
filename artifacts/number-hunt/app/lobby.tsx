@@ -31,7 +31,11 @@ import {
   playRandomSearching,
   stopRandomSearching,
 } from "@/src/services/soundManager";
-import { formatPlayerIdentity } from "@/src/storage/storage";
+import {
+  formatPlayerIdentity,
+  recordRandomMatchStarted,
+  setPendingRandomMatch,
+} from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 
 export default function MultiplayerLobbyScreen() {
@@ -78,6 +82,10 @@ export default function MultiplayerLobbyScreen() {
       // navigating, so the audio transition lands with the screen.
       stopRandomSearching();
       playMatchFound(settings.soundOn);
+      // Mark this upcoming game as a random match so the result screen can
+      // attribute a win to the random-match queue (random_win achievement).
+      // Set-and-forget: the flag is consumed exactly once on recordWin.
+      void setPendingRandomMatch().catch(() => {});
       router.replace({ pathname: "/room", params: { code } });
     });
     const offErr = onRandomQueueError((reason) => {
@@ -129,6 +137,10 @@ export default function MultiplayerLobbyScreen() {
     // Start the looping "searching for opponent" ambience; it gets
     // stopped on match-found, cancel, error, or unmount.
     playRandomSearching(settings.soundOn);
+    // Bump the random-match-used counter so the "Use Random Match N times"
+    // achievements can unlock even if matchmaking is cancelled before a
+    // game starts. Non-blocking; failure is non-fatal.
+    void recordRandomMatchStarted().catch(() => {});
     joinRandomQueue(identity);
   };
 

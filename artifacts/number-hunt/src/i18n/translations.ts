@@ -272,6 +272,11 @@ export type TranslationKey =
   | "ach.empty"
   | "ach.unlocked"
   | "ach.unlockedOn"
+  | "ach.tier.bronze"
+  | "ach.tier.silver"
+  | "ach.tier.gold"
+  | "ach.tier.diamond"
+  | "ach.tier.legendary"
   | "ach.first_win.title"
   | "ach.first_win.desc"
   | "ach.online_win.title"
@@ -294,6 +299,46 @@ export type TranslationKey =
   | "ach.sniper_3.desc"
   | "ach.sniper_4.title"
   | "ach.sniper_4.desc"
+  // New tiered achievements (50-total expansion)
+  | "ach.first_solo.title" | "ach.first_solo.desc"
+  | "ach.wins_3.title" | "ach.wins_3.desc"
+  | "ach.online_wins_3.title" | "ach.online_wins_3.desc"
+  | "ach.plays_5.title" | "ach.plays_5.desc"
+  | "ach.win_2digit.title" | "ach.win_2digit.desc"
+  | "ach.win_3digit.title" | "ach.win_3digit.desc"
+  | "ach.guesses_50.title" | "ach.guesses_50.desc"
+  | "ach.solo_5.title" | "ach.solo_5.desc"
+  | "ach.streak_3.title" | "ach.streak_3.desc"
+  | "ach.wins_10.title" | "ach.wins_10.desc"
+  | "ach.online_wins_10.title" | "ach.online_wins_10.desc"
+  | "ach.win_4digit.title" | "ach.win_4digit.desc"
+  | "ach.fast_3_60.title" | "ach.fast_3_60.desc"
+  | "ach.guesses_100.title" | "ach.guesses_100.desc"
+  | "ach.plays_20.title" | "ach.plays_20.desc"
+  | "ach.random_used_1.title" | "ach.random_used_1.desc"
+  | "ach.punish_used_1.title" | "ach.punish_used_1.desc"
+  | "ach.punish_received_1.title" | "ach.punish_received_1.desc"
+  | "ach.online_wins_25.title" | "ach.online_wins_25.desc"
+  | "ach.fast_2_5.title" | "ach.fast_2_5.desc"
+  | "ach.fast_3_15.title" | "ach.fast_3_15.desc"
+  | "ach.random_used_5.title" | "ach.random_used_5.desc"
+  | "ach.random_win.title" | "ach.random_win.desc"
+  | "ach.plays_50.title" | "ach.plays_50.desc"
+  | "ach.guesses_500.title" | "ach.guesses_500.desc"
+  | "ach.all_digits.title" | "ach.all_digits.desc"
+  | "ach.wins_50.title" | "ach.wins_50.desc"
+  | "ach.online_wins_50.title" | "ach.online_wins_50.desc"
+  | "ach.fast_4_30.title" | "ach.fast_4_30.desc"
+  | "ach.sniper_4_5.title" | "ach.sniper_4_5.desc"
+  | "ach.plays_100.title" | "ach.plays_100.desc"
+  | "ach.guesses_1000.title" | "ach.guesses_1000.desc"
+  | "ach.wins_4plus.title" | "ach.wins_4plus.desc"
+  | "ach.random_wins_5.title" | "ach.random_wins_5.desc"
+  | "ach.punish_given_5.title" | "ach.punish_given_5.desc"
+  | "ach.online_wins_100.title" | "ach.online_wins_100.desc"
+  | "ach.streak_15.title" | "ach.streak_15.desc"
+  | "ach.fast_4_15.title" | "ach.fast_4_15.desc"
+  | "ach.trifecta_25.title" | "ach.trifecta_25.desc"
   // Misc
   | "misc.noGuesses"
   | "misc.player1"
@@ -595,6 +640,89 @@ const en: Record<TranslationKey, string> = {
   "ach.sniper_3.desc": "Solve a 3-digit round in 5 guesses or fewer.",
   "ach.sniper_4.title": "Eagle Eye",
   "ach.sniper_4.desc": "Solve a 4-digit round in 8 guesses or fewer.",
+  "ach.tier.bronze": "Bronze",
+  "ach.tier.silver": "Silver",
+  "ach.tier.gold": "Gold",
+  "ach.tier.diamond": "Diamond",
+  "ach.tier.legendary": "Legendary",
+  "ach.first_solo.title": "Stepping In",
+  "ach.first_solo.desc": "Play your first solo game.",
+  "ach.wins_3.title": "Getting Warm",
+  "ach.wins_3.desc": "Win 3 games in total.",
+  "ach.online_wins_3.title": "Crowd Pleaser",
+  "ach.online_wins_3.desc": "Win 3 multiplayer rounds.",
+  "ach.plays_5.title": "Apprentice",
+  "ach.plays_5.desc": "Play 5 games in total.",
+  "ach.win_2digit.title": "Two of a Kind",
+  "ach.win_2digit.desc": "Win a 2-digit round.",
+  "ach.win_3digit.title": "Three-Track Mind",
+  "ach.win_3digit.desc": "Win a 3-digit round.",
+  "ach.guesses_50.title": "Number Cruncher",
+  "ach.guesses_50.desc": "Make 50 total guesses.",
+  "ach.solo_5.title": "Lone Hunter",
+  "ach.solo_5.desc": "Play 5 solo games.",
+  "ach.streak_3.title": "Hat Trick",
+  "ach.streak_3.desc": "Win 3 games in a row.",
+  "ach.wins_10.title": "Decathlete",
+  "ach.wins_10.desc": "Win 10 games in total.",
+  "ach.online_wins_10.title": "Arena Regular",
+  "ach.online_wins_10.desc": "Win 10 multiplayer rounds.",
+  "ach.win_4digit.title": "Long Code",
+  "ach.win_4digit.desc": "Solve a 4-digit number.",
+  "ach.fast_3_60.title": "Brisk Solver",
+  "ach.fast_3_60.desc": "Crack a 3-digit number in under 60 seconds.",
+  "ach.guesses_100.title": "Centurion of Guesses",
+  "ach.guesses_100.desc": "Make 100 total guesses.",
+  "ach.plays_20.title": "Regular",
+  "ach.plays_20.desc": "Play 20 games in total.",
+  "ach.random_used_1.title": "Blind Date",
+  "ach.random_used_1.desc": "Use Random Match for the first time.",
+  "ach.punish_used_1.title": "Judge, Jury",
+  "ach.punish_used_1.desc": "Use the punishment feature once.",
+  "ach.punish_received_1.title": "Took the Heat",
+  "ach.punish_received_1.desc": "Receive a punishment for the first time.",
+  "ach.online_wins_25.title": "Arena Veteran",
+  "ach.online_wins_25.desc": "Win 25 multiplayer rounds.",
+  "ach.fast_2_5.title": "Lightning Fingers",
+  "ach.fast_2_5.desc": "Crack a 2-digit number in under 5 seconds.",
+  "ach.fast_3_15.title": "Mind Reader",
+  "ach.fast_3_15.desc": "Crack a 3-digit number in under 15 seconds.",
+  "ach.random_used_5.title": "Roulette",
+  "ach.random_used_5.desc": "Use Random Match 5 times.",
+  "ach.random_win.title": "Stranger Danger",
+  "ach.random_win.desc": "Win a Random Match round.",
+  "ach.plays_50.title": "Dedicated",
+  "ach.plays_50.desc": "Play 50 games in total.",
+  "ach.guesses_500.title": "Half a Thousand",
+  "ach.guesses_500.desc": "Make 500 total guesses.",
+  "ach.all_digits.title": "Triple Threat",
+  "ach.all_digits.desc": "Win at 2-, 3-, and 4-digit difficulty.",
+  "ach.wins_50.title": "Half-Century",
+  "ach.wins_50.desc": "Win 50 games in total.",
+  "ach.online_wins_50.title": "Arena Champion",
+  "ach.online_wins_50.desc": "Win 50 multiplayer rounds.",
+  "ach.fast_4_30.title": "Blink and Solve",
+  "ach.fast_4_30.desc": "Crack a 4-digit number in under 30 seconds.",
+  "ach.sniper_4_5.title": "Perfect Shot",
+  "ach.sniper_4_5.desc": "Solve a 4-digit round in 5 guesses or fewer.",
+  "ach.plays_100.title": "Centurion",
+  "ach.plays_100.desc": "Play 100 games in total.",
+  "ach.guesses_1000.title": "Guess Machine",
+  "ach.guesses_1000.desc": "Make 1,000 total guesses.",
+  "ach.wins_4plus.title": "Lions' Share",
+  "ach.wins_4plus.desc": "Win a round against 4 or more opponents.",
+  "ach.random_wins_5.title": "Bracket Buster",
+  "ach.random_wins_5.desc": "Win 5 Random Match rounds.",
+  "ach.punish_given_5.title": "Repeat Offender",
+  "ach.punish_given_5.desc": "Hand out 5 punishments.",
+  "ach.online_wins_100.title": "Arena Legend",
+  "ach.online_wins_100.desc": "Win 100 multiplayer rounds.",
+  "ach.streak_15.title": "Untouchable",
+  "ach.streak_15.desc": "Win 15 games in a row.",
+  "ach.fast_4_15.title": "Speed of Thought",
+  "ach.fast_4_15.desc": "Crack a 4-digit number in under 15 seconds.",
+  "ach.trifecta_25.title": "Trifecta Master",
+  "ach.trifecta_25.desc": "Win 25 games at every digit count.",
 
   "misc.noGuesses": "No guesses yet",
   "misc.player1": "Player 1",
@@ -895,6 +1023,89 @@ const ar: Record<TranslationKey, string> = {
   "ach.sniper_3.desc": "حلّ جولة من 3 خانات بـ 5 تخمينات أو أقل.",
   "ach.sniper_4.title": "عين النسر",
   "ach.sniper_4.desc": "حلّ جولة من 4 خانات بـ 8 تخمينات أو أقل.",
+  "ach.tier.bronze": "برونزي",
+  "ach.tier.silver": "فضي",
+  "ach.tier.gold": "ذهبي",
+  "ach.tier.diamond": "ألماسي",
+  "ach.tier.legendary": "أسطوري",
+  "ach.first_solo.title": "البداية",
+  "ach.first_solo.desc": "العب أول مباراة فردية.",
+  "ach.wins_3.title": "تبدأ الحرارة",
+  "ach.wins_3.desc": "اربح 3 مباريات في المجموع.",
+  "ach.online_wins_3.title": "محبوب الجمهور",
+  "ach.online_wins_3.desc": "اربح 3 جولات متعدد اللاعبين.",
+  "ach.plays_5.title": "مبتدئ",
+  "ach.plays_5.desc": "العب 5 مباريات في المجموع.",
+  "ach.win_2digit.title": "اثنان من نوعهما",
+  "ach.win_2digit.desc": "اربح جولة من خانتين.",
+  "ach.win_3digit.title": "عقل ثلاثي",
+  "ach.win_3digit.desc": "اربح جولة من 3 خانات.",
+  "ach.guesses_50.title": "آلة التخمين",
+  "ach.guesses_50.desc": "خمّن 50 مرة في المجموع.",
+  "ach.solo_5.title": "صياد منفرد",
+  "ach.solo_5.desc": "العب 5 مباريات فردية.",
+  "ach.streak_3.title": "ثلاثية",
+  "ach.streak_3.desc": "اربح 3 مباريات متتالية.",
+  "ach.wins_10.title": "عشرة من عشرة",
+  "ach.wins_10.desc": "اربح 10 مباريات في المجموع.",
+  "ach.online_wins_10.title": "ضيف دائم",
+  "ach.online_wins_10.desc": "اربح 10 جولات متعدد اللاعبين.",
+  "ach.win_4digit.title": "الرمز الطويل",
+  "ach.win_4digit.desc": "حلّ رقماً من 4 خانات.",
+  "ach.fast_3_60.title": "حلّال سريع",
+  "ach.fast_3_60.desc": "اكشف رقماً من 3 خانات في أقل من 60 ثانية.",
+  "ach.guesses_100.title": "مئوي التخمين",
+  "ach.guesses_100.desc": "خمّن 100 مرة في المجموع.",
+  "ach.plays_20.title": "زبون منتظم",
+  "ach.plays_20.desc": "العب 20 مباراة في المجموع.",
+  "ach.random_used_1.title": "موعد مفاجئ",
+  "ach.random_used_1.desc": "استخدم البحث العشوائي لأول مرة.",
+  "ach.punish_used_1.title": "قاضٍ وحاكم",
+  "ach.punish_used_1.desc": "استخدم ميزة العقوبة مرة واحدة.",
+  "ach.punish_received_1.title": "تحملت العقوبة",
+  "ach.punish_received_1.desc": "احصل على عقوبة لأول مرة.",
+  "ach.online_wins_25.title": "محنّك الساحة",
+  "ach.online_wins_25.desc": "اربح 25 جولة متعدد اللاعبين.",
+  "ach.fast_2_5.title": "أصابع البرق",
+  "ach.fast_2_5.desc": "اكشف رقماً من خانتين في أقل من 5 ثوانٍ.",
+  "ach.fast_3_15.title": "قارئ الأفكار",
+  "ach.fast_3_15.desc": "اكشف رقماً من 3 خانات في أقل من 15 ثانية.",
+  "ach.random_used_5.title": "روليت",
+  "ach.random_used_5.desc": "استخدم البحث العشوائي 5 مرات.",
+  "ach.random_win.title": "غريب خطير",
+  "ach.random_win.desc": "اربح جولة بحث عشوائي.",
+  "ach.plays_50.title": "ملتزم",
+  "ach.plays_50.desc": "العب 50 مباراة في المجموع.",
+  "ach.guesses_500.title": "نصف ألف",
+  "ach.guesses_500.desc": "خمّن 500 مرة في المجموع.",
+  "ach.all_digits.title": "ثلاثي التهديد",
+  "ach.all_digits.desc": "اربح في صعوبات 2 و3 و4 خانات.",
+  "ach.wins_50.title": "نصف قرن",
+  "ach.wins_50.desc": "اربح 50 مباراة في المجموع.",
+  "ach.online_wins_50.title": "بطل الساحة",
+  "ach.online_wins_50.desc": "اربح 50 جولة متعدد اللاعبين.",
+  "ach.fast_4_30.title": "لمح وحلّ",
+  "ach.fast_4_30.desc": "اكشف رقماً من 4 خانات في أقل من 30 ثانية.",
+  "ach.sniper_4_5.title": "إطلاقة مثالية",
+  "ach.sniper_4_5.desc": "حلّ جولة من 4 خانات بـ 5 تخمينات أو أقل.",
+  "ach.plays_100.title": "المئوي",
+  "ach.plays_100.desc": "العب 100 مباراة في المجموع.",
+  "ach.guesses_1000.title": "آلة التخمين",
+  "ach.guesses_1000.desc": "خمّن 1,000 مرة في المجموع.",
+  "ach.wins_4plus.title": "نصيب الأسد",
+  "ach.wins_4plus.desc": "اربح جولة ضد 4 خصوم أو أكثر.",
+  "ach.random_wins_5.title": "كاسر الأقواس",
+  "ach.random_wins_5.desc": "اربح 5 جولات بحث عشوائي.",
+  "ach.punish_given_5.title": "معاقب متكرر",
+  "ach.punish_given_5.desc": "وزّع 5 عقوبات.",
+  "ach.online_wins_100.title": "أسطورة الساحة",
+  "ach.online_wins_100.desc": "اربح 100 جولة متعدد اللاعبين.",
+  "ach.streak_15.title": "لا يُمَس",
+  "ach.streak_15.desc": "اربح 15 مباراة متتالية.",
+  "ach.fast_4_15.title": "سرعة الفكر",
+  "ach.fast_4_15.desc": "اكشف رقماً من 4 خانات في أقل من 15 ثانية.",
+  "ach.trifecta_25.title": "سيد الثلاثية",
+  "ach.trifecta_25.desc": "اربح 25 مباراة في كل عدد خانات.",
 
   "misc.noGuesses": "لا توجد تخمينات بعد",
   "misc.player1": "اللاعب 1",
