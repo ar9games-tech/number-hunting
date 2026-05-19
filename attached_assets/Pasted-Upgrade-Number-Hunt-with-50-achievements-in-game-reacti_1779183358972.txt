@@ -1,0 +1,133 @@
+Upgrade Number Hunt with 50 achievements, in-game reactions, and profile badges.
+
+1. Achievements System:
+- Increase achievements to 50 total achievements.
+- Achievements must increase in difficulty gradually.
+- Organize achievements into tiers:
+  - Bronze: easy achievements
+  - Silver: medium achievements
+  - Gold: hard achievements
+  - Diamond: very hard achievements
+  - Legendary: rare achievements
+
+Achievement examples:
+- Play first solo game
+- Win first online game
+- Guess correctly in under 60 seconds
+- Guess correctly in under 30 seconds
+- Win 3 online games
+- Win 10 online games
+- Win 25 online games
+- Win 50 online games
+- Win 3 games in a row
+- Win 5 games in a row
+- Win 10 games in a row
+- Solve a 4-digit number
+- Solve 4-digit in under 60 seconds
+- Get 100 total guesses
+- Get 500 total guesses
+- Use Random Match 5 times
+- Win a Random Match
+- Win against 4+ players
+- Use punishment feature once
+- Receive punishment once
+- Unlock first badge
+
+Requirements:
+- Create:
+  - src/data/achievements.js
+  - src/services/achievementManager.js
+- Save unlocked achievements using AsyncStorage.
+- Show achievement progress when possible.
+- Show popup when achievement is unlocked.
+- Add Achievements section inside Profile screen.
+- Show locked and unlocked achievements.
+- Each achievement should have:
+  - id
+  - title_en
+  - title_ar
+  - description_en
+  - description_ar
+  - tier
+  - icon
+  - requirement
+  - progress
+  - unlocked
+
+2. Badges Near Player Name:
+- Add badge system linked to achievements and stats.
+- Badges should appear near the player nickname and serial.
+- Example:
+  Ahmed #48291 🥉
+  Ahmed #48291 🔥
+  Ahmed #48291 💎
+- Add selectable badge in Profile screen.
+- Player can choose one unlocked badge to display near their name.
+- Save selected badge using AsyncStorage.
+- Show selected badge in:
+  - Home screen
+  - Profile screen
+  - Online room player list
+  - Winner screen
+  - Random Match screen
+- If no badge selected, show no badge.
+
+Badge examples:
+- 🥉 First Win
+- 🔥 Streak Master
+- ⚡ Speed Solver
+- 💎 Diamond Mind
+- 👑 Champion
+- 🎯 Accurate Guesser
+- 🧠 Puzzle Brain
+- 🎲 Random Warrior
+
+3. In-Game Reactions:
+- Add ability to send reactions during online matches.
+- Reactions should appear as floating animated emojis/messages.
+- Add reaction button during online game.
+- Reactions examples:
+  - 😂
+  - 😱
+  - 🔥
+  - 👀
+  - 🎯
+  - 😎
+  - “Close!”
+  - “No way!”
+  - “Almost!”
+  - “Lucky!”
+- Support Arabic and English reaction text:
+  - قريب!
+  - مستحيل!
+  - أوشكت!
+  - محظوظ!
+- Use Socket.io events:
+  - sendReaction
+  - reactionReceived
+- Broadcast reaction to all players in the room.
+- Add cooldown:
+  - One reaction every 3 seconds per player.
+- Do not interrupt gameplay.
+- Add sound placeholder for reaction pop.
+
+4. UI Requirements:
+- Profile screen should show:
+  - Player name + serial + selected badge
+  - Online lifetime stats
+  - Solo and online time records
+  - Achievements list
+  - Badge selection
+- Online room player list should show badges near names.
+- Reactions should appear cleanly without covering the keypad.
+- Keep keypad fixed at bottom.
+- Use smooth animations.
+
+5. Important:
+- Do not break Solo Mode.
+- Do not break Online Mode.
+- Do not break Random Match.
+- Do not break Punishment feature.
+- Save all progress locally with AsyncStorage.
+- Keep Arabic and English support.
+- Keep Arabic numbers left-to-right.
