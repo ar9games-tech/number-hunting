@@ -76,15 +76,26 @@ type RoomInternal = {
   punishmentCardId: PunishmentCardId | null;
   /** Final Accept/Refuse decision from the target, or null until they pick. */
   punishmentResolution: { accepted: boolean } | null;
+  /**
+   * Only meaningful for the `chooseAnother` card. True on the *first*
+   * reveal so the original target can pass the card to a new target;
+   * flipped to false after one reassignment so the chain can't loop
+   * forever. Any other card always has this as false.
+   */
+  punishmentCanPass: boolean;
 };
 
 /** Punishment cards. IDs match what the client renders in its modal. */
-type PunishmentCardId = "directElimination" | "vote" | "sandal" | "animalSound";
+type PunishmentCardId =
+  | "directElimination"
+  | "vote"
+  | "anotherChance"
+  | "chooseAnother";
 const PUNISHMENT_CARDS: PunishmentCardId[] = [
   "directElimination",
   "vote",
-  "sandal",
-  "animalSound",
+  "anotherChance",
+  "chooseAnother",
 ];
 /** Brief mutex so two concurrent winner taps still produce one reveal. */
 const PUNISHMENT_LOCK_MS = 2_000;
@@ -316,6 +327,7 @@ type ClientMessage =
   | { type: "leave"; code: string }
   | { type: "requestPunishment"; reqId?: string; code: string; targetId: string }
   | { type: "respondPunishment"; reqId?: string; code: string; accepted: boolean }
+  | { type: "reassignPunishment"; reqId?: string; code: string; newTargetId: string }
   | { type: "ping"; reqId?: string };
 
 type PunishmentErrorReason =
@@ -374,6 +386,7 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         punishmentTargetSocketId: null,
         punishmentCardId: null,
         punishmentResolution: null,
+        punishmentCanPass: false,
         histories: new Map(),
         punishmentLockUntil: 0,
       };
@@ -535,6 +548,7 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       room.punishmentTargetSocketId = null;
       room.punishmentCardId = null;
       room.punishmentResolution = null;
+      room.punishmentCanPass = false;
       broadcast(code);
       logger.info({ code }, "ws: rematch armed (awaiting digits)");
       break;
@@ -583,6 +597,17 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       room.punishmentTargetName = target.name;
       room.punishmentTargetSocketId = target.socketId;
       room.punishmentResolution = null;
+      // The chooseAnother card grants the original target exactly one
+      // pass — capped so the chain can't loop forever. We *also* only
+      // grant the pass when there's an eligible alternate loser to pass
+      // to (room must have ≥1 player who is neither the winner nor the
+      // chosen target); otherwise the target would be stuck staring at
+      // a pass-only modal with zero candidates (e.g. in a 2-player room).
+      // In that case we fall through to the normal Accept / Refuse flow.
+      const hasReassignCandidate = room.players.some(
+        (p) => p.socketId !== room.winnerId && p.socketId !== target.socketId,
+      );
+      room.punishmentCanPass = cardId === "chooseAnother" && hasReassignCandidate;
       const subs = subscribers.get(code);
       const peerCount = subs ? subs.size : 0;
       if (subs) {
@@ -594,6 +619,7 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
             drawnBy: requester.name,
             targetId: target.socketId,
             targetName: target.name,
+            canPass: room.punishmentCanPass,
           });
         }
       }
@@ -605,9 +631,93 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
           drawnBy: requester.name,
           targetId: target.socketId,
           targetName: target.name,
+          canPass: room.punishmentCanPass,
           peerCount,
         },
         "ws: punishment drawn + broadcast",
+      );
+      break;
+    }
+
+    case "reassignPunishment": {
+      // Special-case action for the chooseAnother card: the current
+      // target hands the punishment off to someone else. Server
+      // re-broadcasts a fresh `punishmentRevealed` with the new target,
+      // and flips `canPass` to false so the chain ends after one hop.
+      const code = String(raw.code).toUpperCase();
+      const newTargetId = String(raw.newTargetId ?? "").trim();
+      const id = socketIdentity.get(ws);
+      logger.info(
+        { code, socketId: id?.socketId ?? null, newTargetId },
+        "ws: reassignPunishment received",
+      );
+      const sendErr = (reason: PunishmentErrorReason) => {
+        logger.info({ code, reason }, "ws: punishment reassign rejected");
+        safeSend(ws, {
+          type: "punishmentError",
+          reqId: raw.reqId,
+          code,
+          reason,
+        });
+      };
+      if (!id || id.code !== code) return sendErr("notInRoom");
+      const room = getRoom(code);
+      if (!room) return sendErr("notInRoom");
+      const caller = playerById(room, id.socketId);
+      if (!caller) return sendErr("notInRoom");
+      if (
+        !room.punishmentUsed ||
+        !room.punishmentCardId ||
+        !room.punishmentTargetSocketId
+      ) {
+        return sendErr("noPunishment");
+      }
+      if (room.punishmentResolution) return sendErr("alreadyResolved");
+      // Only the current target may pass, and only when the card is
+      // chooseAnother *and* the one-pass budget is intact.
+      if (id.socketId !== room.punishmentTargetSocketId) return sendErr("notTarget");
+      if (room.punishmentCardId !== "chooseAnother" || !room.punishmentCanPass) {
+        return sendErr("alreadyResolved");
+      }
+      if (!newTargetId) return sendErr("noTarget");
+      const newTarget = playerById(room, newTargetId);
+      // The new target must exist, must not be the winner (punishment
+      // can only land on losers), and must not be the caller themselves.
+      if (
+        !newTarget ||
+        newTarget.socketId === room.winnerId ||
+        newTarget.socketId === id.socketId
+      ) {
+        return sendErr("invalidTarget");
+      }
+      room.punishmentTargetName = newTarget.name;
+      room.punishmentTargetSocketId = newTarget.socketId;
+      room.punishmentCanPass = false;
+      const subs = subscribers.get(code);
+      const peerCount = subs ? subs.size : 0;
+      if (subs) {
+        for (const peer of subs) {
+          safeSend(peer, {
+            type: "punishmentRevealed",
+            code,
+            cardId: room.punishmentCardId,
+            drawnBy: caller.name, // The passer is the "drawer" of the new reveal.
+            targetId: newTarget.socketId,
+            targetName: newTarget.name,
+            canPass: false,
+          });
+        }
+      }
+      touch(code);
+      logger.info(
+        {
+          code,
+          cardId: room.punishmentCardId,
+          newTargetId: newTarget.socketId,
+          newTargetName: newTarget.name,
+          peerCount,
+        },
+        "ws: punishment reassigned + broadcast",
       );
       break;
     }

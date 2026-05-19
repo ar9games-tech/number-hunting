@@ -45,7 +45,11 @@ export type SoundId =
   | "playerJoined"
   | "gameStart"
   | "newRecord"
-  | "punishmentReveal";
+  | "punishmentReveal"
+  | "punishmentPackOpen"
+  | "punishmentAccept"
+  | "punishmentRefuse"
+  | "newMatch";
 
 /**
  * Map from event id to the asset path. Swap these `require(...)` calls
@@ -65,6 +69,10 @@ const SOUND_FILES: { [K in SoundId]: number | null } = {
   gameStart: null, // require("../../assets/sounds/game_start.mp3"),
   newRecord: null, // require("../../assets/sounds/new_record.mp3"),
   punishmentReveal: null, // require("../../assets/sounds/punishment_reveal.mp3"),
+  punishmentPackOpen: null, // require("../../assets/sounds/punishment_pack_open.mp3"),
+  punishmentAccept: null, // require("../../assets/sounds/punishment_accept.mp3"),
+  punishmentRefuse: null, // require("../../assets/sounds/punishment_refuse.mp3"),
+  newMatch: null, // require("../../assets/sounds/new_match.mp3"),
 };
 
 /**
@@ -176,6 +184,18 @@ export function playNewRecord(soundOn: boolean): void {
 }
 export function playPunishmentReveal(soundOn: boolean): void {
   play("punishmentReveal", soundOn);
+}
+export function playPunishmentPackOpen(soundOn: boolean): void {
+  play("punishmentPackOpen", soundOn);
+}
+export function playPunishmentAccept(soundOn: boolean): void {
+  play("punishmentAccept", soundOn);
+}
+export function playPunishmentRefuse(soundOn: boolean): void {
+  play("punishmentRefuse", soundOn);
+}
+export function playNewMatch(soundOn: boolean): void {
+  play("newMatch", soundOn);
 }
 
 /** Re-exported for callers that want the raw asset map (debug screens, etc). */

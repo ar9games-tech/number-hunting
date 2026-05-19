@@ -228,10 +228,16 @@ export type TranslationKey =
   | "punishment.card.directElimination.body"
   | "punishment.card.vote.title"
   | "punishment.card.vote.body"
-  | "punishment.card.sandal.title"
-  | "punishment.card.sandal.body"
-  | "punishment.card.animalSound.title"
-  | "punishment.card.animalSound.body"
+  | "punishment.card.anotherChance.title"
+  | "punishment.card.anotherChance.body"
+  | "punishment.card.chooseAnother.title"
+  | "punishment.card.chooseAnother.body"
+  | "punishment.pickAnother"
+  | "punishment.pickAnotherBody"
+  | "punishment.passToPlayer"
+  | "punishment.continue"
+  | "punishment.forgivenTitle"
+  | "punishment.forgivenBody"
   // Welcome / first-run nickname
   | "welcome.title"
   | "welcome.subtitle"
@@ -515,10 +521,16 @@ const en: Record<TranslationKey, string> = {
   "punishment.card.directElimination.body": "The chosen player is eliminated immediately.",
   "punishment.card.vote.title": "Vote",
   "punishment.card.vote.body": "Everyone votes on the punishment.",
-  "punishment.card.sandal.title": "Zanoba",
-  "punishment.card.sandal.body": "If the player refuses the punishment, direct elimination.",
-  "punishment.card.animalSound.title": "Animal Sound",
-  "punishment.card.animalSound.body": "If the player refuses the punishment, direct elimination.",
+  "punishment.card.anotherChance.title": "Another Chance",
+  "punishment.card.anotherChance.body": "The player is forgiven and gets to play another round.",
+  "punishment.card.chooseAnother.title": "Choose Another Player",
+  "punishment.card.chooseAnother.body": "Choose another player to receive the punishment instead of you.",
+  "punishment.pickAnother": "Pass to another player",
+  "punishment.pickAnotherBody": "Pick a different opponent to take the punishment. You can't pick yourself or the winner.",
+  "punishment.passToPlayer": "Pass to {name}",
+  "punishment.continue": "Continue",
+  "punishment.forgivenTitle": "Forgiven",
+  "punishment.forgivenBody": "{name} is forgiven and plays another round.",
 
   "welcome.title": "Welcome to Number Hunt",
   "welcome.subtitle": "Pick a nickname so we can show it next to your scores. You can change it anytime in Settings.",
@@ -799,10 +811,16 @@ const ar: Record<TranslationKey, string> = {
   "punishment.card.directElimination.body": "يخرج اللاعب المختار فوراً.",
   "punishment.card.vote.title": "تصويت",
   "punishment.card.vote.body": "يصوّت الجميع على نتيجة العقاب.",
-  "punishment.card.sandal.title": "زنوبة",
-  "punishment.card.sandal.body": "إذا لم يقبل العقاب، خروج مباشر.",
-  "punishment.card.animalSound.title": "تقليد صوت حيوان",
-  "punishment.card.animalSound.body": "إذا لم يقبل العقاب، خروج مباشر.",
+  "punishment.card.anotherChance.title": "فرصة أخرى",
+  "punishment.card.anotherChance.body": "تتم مسامحة اللاعب ويلعب جولة أخرى.",
+  "punishment.card.chooseAnother.title": "اختار لاعب غيرك",
+  "punishment.card.chooseAnother.body": "اختر لاعباً آخر غيرك ليأخذ العقاب بدلاً منك.",
+  "punishment.pickAnother": "مرّر العقاب للاعب آخر",
+  "punishment.pickAnotherBody": "اختر لاعباً آخر ليأخذ العقاب بدلاً منك. لا يمكنك اختيار نفسك أو الفائز.",
+  "punishment.passToPlayer": "مرّر إلى {name}",
+  "punishment.continue": "متابعة",
+  "punishment.forgivenTitle": "مُسامَح",
+  "punishment.forgivenBody": "{name} تمت مسامحته ويلعب جولة أخرى.",
 
   "welcome.title": "أهلاً بك في صيد الأرقام",
   "welcome.subtitle": "اختر اسماً مستعاراً ليظهر بجانب نتائجك. يمكنك تغييره لاحقاً من الإعدادات.",

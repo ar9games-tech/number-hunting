@@ -21,6 +21,26 @@ import type {
 } from "@/src/net/socketPlaceholder";
 
 /**
+ * The three button modes the action row can render after the reveal
+ * animation finishes (for the target only — non-targets always see the
+ * "waiting" message regardless of mode).
+ *
+ *   - "decide" — normal Accept / Refuse pair. Used for directElimination,
+ *     vote, and chooseAnother *after* the pass has been spent.
+ *   - "pass" — single "Pick another player" button. Used only for the
+ *     first reveal of a chooseAnother card.
+ *   - "continue" — single "Continue" button. Used for anotherChance,
+ *     which is a forgiveness card with no refuse path.
+ */
+type ActionMode = "decide" | "pass" | "continue";
+
+function actionModeFor(reveal: PunishmentReveal): ActionMode {
+  if (reveal.cardId === "anotherChance") return "continue";
+  if (reveal.cardId === "chooseAnother" && reveal.canPass) return "pass";
+  return "decide";
+}
+
+/**
  * Full-screen pack-opening reveal for a punishment card.
  *
  * Animation phases:
@@ -43,6 +63,7 @@ export function PunishmentCardModal({
   isTarget,
   onAccept,
   onRefuse,
+  onPickAnother,
   onClose,
 }: {
   reveal: PunishmentReveal | null;
@@ -53,6 +74,12 @@ export function PunishmentCardModal({
   isTarget: boolean;
   onAccept: () => void;
   onRefuse: () => void;
+  /**
+   * Invoked when the target taps "Pick another player" on a fresh
+   * chooseAnother card. The parent screen opens its target picker and
+   * fires the actual reassign event from there.
+   */
+  onPickAnother: () => void;
   onClose: () => void;
 }) {
   const colors = useColors();
@@ -184,7 +211,7 @@ export function PunishmentCardModal({
       sparkleLoops.forEach((l) => l.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, reveal?.cardId, reveal?.drawnBy, reveal?.targetName]);
+  }, [visible, reveal?.cardId, reveal?.drawnBy, reveal?.targetName, reveal?.targetId, reveal?.canPass]);
 
   if (!reveal) return null;
   const card = getPunishmentCard(reveal.cardId);
@@ -195,7 +222,10 @@ export function PunishmentCardModal({
         ? colors.primary
         : card.tone === "warning"
           ? colors.warning
-          : colors.accent;
+          : card.tone === "success"
+            ? colors.success
+            : colors.accent;
+  const mode = actionModeFor(reveal);
 
   const shakeTranslate = shake.interpolate({
     inputRange: [-1, 1],
@@ -258,6 +288,7 @@ export function PunishmentCardModal({
 
         {showResolution ? (
           <ResolutionPanel
+            reveal={reveal}
             resolved={resolved!}
             colors={colors}
             wd={wd}
@@ -369,13 +400,24 @@ export function PunishmentCardModal({
                 style={[styles.actions, { opacity: buttonsOpacity }]}
               >
                 {isTarget ? (
-                  <>
+                  // The action row is card-driven (see `actionModeFor`):
+                  //  - decide   → Accept / Refuse pair (default).
+                  //  - pass     → single "Pick another player" button
+                  //               (only for the first chooseAnother reveal).
+                  //  - continue → single "Continue" button (anotherChance,
+                  //               a forgiveness card with no refuse path).
+                  mode === "pass" ? (
                     <Button
-                      title={t("punishment.accept")}
+                      title={t("punishment.pickAnother")}
                       fullWidth
-                      // Disable both buttons the moment one is tapped so a
-                      // jittery double-tap can't send two events. The
-                      // server is also guarded via `alreadyResolved`.
+                      // Don't lock the button via `responded` — the parent
+                      // opens a picker first; tapping doesn't commit yet.
+                      onPress={onPickAnother}
+                    />
+                  ) : mode === "continue" ? (
+                    <Button
+                      title={t("punishment.continue")}
+                      fullWidth
                       disabled={responded}
                       onPress={() => {
                         if (responded) return;
@@ -383,18 +425,34 @@ export function PunishmentCardModal({
                         onAccept();
                       }}
                     />
-                    <Button
-                      title={t("punishment.refuse")}
-                      fullWidth
-                      variant="ghost"
-                      disabled={responded}
-                      onPress={() => {
-                        if (responded) return;
-                        setResponded(true);
-                        onRefuse();
-                      }}
-                    />
-                  </>
+                  ) : (
+                    <>
+                      <Button
+                        title={t("punishment.accept")}
+                        fullWidth
+                        // Disable both buttons the moment one is tapped so
+                        // a jittery double-tap can't send two events. The
+                        // server is also guarded via `alreadyResolved`.
+                        disabled={responded}
+                        onPress={() => {
+                          if (responded) return;
+                          setResponded(true);
+                          onAccept();
+                        }}
+                      />
+                      <Button
+                        title={t("punishment.refuse")}
+                        fullWidth
+                        variant="ghost"
+                        disabled={responded}
+                        onPress={() => {
+                          if (responded) return;
+                          setResponded(true);
+                          onRefuse();
+                        }}
+                      />
+                    </>
+                  )
                 ) : (
                   <Text
                     style={[
@@ -417,26 +475,40 @@ export function PunishmentCardModal({
 }
 
 function ResolutionPanel({
+  reveal,
   resolved,
   colors,
   wd,
   t,
   onClose,
 }: {
+  reveal: PunishmentReveal;
   resolved: PunishmentResolved;
   colors: ReturnType<typeof useColors>;
   wd: "ltr" | "rtl";
   t: ReturnType<typeof useT>["t"];
   onClose: () => void;
 }) {
+  // anotherChance is a forgiveness card — even on "accepted" we render
+  // a friendly green "Forgiven" panel instead of the default "Accepted
+  // the punishment" copy that fits the punitive cards.
+  const isForgiveness = reveal.cardId === "anotherChance" && resolved.accepted;
   const accent = resolved.accepted ? colors.success : colors.destructive;
-  const icon = resolved.accepted ? "check-circle" : "x-octagon";
-  const title = resolved.accepted
-    ? t("punishment.accepted")
-    : t("punishment.refused");
-  const body = resolved.accepted
-    ? t("punishment.acceptedBody", { name: resolved.targetName })
-    : t("punishment.refusedShort");
+  const icon: "heart" | "check-circle" | "x-octagon" = isForgiveness
+    ? "heart"
+    : resolved.accepted
+      ? "check-circle"
+      : "x-octagon";
+  const title = isForgiveness
+    ? t("punishment.forgivenTitle")
+    : resolved.accepted
+      ? t("punishment.accepted")
+      : t("punishment.refused");
+  const body = isForgiveness
+    ? t("punishment.forgivenBody", { name: resolved.targetName })
+    : resolved.accepted
+      ? t("punishment.acceptedBody", { name: resolved.targetName })
+      : t("punishment.refusedShort");
   return (
     <View
       style={[

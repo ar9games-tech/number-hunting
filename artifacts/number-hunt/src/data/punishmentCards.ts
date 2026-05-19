@@ -14,8 +14,12 @@ export type PunishmentCard = {
   id: PunishmentCardId;
   /** Big cartoon emoji used as the card "art". Family-friendly only. */
   emoji: string;
-  /** Tailwind-ish hint tones — actual hex comes from the theme. */
-  tone: "destructive" | "primary" | "accent" | "warning";
+  /**
+   * Tailwind-ish hint tones — actual hex comes from the theme. `success`
+   * is reserved for the forgiving `anotherChance` card so the reveal
+   * glows green instead of the usual red/orange threat colors.
+   */
+  tone: "destructive" | "primary" | "accent" | "warning" | "success";
   titleKey: TranslationKey;
   bodyKey: TranslationKey;
 };
@@ -35,19 +39,19 @@ export const PUNISHMENT_CARDS: Record<PunishmentCardId, PunishmentCard> = {
     titleKey: "punishment.card.vote.title",
     bodyKey: "punishment.card.vote.body",
   },
-  sandal: {
-    id: "sandal",
-    emoji: "🩴",
-    tone: "warning",
-    titleKey: "punishment.card.sandal.title",
-    bodyKey: "punishment.card.sandal.body",
+  anotherChance: {
+    id: "anotherChance",
+    emoji: "🕊️",
+    tone: "success",
+    titleKey: "punishment.card.anotherChance.title",
+    bodyKey: "punishment.card.anotherChance.body",
   },
-  animalSound: {
-    id: "animalSound",
-    emoji: "🐵",
+  chooseAnother: {
+    id: "chooseAnother",
+    emoji: "🔀",
     tone: "accent",
-    titleKey: "punishment.card.animalSound.title",
-    bodyKey: "punishment.card.animalSound.body",
+    titleKey: "punishment.card.chooseAnother.title",
+    bodyKey: "punishment.card.chooseAnother.body",
   },
 };
 

@@ -1,0 +1,73 @@
+Update the Punishment Cards in Number Hunt.
+
+Remove these punishment cards completely:
+- زنوبة / Zanoba
+- تقليد صوت حيوان / Animal Sound Imitation
+
+Add these new cards instead:
+
+1. فرصة أخرى / Another Chance
+Description:
+- Arabic: تتم مسامحة اللاعب ويلعب جولة أخرى
+- English: The player is forgiven and gets to play another round
+
+Effect:
+- The selected punished player is not eliminated.
+- Show a positive animation.
+- Allow the player to continue/rematch.
+
+2. اختار لاعب غيرك / Choose Another Player
+Description:
+- Arabic: اختر لاعبًا آخر غيرك ليأخذ العقاب بدلًا منك
+- English: Choose another player to receive the punishment instead of you
+
+Effect:
+- The selected target player can choose another player as the new punishment target.
+- The player cannot choose themselves.
+- The winner cannot be selected if the rule says punishment only applies to losers.
+- Broadcast the new selected target to all players.
+
+Final punishment cards should be:
+1. خروج مباشر / Direct Elimination
+2. تصويت / Vote
+3. فرصة أخرى / Another Chance
+4. اختار لاعب غيرك / Choose Another Player
+
+Sound additions:
+- Add interactive sound effects using Expo AV.
+- Add sounds for:
+  - Button tap
+  - Number key press
+  - Wrong guess
+  - Correct guess
+  - Win
+  - Lose
+  - Room created
+  - Player joined
+  - Game start
+  - Punishment pack opening
+  - Punishment card reveal
+  - Accept punishment
+  - Refuse punishment
+  - New match
+- Add sound toggle in Settings.
+- Save sound setting using AsyncStorage.
+- If sound is off, no sounds should play.
+- Use safe try/catch so missing sound files never crash the app.
+- Add placeholder sound files or clear placeholder comments.
+
+Punishment system rules:
+- Punishment appears only when the winner presses Punishment on Winner Screen.
+- Winner selects a target player before revealing the card.
+- Punishment can be used only once per match.
+- Rematch/New Match must never trigger punishment.
+- Selected target sees Accept / Refuse buttons when needed.
+- All players see the same revealed card and result.
+
+Keep the reveal animation:
+- Mystery pack opening
+- Glow
+- Sparkles
+- Suspense delay
+- Zoom reveal
+- Sound effect during opening

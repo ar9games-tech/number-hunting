@@ -74,8 +74,8 @@ export type JoinError = "notFound" | "full" | "started";
 export type PunishmentCardId =
   | "directElimination"
   | "vote"
-  | "sandal"
-  | "animalSound";
+  | "anotherChance"
+  | "chooseAnother";
 
 export type PunishmentErrorReason =
   | "notInRoom"
@@ -95,6 +95,12 @@ export type PunishmentReveal = {
   targetId: string;
   /** Display name of the chosen target — UI only. */
   targetName: string;
+  /**
+   * True only when the card is `chooseAnother` and the current target
+   * still has their one pass available. Drives the modal's "Pick another
+   * player" affordance — when false, the target must Accept / Refuse.
+   */
+  canPass: boolean;
 };
 
 export type PunishmentResolved = {
@@ -149,6 +155,7 @@ type ServerResponse = {
   targetId?: string;
   targetName?: string;
   accepted?: boolean;
+  canPass?: boolean;
   reason?: PunishmentErrorReason;
 };
 
@@ -248,6 +255,9 @@ function connect(): Promise<WebSocket> {
           drawnBy: msg.drawnBy ?? "",
           targetId: msg.targetId ?? "",
           targetName: msg.targetName ?? "",
+          // Default to false (no pass) when the server omits the flag,
+          // so older builds always render Accept / Refuse.
+          canPass: msg.canPass === true,
         };
         const listenerCount = punishmentRevealListeners.get(code)?.size ?? 0;
         if (__DEV__) {
@@ -443,6 +453,22 @@ export function requestPunishmentCard(code: string, targetId: string): void {
     console.log("[punishment] emit requestPunishment", { code: upper, targetId });
   }
   fire("requestPunishment", { code: upper, targetId });
+}
+
+/**
+ * Target-only — hand the `chooseAnother` punishment off to a different
+ * losing player. Server validates the caller is the current target, the
+ * card is `chooseAnother`, the new target isn't the winner or the caller
+ * themselves, and that the one-pass budget hasn't been spent yet. On
+ * success the server re-broadcasts `punishmentRevealed` for the new
+ * target with `canPass=false`.
+ */
+export function reassignPunishmentTarget(code: string, newTargetId: string): void {
+  const upper = code.toUpperCase();
+  if (__DEV__) {
+    console.log("[punishment] emit reassignPunishment", { code: upper, newTargetId });
+  }
+  fire("reassignPunishment", { code: upper, newTargetId });
 }
 
 /**

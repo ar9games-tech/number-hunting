@@ -30,13 +30,20 @@ import {
   onPunishmentError,
   onPunishmentResolved,
   onPunishmentRevealed,
+  reassignPunishmentTarget,
   requestPunishmentCard,
   requestRematch,
   respondPunishment,
   type PunishmentResolved,
   type PunishmentReveal,
 } from "@/src/net/socketPlaceholder";
-import { playPunishmentReveal } from "@/src/services/soundManager";
+import {
+  playNewMatch,
+  playPunishmentAccept,
+  playPunishmentPackOpen,
+  playPunishmentRefuse,
+  playPunishmentReveal,
+} from "@/src/services/soundManager";
 import { recordLoss, recordWin, saveRecordIfBest } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { errorHaptic, playLose, playWin, successHaptic } from "@/src/utils/sound";
@@ -125,16 +132,30 @@ export default function ResultScreen() {
   const [punishmentLoading, setPunishmentLoading] = React.useState(false);
   const [punishmentError, setPunishmentError] = React.useState<string | null>(null);
   const [targetPickerVisible, setTargetPickerVisible] = React.useState(false);
+  // Separate picker state for the chooseAnother "pass" flow — opened by
+  // the target from inside the reveal modal, not by the winner.
+  const [reassignPickerVisible, setReassignPickerVisible] = React.useState(false);
 
   // Pull the live room snapshot so we know our own stable id and the
   // opponent list. We identify the target by id, not name, because
   // display names aren't guaranteed unique within a room.
   const cachedRoom = isOnline && code ? getCachedRoom(code) : null;
   const yourId = cachedRoom?.yourId ?? "";
+  const winnerId = cachedRoom?.winnerId ?? "";
   const opponents = React.useMemo(
     () =>
       (cachedRoom?.players ?? []).filter((p) => p.id && p.id !== yourId),
     [cachedRoom?.players, yourId],
+  );
+  // For the chooseAnother pass: exclude both yourself (the current
+  // target) and the winner so the punishment never bounces back to the
+  // person who drew the card. Server enforces the same rule.
+  const reassignCandidates = React.useMemo(
+    () =>
+      (cachedRoom?.players ?? []).filter(
+        (p) => p.id && p.id !== yourId && p.id !== winnerId,
+      ),
+    [cachedRoom?.players, yourId, winnerId],
   );
   const youAreTarget = !!punishment && !!yourId && punishment.targetId === yourId;
 
@@ -154,6 +175,14 @@ export default function ResultScreen() {
       setPunishmentLoading(false);
       setPunishmentError(null);
       setTargetPickerVisible(false);
+      // A reveal also lands when the server reassigns (chooseAnother
+      // pass) — close any stale picker so the new target sees a clean
+      // reveal animation instead of two overlapping modals.
+      setReassignPickerVisible(false);
+      // Two distinct cues: the "pack opening" rumble plays as the
+      // sealed pack appears, and the reveal sting hits when the card
+      // slides out. Both are gated by the central soundOn setting.
+      playPunishmentPackOpen(settings.soundOn);
       playPunishmentReveal(settings.soundOn);
     });
     const unsubResolved = onPunishmentResolved(code, (resolved) => {
@@ -367,6 +396,7 @@ export default function ResultScreen() {
                 title={t("result.rematch")}
                 fullWidth
                 onPress={() => {
+                  playNewMatch(settings.soundOn);
                   // Only the host's rematch request actually resets the
                   // room on the server. For everyone else, fire-and-forget
                   // is fine — the room screen will receive the reset state
@@ -421,10 +451,23 @@ export default function ResultScreen() {
         resolved={punishmentResolved}
         isTarget={youAreTarget}
         onAccept={() => {
+          playPunishmentAccept(settings.soundOn);
           if (code) respondPunishment(code, true);
         }}
         onRefuse={() => {
+          playPunishmentRefuse(settings.soundOn);
           if (code) respondPunishment(code, false);
+        }}
+        onPickAnother={() => {
+          // Open the reassign picker on top of the reveal modal — once
+          // the target picks a new player we'll fire reassignPunishment,
+          // server re-broadcasts a fresh reveal with the new target.
+          if (__DEV__) {
+            console.log("[punishment] pick-another opened", {
+              candidates: reassignCandidates.length,
+            });
+          }
+          setReassignPickerVisible(true);
         }}
         onClose={() => setPunishmentVisible(false)}
       />
@@ -444,6 +487,23 @@ export default function ResultScreen() {
           setTargetPickerVisible(false);
           setPunishmentLoading(true);
           requestPunishmentCard(code, opp.id);
+        }}
+      />
+      <TargetPickerModal
+        visible={reassignPickerVisible}
+        opponents={reassignCandidates}
+        onCancel={() => setReassignPickerVisible(false)}
+        onPick={(opp) => {
+          if (!code) return;
+          if (__DEV__) {
+            console.log("[punishment] reassign picked", {
+              code,
+              id: opp.id,
+              name: opp.name,
+            });
+          }
+          setReassignPickerVisible(false);
+          reassignPunishmentTarget(code, opp.id);
         }}
       />
     </View>
