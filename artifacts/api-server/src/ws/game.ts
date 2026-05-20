@@ -51,6 +51,15 @@ type RoomInternal = {
   /** Per-player guess history keyed by socketId. */
   histories: Map<string, GuessEntry[]>;
   /**
+   * Turn-based gameplay: socket id of the player whose turn it is to
+   * guess. Set when the game starts (host picks digits, or random match
+   * pairs), advanced after each non-winning guess. `null` while the room
+   * is waiting / won / between matches. Only the player whose socket id
+   * matches may submit a guess — every other guess is rejected with a
+   * `turnError`.
+   */
+  currentTurnId: string | null;
+  /**
    * Punishment-card mutex: timestamp (ms) until which no new card may be
    * drawn. Acts as a brief "already opening" guard against concurrent
    * requests; the real once-per-match gate is `punishmentUsed`.
@@ -152,6 +161,14 @@ type PlayerView = {
   winnerName: string | null;
   /** Only populated when status === "won". */
   revealedHidden: string | null;
+  /**
+   * Stable id of the player whose turn it is to guess. `null` outside
+   * the playing phase. Clients gate the keypad on
+   * `currentTurnId === yourId`.
+   */
+  currentTurnId: string | null;
+  /** Display name of the current-turn player, or null. UI only. */
+  currentTurnName: string | null;
 };
 
 const DISTANCE_THRESHOLDS: Record<Digits, number> = { 2: 10, 3: 50, 4: 200 };
@@ -254,6 +271,9 @@ function buildView(room: RoomInternal, socketId: string): PlayerView {
     }));
   const winner =
     room.winnerId ? room.players.find((p) => p.socketId === room.winnerId) : null;
+  const currentTurnPlayer = room.currentTurnId
+    ? room.players.find((p) => p.socketId === room.currentTurnId)
+    : null;
 
   return {
     code: room.code,
@@ -273,6 +293,8 @@ function buildView(room: RoomInternal, socketId: string): PlayerView {
     winnerId: room.winnerId,
     winnerName: winner?.name ?? null,
     revealedHidden: room.status === "won" ? room.hidden : null,
+    currentTurnId: room.currentTurnId,
+    currentTurnName: currentTurnPlayer?.name ?? null,
   };
 }
 
@@ -451,6 +473,7 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         punishmentRedirectedByName: null,
         histories: new Map(),
         punishmentLockUntil: 0,
+        currentTurnId: null,
       };
       rooms.set(code, { room, updatedAt: Date.now() });
       socketIdentity.set(ws, { code, socketId: hostId });
@@ -557,6 +580,9 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       room.status = "playing";
       room.histories = new Map();
       room.winnerId = null;
+      // Turn-based play: the host (players[0]) opens the round, then
+      // turns rotate in join order on every non-winning guess.
+      room.currentTurnId = room.players[0]?.socketId ?? null;
       broadcast(code);
       logger.info({ code, digits }, "ws: game started");
       break;
@@ -569,6 +595,20 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       const room = getRoom(code);
       if (!room || room.status !== "playing" || !room.hidden || !room.digits) return;
       if (!playerById(room, id.socketId)) return;
+      // Turn gate. The client already disables the keypad when it's not
+      // your turn, but this is the authoritative check — without it a
+      // racing or malicious client could submit out of turn.
+      if (room.currentTurnId !== id.socketId) {
+        safeSend(ws, {
+          type: "turnError",
+          code,
+          reason: "notYourTurn",
+          currentTurnId: room.currentTurnId,
+          currentTurnName:
+            room.players.find((p) => p.socketId === room.currentTurnId)?.name ?? null,
+        });
+        return;
+      }
       if (!/^[0-9]+$/.test(raw.guess) || raw.guess.length !== room.digits) return;
 
       const fb = evaluateGuess(raw.guess, room.hidden, room.digits);
@@ -577,14 +617,18 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       room.histories.set(id.socketId, [entry, ...prev]);
 
       if (fb.correct) {
+        // Winner — stop turn rotation and clear the turn so no further
+        // guesses can be submitted before the result screen takes over.
         room.status = "won";
         room.winnerId = id.socketId;
-        // Reveal hidden + winner name to every player.
+        room.currentTurnId = null;
         broadcast(code);
       } else {
-        // Everyone needs the updated opponent guess count, plus the guesser
-        // needs their own new feedback row. A single broadcast covers both
-        // since each view is built per-socket.
+        // Advance to the next player in join order. Wraps after the
+        // last player so 2..12-player rooms all cycle correctly.
+        const idx = room.players.findIndex((p) => p.socketId === id.socketId);
+        const nextIdx = idx >= 0 ? (idx + 1) % room.players.length : 0;
+        room.currentTurnId = room.players[nextIdx]?.socketId ?? null;
         broadcast(code);
       }
       break;
@@ -605,6 +649,8 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       room.winnerId = null;
       room.histories = new Map();
       room.status = "waiting";
+      // Turn is re-seeded the next time the host calls setDigits.
+      room.currentTurnId = null;
       // Reset all punishment state — rematch must NEVER replay or carry
       // over a previous match's draw/decision.
       room.punishmentUsed = false;
@@ -1050,6 +1096,10 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         punishmentRedirectedByName: null,
         histories: new Map(),
         punishmentLockUntil: 0,
+        // Random match starts in "playing" immediately — seed the turn
+        // with the queue-head player (hostId) so they guess first and
+        // the guest goes second.
+        currentTurnId: hostId,
       };
       rooms.set(code, { room, updatedAt: Date.now() });
       socketIdentity.set(opponent.ws, { code, socketId: hostId });
@@ -1109,8 +1159,23 @@ function removePlayer(
   if (!room) return;
   const wasHost = isHost(room, socketId);
   const before = room.players.length;
+  // Capture the leaver's pre-filter index so we can advance the turn
+  // cleanly if it was their turn — the player who now sits at that
+  // same index is the "next" player in join order (or wraps to 0).
+  const leaverIndex = room.players.findIndex((p) => p.socketId === socketId);
+  const wasCurrentTurn = room.currentTurnId === socketId;
   room.players = room.players.filter((p) => p.socketId !== socketId);
   room.histories.delete(socketId);
+
+  if (wasCurrentTurn && room.status === "playing") {
+    if (room.players.length === 0) {
+      room.currentTurnId = null;
+    } else {
+      const nextIdx =
+        leaverIndex >= 0 && leaverIndex < room.players.length ? leaverIndex : 0;
+      room.currentTurnId = room.players[nextIdx]?.socketId ?? null;
+    }
+  }
 
   // Detach from subscribers + identity so we don't leak future state.
   subscribers.get(code)?.delete(ws);

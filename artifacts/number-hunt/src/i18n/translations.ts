@@ -107,6 +107,10 @@ export type TranslationKey =
   | "room.cantStartYet"
   | "room.digitsShort"
   | "room.unknownWinner"
+  | "room.yourTurn"
+  | "room.waitingTurn"
+  | "room.playersTurn"
+  | "room.notYourTurn"
   | "game.errorTitle"
   | "game.errorMsg"
   // Result
@@ -465,6 +469,10 @@ const en: Record<TranslationKey, string> = {
   "room.cantStartYet": "The room isn't full yet.",
   "room.digitsShort": "DIGITS",
   "room.unknownWinner": "A player",
+  "room.yourTurn": "Your turn",
+  "room.waitingTurn": "Waiting for your turn",
+  "room.playersTurn": "{name}'s turn",
+  "room.notYourTurn": "Wait for your turn",
   "game.errorTitle": "Couldn't submit guess",
   "game.errorMsg": "That guess couldn't be processed. Please try again.",
 
@@ -864,6 +872,10 @@ const ar: Record<TranslationKey, string> = {
   "room.cantStartYet": "الغرفة لم تكتمل بعد.",
   "room.digitsShort": "خانات",
   "room.unknownWinner": "أحد اللاعبين",
+  "room.yourTurn": "دورك",
+  "room.waitingTurn": "انتظر دورك",
+  "room.playersTurn": "دور {name}",
+  "room.notYourTurn": "انتظر دورك",
   "game.errorTitle": "تعذّر إرسال التخمين",
   "game.errorMsg": "لم نتمكن من معالجة هذا التخمين. حاول مرة أخرى.",
 

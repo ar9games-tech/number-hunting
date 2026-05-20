@@ -59,6 +59,15 @@ export type RoomState = {
   winnerName: string | null;
   /** Set only when status === "won". */
   revealedHidden: string | null;
+  /**
+   * Turn-based gameplay: stable id of the player whose turn it is to
+   * guess. `null` outside the playing phase. The keypad must be gated
+   * on `currentTurnId === yourId` — submissions out of turn are rejected
+   * by the server with a `turnError`.
+   */
+  currentTurnId: string | null;
+  /** Display name of the current-turn player, or null. UI only. */
+  currentTurnName: string | null;
 };
 
 export type RoomMeta = {
@@ -176,7 +185,24 @@ type ServerResponse = {
   // chooseAnother redirect chain (punishmentTargetChanged)
   redirectedById?: string;
   redirectedByName?: string;
+  // Turn-gate rejection (server says: not your turn)
+  currentTurnId?: string | null;
+  currentTurnName?: string | null;
 };
+
+/**
+ * Emitted by the server when this socket tried to submit a guess but
+ * it wasn't its turn. The client gates the keypad on the latest state,
+ * so this should be rare in normal play — it's a defense against
+ * racing/malicious clients and a way to log a clear UX message.
+ */
+export type TurnErrorEvent = {
+  /** Stable id of the player whose turn it actually is, or null. */
+  currentTurnId: string | null;
+  /** Display name of the current-turn player, or null. */
+  currentTurnName: string | null;
+};
+type TurnErrorListener = (e: TurnErrorEvent) => void;
 
 /** Payload delivered when any player in the room sends a reaction. */
 export type ReactionEvent = {
@@ -232,6 +258,7 @@ const punishmentTargetChangedListeners = new Map<
  * (unlike punishment reveals, which the next screen must consume).
  */
 const reactionListeners = new Map<string, Set<ReactionListener>>();
+const turnErrorListeners = new Map<string, Set<TurnErrorListener>>();
 /**
  * Last punishment reveal per room. Used to "replay" the reveal to listeners
  * that attach *after* the broadcast (e.g. a losing player still navigating
@@ -431,6 +458,16 @@ function connect(): Promise<WebSocket> {
         }
       }
 
+      if (msg.type === "turnError" && msg.code) {
+        const code = msg.code;
+        const evt: TurnErrorEvent = {
+          currentTurnId: msg.currentTurnId ?? null,
+          currentTurnName: msg.currentTurnName ?? null,
+        };
+        turnErrorListeners.get(code)?.forEach((l) => l(evt));
+        // Fall through.
+      }
+
       if (msg.type === "punishmentError" && msg.code && msg.reason) {
         const code = msg.code;
         const reason = msg.reason as PunishmentErrorReason;
@@ -573,6 +610,7 @@ export function leaveRoom(code: string): void {
   punishmentErrorListeners.delete(upper);
   punishmentTargetChangedListeners.delete(upper);
   reactionListeners.delete(upper);
+  turnErrorListeners.delete(upper);
   lastPunishmentReveal.delete(upper);
   lastPunishmentResolved.delete(upper);
   lastState.delete(upper);
@@ -745,6 +783,32 @@ export function onUpdate(code: string, cb: Listener): () => void {
 export function sendReaction(code: string, reaction: string): void {
   const upper = code.toUpperCase();
   fire("sendReaction", { code: upper, reaction });
+}
+
+/**
+ * Subscribe to `turnError` events for `code`. Fired when this socket's
+ * guess was rejected because it wasn't its turn. The callback receives
+ * the current-turn player's id + display name (so the UI can show a
+ * "Wait for your turn — it's Ahmed's turn" hint).
+ */
+export function onTurnError(
+  code: string,
+  cb: TurnErrorListener,
+): () => void {
+  const upper = code.toUpperCase();
+  let set = turnErrorListeners.get(upper);
+  if (!set) {
+    set = new Set();
+    turnErrorListeners.set(upper, set);
+  }
+  set.add(cb);
+  return () => {
+    const s = turnErrorListeners.get(upper);
+    if (s) {
+      s.delete(cb);
+      if (s.size === 0) turnErrorListeners.delete(upper);
+    }
+  };
 }
 
 export function onReactionReceived(

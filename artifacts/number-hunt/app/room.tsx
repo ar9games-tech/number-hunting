@@ -17,6 +17,7 @@ import {
   leaveRoom,
   onReactionReceived,
   onRoomClosed,
+  onTurnError,
   onUpdate,
   type ReactionEvent,
   sendReaction,
@@ -49,10 +50,27 @@ export default function RoomScreen() {
   const { t, isRTL, lz } = useT();
   const params = useLocalSearchParams<{ code?: string }>();
 
-  const [state, setState] = useState<RoomState | null>(null);
+  const [stateRaw, setStateRaw] = useState<RoomState | null>(null);
+  // Mirror of the latest `state` for use inside deferred callbacks
+  // (e.g. the auto-submit timer). Reading from a ref at fire time
+  // prevents a stale render closure from sending a guess after the
+  // server has already rotated the turn away from us. The ref is
+  // updated *synchronously* at ingest time (inside `setState`) — using
+  // a passive useEffect would leave a window between setStateRaw and
+  // effect flush during which the timer could still read stale state.
+  const stateRef = useRef<RoomState | null>(null);
+  const state = stateRaw;
+  const setState = (next: RoomState | null) => {
+    stateRef.current = next;
+    setStateRaw(next);
+  };
   const [guessInput, setGuessInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef(false);
+  // Handle for the 130ms auto-submit timer so it can be cancelled the
+  // moment the turn rotates away from us — otherwise a full buffered
+  // guess could still fire after isMyTurn flips to false.
+  const autoSubmitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Online round timer — captured the first time status flips to "playing"
   // and frozen the first time it flips to "won". Passed to /result so the
   // result screen can save a per-digit best time when the player wins.
@@ -226,19 +244,38 @@ export default function RoomScreen() {
   const digits = state?.digits ?? null;
   const showCount = (digits ?? 0) >= 3;
 
+  // Turn-based gameplay: the server picks the active player and rotates
+  // after every non-winning guess. The keypad + auto-submit are both
+  // gated on this — clients can never send a guess out of turn, and the
+  // server independently rejects any that slip through.
+  const isMyTurn =
+    !!state &&
+    state.status === "playing" &&
+    !!state.currentTurnId &&
+    state.currentTurnId === state.yourId;
+  const currentTurnName = state?.currentTurnName ?? null;
+  const currentTurnIsMe = isMyTurn;
+
   const submitNow = (rawGuess: string) => {
     if (submittingRef.current) return;
-    if (!state || state.status !== "playing" || !digits) return;
+    // Read from the ref, not the render closure — this function is
+    // called from a setTimeout, and by the time it fires the turn may
+    // already have rotated to another player. Closure-state would
+    // still say "my turn" and let the guess go out.
+    const cur = stateRef.current;
+    if (!cur || cur.status !== "playing" || !cur.digits) return;
+    // Hard turn gate against the latest server-confirmed state.
+    if (cur.currentTurnId !== cur.yourId) return;
     // Normalise Arabic digits → English before validating or sending.
     const guess = normalizeDigits(rawGuess);
-    if (!guess || !isValidGuess(guess, digits)) return;
+    if (!guess || !isValidGuess(guess, cur.digits)) return;
     submittingRef.current = true;
     setLocked(true);
     // Expect the server to grow our history by exactly one entry. The
     // ack-watcher effect (below) releases the lock the moment that lands.
-    pendingHistoryLenRef.current = state.yourHistory.length + 1;
+    pendingHistoryLenRef.current = cur.yourHistory.length + 1;
     try {
-      sendGuess(state.code, guess);
+      sendGuess(cur.code, guess);
     } catch {
       Alert.alert(t("room.sendErrorTitle"), t("room.sendErrorMsg"));
       releaseLock();
@@ -253,6 +290,13 @@ export default function RoomScreen() {
     fallbackTimerRef.current = setTimeout(() => {
       releaseLock();
     }, AUTO_SUBMIT_LOCK_MS);
+  };
+
+  const cancelPendingAutoSubmit = () => {
+    if (autoSubmitTimerRef.current) {
+      clearTimeout(autoSubmitTimerRef.current);
+      autoSubmitTimerRef.current = null;
+    }
   };
 
   // Ack-based unlock: when the server confirms our guess by extending
@@ -273,8 +317,54 @@ export default function RoomScreen() {
     return () => {
       if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
       if (coolTimerRef.current) clearTimeout(coolTimerRef.current);
+      if (autoSubmitTimerRef.current) clearTimeout(autoSubmitTimerRef.current);
     };
   }, []);
+
+  // Subscribe to turn-rejection events. The server only emits these
+  // when a client somehow submits out of turn (e.g. a buffered guess
+  // landing right after the turn rotated). Clear any half-typed input
+  // so the previous turn's keystrokes don't replay into the new one,
+  // and surface a brief banner so the player understands the rejection.
+  const [turnNotice, setTurnNotice] = useState<string | null>(null);
+  const turnNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!state?.code) return;
+    const unsub = onTurnError(state.code, (evt) => {
+      releaseLock();
+      cancelPendingAutoSubmit();
+      setGuessInput("");
+      // Always show the explicit "Wait for your turn" wording per spec
+      // (EN/AR). Append the active player's name when known so the user
+      // sees both the rule and who they're waiting on.
+      const base = t("room.notYourTurn");
+      const msg = evt.currentTurnName
+        ? `${base} — ${t("room.playersTurn", { name: evt.currentTurnName })}`
+        : base;
+      setTurnNotice(msg);
+      if (turnNoticeTimerRef.current) clearTimeout(turnNoticeTimerRef.current);
+      turnNoticeTimerRef.current = setTimeout(() => setTurnNotice(null), 2500);
+    });
+    return () => {
+      unsub();
+      if (turnNoticeTimerRef.current) {
+        clearTimeout(turnNoticeTimerRef.current);
+        turnNoticeTimerRef.current = null;
+      }
+    };
+  }, [state?.code, t]);
+
+  // Whenever the turn flips away from us, drop any half-typed digits
+  // AND cancel any pending auto-submit timer. Without the cancel a full
+  // buffered guess (already at `digits` length, waiting out the 130ms
+  // settle delay) would still fire after the turn rotated — violating
+  // the spec and forcing a server-side `turnError`.
+  useEffect(() => {
+    if (!currentTurnIsMe) {
+      cancelPendingAutoSubmit();
+      setGuessInput("");
+    }
+  }, [currentTurnIsMe]);
 
   // Subscribe to incoming reactions for this room. Scoped to the
   // playing phase only so lobby/won UI never plays a pop or shows a
@@ -330,11 +420,21 @@ export default function RoomScreen() {
   const onDigit = (d: string) => {
     if (submittingRef.current) return;
     if (!state || state.status !== "playing" || !digits) return;
+    // Turn gate — don't even buffer keystrokes when it isn't our turn,
+    // so a player can never queue up a guess for the moment their turn
+    // comes around.
+    if (state.currentTurnId !== state.yourId) return;
     setGuessInput((v) => {
       if (v.length >= digits) return v;
       const next = v + d;
       if (next.length === digits) {
-        setTimeout(() => submitNow(next), AUTO_SUBMIT_DELAY_MS);
+        // Track the timer handle so the turn-rotation effect below can
+        // cancel it if the turn flips away from us in the meantime.
+        cancelPendingAutoSubmit();
+        autoSubmitTimerRef.current = setTimeout(() => {
+          autoSubmitTimerRef.current = null;
+          submitNow(next);
+        }, AUTO_SUBMIT_DELAY_MS);
       }
       return next;
     });
@@ -395,10 +495,57 @@ export default function RoomScreen() {
   // view keeps its old ScrollView since it's content-heavy but never
   // shows the keypad.
   if (isPlaying && digits) {
+    const turnBannerText = currentTurnIsMe
+      ? t("room.yourTurn")
+      : currentTurnName
+        ? t("room.playersTurn", { name: currentTurnName })
+        : t("room.waitingTurn");
+    const turnBannerBg = currentTurnIsMe ? colors.primary : colors.muted;
+    const turnBannerFg = currentTurnIsMe
+      ? colors.primaryForeground
+      : colors.mutedForeground;
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         {header}
         <View style={[styles.playingContainer, { paddingBottom: bottomPad }]}>
+          {/* Turn banner — primary color when it's the viewer's turn, a
+              muted "waiting" pill otherwise. Drives the player's whole
+              sense of "can I act right now?" so it sits above the
+              opponents row and is always visible during play. */}
+          <View
+            style={[
+              styles.turnBanner,
+              { backgroundColor: turnBannerBg },
+            ]}
+          >
+            <Feather
+              name={currentTurnIsMe ? "play-circle" : "clock"}
+              size={14}
+              color={turnBannerFg}
+            />
+            <Text
+              style={[
+                styles.turnBannerText,
+                { color: turnBannerFg, writingDirection: wd },
+              ]}
+              numberOfLines={1}
+            >
+              {turnBannerText}
+            </Text>
+          </View>
+
+          {/* Transient rejection notice (server said "not your turn"). */}
+          {turnNotice ? (
+            <Text
+              style={[
+                styles.turnNotice,
+                { color: colors.destructive, writingDirection: wd },
+              ]}
+            >
+              {turnNotice}
+            </Text>
+          ) : null}
+
           {state.opponents.length > 0 ? (
             <View style={styles.oppRow}>
               {state.opponents.map((o, i) => (
@@ -433,7 +580,7 @@ export default function RoomScreen() {
               onDigit={onDigit}
               onBackspace={() => setGuessInput((v) => v.slice(0, -1))}
               onClear={() => setGuessInput("")}
-              disabled={locked}
+              disabled={locked || !currentTurnIsMe}
             />
           </View>
 
@@ -733,6 +880,27 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     paddingEnd: 60,
     minHeight: 48,
+  },
+  turnBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignSelf: "center",
+    maxWidth: "85%",
+  },
+  turnBannerText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.3,
+  },
+  turnNotice: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+    marginTop: -4,
   },
   oppChip: {
     flexDirection: "row", alignItems: "center", gap: 6,
