@@ -115,12 +115,39 @@ type PunishmentCardId =
   | "vote"
   | "anotherChance"
   | "chooseAnother";
-const PUNISHMENT_CARDS: PunishmentCardId[] = [
-  "directElimination",
-  "vote",
-  "anotherChance",
-  "chooseAnother",
-];
+/**
+ * Maximum number of times a single punishment can be redirected via the
+ * "Choose Another Player" card. The spec caps this at 1 — once the
+ * original target hands the punishment off, the second reveal must not
+ * include another `chooseAnother`, otherwise targets could keep passing
+ * forever. Enforced by `punishmentChainActive` + pool filtering below.
+ */
+const MAX_PUNISHMENT_REDIRECTS = 1;
+
+/**
+ * Build the punishment card pool for a single draw. The available set
+ * depends on the number of players in the room and on context flags:
+ *
+ *   - 2 players → [directElimination, anotherChance]
+ *   - 3 players → [directElimination, anotherChance, chooseAnother]
+ *   - 4+ players → all four (vote unlocks at 4+)
+ *
+ * Then on top of the count-based pool we filter out `chooseAnother` when
+ * (a) we're on the second draw of a redirect chain (cap at
+ * MAX_PUNISHMENT_REDIRECTS), or (b) there's no eligible third player to
+ * pass to — without this guard the target would see the "Choose
+ * Another" reveal but the picker UX couldn't open.
+ */
+function buildPunishmentPool(
+  playerCount: number,
+  opts: { excludeChooseAnother: boolean },
+): PunishmentCardId[] {
+  const pool: PunishmentCardId[] = ["directElimination", "anotherChance"];
+  if (playerCount >= 4) pool.push("vote");
+  if (playerCount >= 3 && !opts.excludeChooseAnother) pool.push("chooseAnother");
+  return pool;
+}
+
 /** Brief mutex so two concurrent winner taps still produce one reveal. */
 const PUNISHMENT_LOCK_MS = 2_000;
 
@@ -718,28 +745,27 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       if (now < room.punishmentLockUntil) return sendErr("alreadyUsed");
       room.punishmentLockUntil = now + PUNISHMENT_LOCK_MS;
       room.punishmentUsed = true;
-      // Draw a card. chooseAnother is silently re-rolled to a different
-      // card in two cases:
-      //  (a) chain's second draw — the chain has already redirected
-      //      once and the spec caps it there to prevent loops.
-      //  (b) no eligible redirect candidate — typically a 2-player
-      //      room (winner + 1 loser) where there is literally no third
-      //      player to pass to. Without this re-roll the target would
-      //      see the "Choose Another Player" reveal but the picker
-      //      flow couldn't open, forcing a confusing fall-through to
-      //      plain Accept/Refuse. By excluding chooseAnother at draw
-      //      time the card only ever appears when its redirect flow
-      //      can actually run end-to-end.
+      // Draw a card from a pool sized to the room. The pool is filtered
+      // by player count (vote unlocks at 4+, chooseAnother at 3+) and
+      // then further filtered to exclude `chooseAnother` when:
+      //   (a) we're on the second draw of a redirect chain — capped at
+      //       MAX_PUNISHMENT_REDIRECTS = 1 to prevent endless passing.
+      //   (b) no eligible redirect candidate exists (typically a
+      //       2-player room — winner + 1 loser, no third to pass to).
+      //       This is already implied by the player-count rule, but
+      //       kept explicit so the invariant holds even if the cast of
+      //       eligible players changes mid-match (e.g. winner-only
+      //       exclusion rules shift).
       const hasReassignCandidate = room.players.some(
         (p) => p.socketId !== room.winnerId && p.socketId !== target.socketId,
       );
       const excludeChooseAnother = isChainSecondDraw || !hasReassignCandidate;
-      let cardId =
-        PUNISHMENT_CARDS[Math.floor(Math.random() * PUNISHMENT_CARDS.length)]!;
-      if (excludeChooseAnother && cardId === "chooseAnother") {
-        const alternates = PUNISHMENT_CARDS.filter((c) => c !== "chooseAnother");
-        cardId = alternates[Math.floor(Math.random() * alternates.length)]!;
-      }
+      const pool = buildPunishmentPool(room.players.length, {
+        excludeChooseAnother,
+      });
+      // `pool` always contains at least directElimination + anotherChance,
+      // so the non-null assertion is safe for any valid room state.
+      const cardId = pool[Math.floor(Math.random() * pool.length)]!;
       room.punishmentCardId = cardId;
       room.punishmentTargetName = target.name;
       room.punishmentTargetSocketId = target.socketId;

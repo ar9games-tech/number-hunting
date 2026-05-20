@@ -1,0 +1,133 @@
+Update Punishment Card rules based on number of players.
+
+Goal:
+Punishment cards available after a multiplayer match must depend on the number of players in the room.
+
+Punishment availability rules:
+
+1. If the match has 2 players only:
+Available punishments:
+- خروج نهائي / Final Elimination
+- سماح / Forgiveness
+
+2. If the match has 3 players:
+Available punishments:
+- خروج نهائي / Final Elimination
+- سماح / Forgiveness
+- اختيار لاعب آخر للعقاب / Choose Another Player
+
+3. If the match has 4 or more players:
+Available punishments:
+- خروج نهائي / Final Elimination
+- سماح / Forgiveness
+- تصويت / Vote
+- اختيار لاعب آخر للعقاب / Choose Another Player
+
+Punishment meanings:
+1. Final Elimination:
+- Arabic: خروج نهائي
+- English: Final Elimination
+- Effect: Target player is eliminated from the next round or match.
+
+2. Forgiveness:
+- Arabic: سماح
+- English: Forgiveness
+- Description Arabic: تتم مسامحة اللاعب ويلعب جولة أخرى
+- Description English: The player is forgiven and plays another round
+- Effect: Target player is not eliminated and can continue.
+
+3. Vote:
+- Arabic: تصويت
+- English: Vote
+- Effect: Players vote on the punishment result.
+- Only available for 4+ players.
+
+4. Choose Another Player:
+- Arabic: اختيار لاعب آخر للعقاب
+- English: Choose Another Player
+- Description Arabic: اختر لاعبًا آخر غيرك ليأخذ العقاب بدلًا منك
+- Description English: Choose another player other than yourself to receive the punishment instead
+- Effect: The current target must choose another player and press Punishment again.
+
+Important Choose Another Player flow:
+- If the revealed card is Choose Another Player:
+  1. The current target sees Accept / Refuse.
+  2. If the target accepts:
+     - Show a player selection list to the target only.
+     - The target must choose another player other than themselves.
+     - After selecting another player, show a Punishment button to the target only.
+     - When the target presses Punishment:
+       - Open the pack animation again.
+       - Reveal a new punishment card for the newly selected target.
+  3. If the target refuses:
+     - Apply Final Elimination to the current target.
+
+Rules for choosing another player:
+- The target cannot choose themselves.
+- The new target must be an active player in the room.
+- The winner may be excluded if punishment should only apply to losers.
+- Broadcast the new target to all players.
+- All players should see the new pack reveal animation.
+- Prevent bugs where Accept ends the punishment without selecting a new player.
+- Prevent bugs where the Punishment button does not appear for the current target.
+
+Loop protection:
+- Allow Choose Another Player to happen multiple times only if intentionally enabled.
+- Preferred default:
+  - Allow it to redirect once per punishment chain.
+  - On the second reveal, exclude Choose Another Player from the random card pool.
+- Add config:
+  MAX_PUNISHMENT_REDIRECTS = 1
+
+Server requirements:
+- Server must build the punishment card pool based on room player count:
+  - 2 players: final_elimination, forgiveness
+  - 3 players: final_elimination, forgiveness, choose_another_player
+  - 4+ players: final_elimination, forgiveness, vote, choose_another_player
+- Server must validate:
+  - room exists
+  - match ended
+  - requester is allowed to request punishment
+  - punishment not already completed
+  - target player is valid
+  - redirect count does not exceed limit
+- Store punishment state:
+  - punishmentUsed
+  - punishmentCompleted
+  - currentPunishmentTargetId
+  - currentPunishmentCard
+  - redirectCount
+  - selectedByPlayerId
+- Separate events:
+  - requestPunishmentCard
+  - acceptPunishment
+  - refusePunishment
+  - selectRedirectTarget
+  - requestRedirectedPunishment
+  - punishmentCardRevealed
+  - punishmentTargetChanged
+  - punishmentCompleted
+  - punishmentError
+
+Client requirements:
+- Winner screen:
+  - Only winner sees first Punishment button.
+  - Winner selects initial target before first reveal.
+- After Choose Another Player:
+  - Only the current target sees Accept / Refuse.
+  - If Accept: only current target sees player list.
+  - Only current target sees the second Punishment button.
+- Rematch/New Match must never trigger punishment.
+- Non-target players only see waiting messages.
+
+Testing checklist:
+- 2-player match: only Final Elimination and Forgiveness appear.
+- 3-player match: Final Elimination, Forgiveness, Choose Another Player appear.
+- 4+ player match: all punishments appear.
+- Choose Another Player:
+  - Target presses Accept.
+  - Target selects another player.
+  - Target presses Punishment.
+  - New card reveals for selected player.
+- Refuse applies Final Elimination.
+- New Match does not open punishment.
