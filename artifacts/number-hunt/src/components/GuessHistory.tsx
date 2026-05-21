@@ -22,8 +22,9 @@ export function GuessHistory({
   emptyText?: string;
 }) {
   const colors = useColors();
-  const { t, lz } = useT();
+  const { t, lz, isRTL } = useT();
   const empty = emptyText ?? t("misc.noGuesses");
+  const wd = isRTL ? "rtl" : "ltr";
   if (items.length === 0) {
     return (
       <View style={[styles.empty, { borderColor: colors.border }]}>
@@ -64,17 +65,30 @@ export function GuessHistory({
             style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}
           >
             <Text style={[styles.guess, { color: colors.foreground }]}>{lz(it.guess)}</Text>
+            {/* Feedback chip: arrow icon + label word. Per UX feedback the
+                count is now a separate sibling pill instead of being
+                glued onto the label with a "·" bullet — that bullet
+                looked like errant punctuation right after the Arabic
+                feedback words (مرتفع/منخفض…) and pulled the eye away
+                from the number beside it. Keeping them as siblings also
+                lets the chip wrap cleanly in RTL. */}
             <View style={[styles.chip, { backgroundColor: tone + "22" }]}>
               <Feather name={arrow} size={14} color={tone} />
-              <Text style={[styles.chipText, { color: tone }]}>
+              <Text
+                style={[styles.chipText, { color: tone, writingDirection: wd }]}
+              >
                 {t(labelKey)}
-                {showCorrectCount &&
-                !it.feedback.correct &&
-                it.feedback.correctDigitCount != null
-                  ? ` · ${lz(it.feedback.correctDigitCount)}`
-                  : ""}
               </Text>
             </View>
+            {showCorrectCount &&
+            !it.feedback.correct &&
+            it.feedback.correctDigitCount != null ? (
+              <View style={[styles.countPill, { backgroundColor: tone + "14" }]}>
+                <Text style={[styles.countText, { color: tone }]}>
+                  {lz(it.feedback.correctDigitCount)}
+                </Text>
+              </View>
+            ) : null}
             {it.by ? (
               <Text style={[styles.by, { color: colors.mutedForeground }]}>{it.by}</Text>
             ) : null}
@@ -100,6 +114,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
   },
   chipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  // Sibling count pill — keeps the correct-digit number visually
+  // separate from the feedback word so neither needs a punctuation
+  // separator. Slightly lighter background than the feedback chip so
+  // it reads as secondary information at a glance.
+  countPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    minWidth: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+  },
   by: { marginLeft: "auto", fontSize: 12, fontFamily: "Inter_500Medium" },
   empty: {
     flexDirection: "row", alignItems: "center", gap: 10,
