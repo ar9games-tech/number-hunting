@@ -61,7 +61,7 @@ export default function ResultScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
-  const { t, lz } = useT();
+  const { t, lz, isRTL } = useT();
   const params = useLocalSearchParams<{
     mode?: string;
     digits?: string;
@@ -387,6 +387,60 @@ export default function ResultScreen() {
         contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
       >
+        {/*
+          New Record celebration — rendered as its own card INSIDE the
+          scrollable content (no longer absolutely positioned at the top
+          of the GlassCard, where the card's `overflow: hidden` was
+          clipping it on small phones). Self-centered with a max width
+          so it stays readable in both LTR and RTL on narrow screens,
+          and the trophy icon pulses in sync with the existing `burst`
+          loop for a subtle celebration cue. Sits ABOVE the result
+          card, so it pushes — not overlaps — the Punishment / Rematch /
+          Leave Room action stack lower in the scroll.
+        */}
+        {isNewRecord ? (
+          <Animated.View
+            style={[
+              styles.recordCard,
+              {
+                backgroundColor: colors.accent,
+                transform: [
+                  {
+                    scale: burst.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 1.03],
+                    }),
+                  },
+                ],
+              },
+            ]}
+            accessibilityRole="header"
+            accessibilityLabel={t("result.newRecord")}
+          >
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    rotate: burst.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ["-6deg", "6deg"],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <Feather name="award" size={22} color={colors.accentForeground} />
+            </Animated.View>
+            <Text
+              style={[styles.recordText, { color: colors.accentForeground, writingDirection: isRTL ? "rtl" : "ltr" }]}
+              numberOfLines={1}
+            >
+              {t("result.newRecord")}
+            </Text>
+            <Text style={styles.recordSparkle}>✨</Text>
+          </Animated.View>
+        ) : null}
+
         <View style={styles.cardWrap}>
           {/* Confetti sits behind the card and is positionally absolute. */}
           <ParticleBurst active={showParticles && showVictory} color={colors.accent} />
@@ -398,30 +452,6 @@ export default function ResultScreen() {
               tone={showVictory ? "success" : "danger"}
               style={styles.card}
             >
-              {isNewRecord ? (
-                <Animated.View
-                  style={[
-                    styles.recordBadge,
-                    {
-                      backgroundColor: colors.accent,
-                      transform: [
-                        {
-                          scale: burst.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [1, 1.06],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  <Feather name="award" size={16} color={colors.accentForeground} />
-                  <Text style={[styles.recordText, { color: colors.accentForeground }]}>
-                    {t("result.newRecord")}
-                  </Text>
-                </Animated.View>
-              ) : null}
-
               <View style={[styles.iconCircle, { backgroundColor: tone + "22" }]}>
                 <Feather
                   name={showVictory ? "check-circle" : "x-circle"}
@@ -909,12 +939,34 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: "center", gap: 14, position: "relative",
   },
-  recordBadge: {
-    position: "absolute", top: -14,
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+  // Standalone "New Record" celebration card — sits in the scroll
+  // flow above the result card so it can never be clipped by the
+  // result GlassCard's `overflow: hidden`, and never collide with the
+  // notch (ScreenHeader already pads for the top safe-area inset).
+  // Self-centered with a max width so the pill stays readable on the
+  // smallest phones without stretching edge-to-edge on tablets.
+  recordCard: {
+    alignSelf: "center",
+    maxWidth: 320,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    ...(Platform.OS === "android" ? { elevation: 6 } : null),
   },
-  recordText: { fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.4 },
+  recordText: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.4,
+    flexShrink: 1,
+  },
+  recordSparkle: { fontSize: 16 },
   iconCircle: {
     width: 80, height: 80, borderRadius: 40,
     alignItems: "center", justifyContent: "center",
