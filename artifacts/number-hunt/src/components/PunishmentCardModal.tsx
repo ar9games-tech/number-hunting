@@ -1,4 +1,3 @@
-import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -15,34 +14,7 @@ import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
 import { useT } from "@/src/i18n/useT";
 import { getPunishmentCard } from "@/src/data/punishmentCards";
-import type {
-  PunishmentResolved,
-  PunishmentReveal,
-} from "@/src/net/socketPlaceholder";
-
-/**
- * The button modes the action row can render after the reveal animation
- * finishes (for the target only — non-targets always see the "waiting"
- * message regardless of mode).
- *
- *   - "decide"   — normal Accept / Refuse pair. Used for directElimination,
- *                  vote, and chooseAnother *after* the pass has been spent.
- *   - "redirect" — Accept / Refuse pair where Accept opens the new-target
- *                  picker (the redirect chain) and Refuse eliminates the
- *                  current target as usual. Used for the first reveal of
- *                  a chooseAnother card. The label on Accept is still
- *                  "Accept" — per spec, accepting the chooseAnother card
- *                  IS the act of starting the redirect.
- *   - "continue" — single "Continue" button. Used for anotherChance,
- *                  which is a forgiveness card with no refuse path.
- */
-type ActionMode = "decide" | "redirect" | "continue";
-
-function actionModeFor(reveal: PunishmentReveal): ActionMode {
-  if (reveal.cardId === "anotherChance") return "continue";
-  if (reveal.cardId === "chooseAnother" && reveal.canPass) return "redirect";
-  return "decide";
-}
+import type { PunishmentReveal } from "@/src/net/socketPlaceholder";
 
 /**
  * Unified neutral color used by EVERY pre-reveal pack — sparkles, halo,
@@ -57,10 +29,14 @@ const PACK_PURPLE = "#8b5cf6";
  * Animation phases:
  *   1. SHAKING — sealed pack jitters with a glow halo and floating sparkles.
  *   2. REVEALING — pack scales away; card slides up + scales in with glow.
- *   3. READY — Accept / Refuse buttons fade in *for the target only*.
- *      Everyone else sees "Waiting for {target} to decide…".
- *   4. RESOLVED — once the target's Accept/Refuse broadcast lands, the
- *      modal flips to the final outcome panel for everyone.
+ *   3. READY — action row fades in. The reveal IS the result — there is
+ *      no Accept / Refuse decision anymore. Everyone (winner, target,
+ *      and spectators) sees a single "Close" button that dismisses the
+ *      modal locally on their own device. EXCEPTION: the very first
+ *      reveal of a `chooseAnother` card (when `canPass` is true) still
+ *      shows the target a "Pick another player" button so they can
+ *      redirect the punishment — after the redirected reveal lands,
+ *      everyone is back to a single Close button.
  */
 const SHAKE_MS = 1100;
 const REVEAL_MS = 650;
@@ -70,33 +46,28 @@ type Phase = "shaking" | "revealing" | "ready";
 export function PunishmentCardModal({
   reveal,
   visible,
-  resolved,
   isTarget,
-  onAccept,
-  onRefuse,
   onPickAnother,
   redirectInFlight,
   onClose,
 }: {
   reveal: PunishmentReveal | null;
   visible: boolean;
-  /** Final Accept/Refuse decision, or null while we're still waiting. */
-  resolved: PunishmentResolved | null;
   /** True only on the device of the player the winner picked. */
   isTarget: boolean;
-  onAccept: () => void;
-  onRefuse: () => void;
   /**
    * Invoked when the target taps "Pick another player" on a fresh
    * chooseAnother card. The parent screen opens its target picker and
-   * fires the actual reassign event from there.
+   * fires the actual reassign event from there. Only shown for the
+   * interstitial chooseAnother+canPass reveal — every other reveal
+   * collapses to a plain Close button for everyone.
    */
   onPickAnother: () => void;
   /**
    * True once the target has committed a new target via the picker —
-   * the modal locks both redirect-mode buttons until the server's
+   * the modal locks the pick-another button until the server's
    * `punishmentTargetChanged` broadcast dismisses the modal. Prevents
-   * a Refuse tap during the in-flight redirect window.
+   * a second pick during the in-flight redirect window.
    */
   redirectInFlight?: boolean;
   onClose: () => void;
@@ -106,9 +77,6 @@ export function PunishmentCardModal({
   const wd = isRTL ? "rtl" : "ltr";
 
   const [phase, setPhase] = useState<Phase>("shaking");
-  // Local "I already tapped Accept/Refuse" guard so a double-tap doesn't
-  // fire two ws events. Reset whenever a new reveal starts.
-  const [responded, setResponded] = useState(false);
 
   // Pack animations.
   const shake = useRef(new Animated.Value(0)).current;
@@ -129,7 +97,6 @@ export function PunishmentCardModal({
     if (!visible || !reveal) return;
     // Reset state for every fresh reveal.
     setPhase("shaking");
-    setResponded(false);
     shake.setValue(0);
     packScale.setValue(1);
     packOpacity.setValue(1);
@@ -242,7 +209,14 @@ export function PunishmentCardModal({
   // green at reveal time.
   const revealAccent =
     reveal.cardId === "directElimination" ? colors.destructive : colors.success;
-  const mode = actionModeFor(reveal);
+
+  // The only reveal that still demands an in-modal action from the
+  // target is the *first* chooseAnother card (the one the target can
+  // pass). Every other reveal — including the post-redirect chooseAnother
+  // reveal where `canPass` is false — collapses to a single Close button
+  // for everyone.
+  const showPickAnother =
+    isTarget && reveal.cardId === "chooseAnother" && reveal.canPass;
 
   const shakeTranslate = shake.interpolate({
     inputRange: [-1, 1],
@@ -257,15 +231,17 @@ export function PunishmentCardModal({
     outputRange: [0.2, 0.9],
   });
 
-  const showResolution = phase === "ready" && resolved !== null;
-
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       onRequestClose={() => {
-        if (phase === "ready") onClose();
+        // Hardware back / Esc dismisses the modal once the reveal has
+        // finished — but never during the pick-another interstitial,
+        // since the target must commit a new player before the chain
+        // can continue.
+        if (phase === "ready" && !showPickAnother) onClose();
       }}
     >
       <View style={[styles.backdrop, { backgroundColor: "rgba(0,0,0,0.78)" }]}>
@@ -305,285 +281,146 @@ export function PunishmentCardModal({
           })}
         </View>
 
-        {showResolution ? (
-          <ResolutionPanel
-            reveal={reveal}
-            resolved={resolved!}
-            colors={colors}
-            wd={wd}
-            t={t}
-            onClose={onClose}
-          />
-        ) : (
-          <View style={styles.stage}>
-            {/* Sealed pack */}
-            {phase === "shaking" || phase === "revealing" ? (
-              // The sealed pack is uniformly purple regardless of the
-              // card inside — pack border, glow halo, and label all use
-              // PACK_PURPLE so the target can't infer the result early.
+        <View style={styles.stage}>
+          {/* Sealed pack */}
+          {phase === "shaking" || phase === "revealing" ? (
+            // The sealed pack is uniformly purple regardless of the
+            // card inside — pack border, glow halo, and label all use
+            // PACK_PURPLE so the target can't infer the result early.
+            <Animated.View
+              style={[
+                styles.pack,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: PACK_PURPLE,
+                  shadowColor: PACK_PURPLE,
+                  opacity: packOpacity,
+                  transform: [
+                    { translateX: phase === "shaking" ? shakeTranslate : 0 },
+                    { rotate: phase === "shaking" ? shakeRotate : "0deg" },
+                    { scale: packScale },
+                  ],
+                },
+              ]}
+            >
               <Animated.View
                 style={[
-                  styles.pack,
+                  styles.glowHalo,
                   {
-                    backgroundColor: colors.card,
-                    borderColor: PACK_PURPLE,
-                    shadowColor: PACK_PURPLE,
-                    opacity: packOpacity,
-                    transform: [
-                      { translateX: phase === "shaking" ? shakeTranslate : 0 },
-                      { rotate: phase === "shaking" ? shakeRotate : "0deg" },
-                      { scale: packScale },
-                    ],
+                    backgroundColor: PACK_PURPLE + "33",
+                    opacity: glowOpacity,
                   },
                 ]}
-              >
-                <Animated.View
-                  style={[
-                    styles.glowHalo,
-                    {
-                      backgroundColor: PACK_PURPLE + "33",
-                      opacity: glowOpacity,
-                    },
-                  ]}
-                />
-                <Text style={styles.packQuestion}>?</Text>
-                <Text style={[styles.packLabel, { color: PACK_PURPLE }]}>
-                  {t("punishment.opening")}
-                </Text>
-              </Animated.View>
-            ) : null}
+              />
+              <Text style={styles.packQuestion}>?</Text>
+              <Text style={[styles.packLabel, { color: PACK_PURPLE }]}>
+                {t("punishment.opening")}
+              </Text>
+            </Animated.View>
+          ) : null}
 
-            {/* Revealed card — now wears the result color (red for
-                Direct Elimination, green for all other cards). */}
-            {phase !== "shaking" ? (
-              <Animated.View
+          {/* Revealed card — now wears the result color (red for
+              Direct Elimination, green for all other cards). */}
+          {phase !== "shaking" ? (
+            <Animated.View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: revealAccent,
+                  shadowColor: revealAccent,
+                  opacity: cardOpacity,
+                  transform: [
+                    { translateY: cardTranslate },
+                    { scale: cardScale },
+                  ],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={[revealAccent + "55", "transparent"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <Text style={styles.cardEmoji}>{card.emoji}</Text>
+              <Text
                 style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: revealAccent,
-                    shadowColor: revealAccent,
-                    opacity: cardOpacity,
-                    transform: [
-                      { translateY: cardTranslate },
-                      { scale: cardScale },
-                    ],
-                  },
+                  styles.cardTitle,
+                  { color: colors.foreground, writingDirection: wd },
+                ]}
+                numberOfLines={2}
+              >
+                {t(card.titleKey)}
+              </Text>
+              <Text
+                style={[
+                  styles.cardBody,
+                  { color: colors.mutedForeground, writingDirection: wd },
                 ]}
               >
-                <LinearGradient
-                  colors={[revealAccent + "55", "transparent"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <Text style={styles.cardEmoji}>{card.emoji}</Text>
+                {t(card.bodyKey)}
+              </Text>
+              {reveal.targetName ? (
                 <Text
                   style={[
-                    styles.cardTitle,
-                    { color: colors.foreground, writingDirection: wd },
+                    styles.targetLabel,
+                    { color: revealAccent, writingDirection: wd },
                   ]}
-                  numberOfLines={2}
                 >
-                  {t(card.titleKey)}
+                  {t("punishment.targetLabel", { name: reveal.targetName })}
                 </Text>
+              ) : null}
+              {reveal.drawnBy ? (
                 <Text
                   style={[
-                    styles.cardBody,
+                    styles.drawnBy,
                     { color: colors.mutedForeground, writingDirection: wd },
                   ]}
                 >
-                  {t(card.bodyKey)}
+                  {t("punishment.drawnBy", { name: reveal.drawnBy })}
                 </Text>
-                {reveal.targetName ? (
-                  <Text
-                    style={[
-                      styles.targetLabel,
-                      { color: revealAccent, writingDirection: wd },
-                    ]}
-                  >
-                    {t("punishment.targetLabel", { name: reveal.targetName })}
-                  </Text>
-                ) : null}
-                {reveal.drawnBy ? (
-                  <Text
-                    style={[
-                      styles.drawnBy,
-                      { color: colors.mutedForeground, writingDirection: wd },
-                    ]}
-                  >
-                    {t("punishment.drawnBy", { name: reveal.drawnBy })}
-                  </Text>
-                ) : null}
-              </Animated.View>
-            ) : null}
+              ) : null}
+            </Animated.View>
+          ) : null}
 
-            {phase === "ready" ? (
-              <Animated.View
-                style={[styles.actions, { opacity: buttonsOpacity }]}
-              >
-                {isTarget ? (
-                  // The action row is card-driven (see `actionModeFor`):
-                  //  - decide   → Accept / Refuse pair (default).
-                  //  - pass     → single "Pick another player" button
-                  //               (only for the first chooseAnother reveal).
-                  //  - continue → single "Continue" button (anotherChance,
-                  //               a forgiveness card with no refuse path).
-                  mode === "redirect" ? (
-                    // chooseAnother first reveal — Accept opens the
-                    // new-target picker via `onPickAnother`; it does NOT
-                    // commit the punishment to the current target.
-                    // Refuse still eliminates the current target via the
-                    // normal respondPunishment(false) path. Accept is
-                    // intentionally NOT locked by `responded` so the
-                    // target can re-tap if they cancel the picker; the
-                    // picker itself dismisses the modal once a name is
-                    // chosen (via the punishmentTargetChanged broadcast).
-                    <>
-                      <Button
-                        title={t("punishment.accept")}
-                        fullWidth
-                        // Not visually disabled by `responded` so a
-                        // picker-cancel still allows re-tap. Ignored
-                        // after a committed Refuse OR while a redirect
-                        // is already in flight (post picker-select).
-                        onPress={() => {
-                          if (responded || redirectInFlight) return;
-                          onPickAnother();
-                        }}
-                      />
-                      <Button
-                        title={t("punishment.refuse")}
-                        fullWidth
-                        variant="ghost"
-                        disabled={responded || !!redirectInFlight}
-                        onPress={() => {
-                          if (responded || redirectInFlight) return;
-                          setResponded(true);
-                          onRefuse();
-                        }}
-                      />
-                    </>
-                  ) : mode === "continue" ? (
-                    <Button
-                      title={t("punishment.continue")}
-                      fullWidth
-                      disabled={responded}
-                      onPress={() => {
-                        if (responded) return;
-                        setResponded(true);
-                        onAccept();
-                      }}
-                    />
-                  ) : (
-                    <>
-                      <Button
-                        title={t("punishment.accept")}
-                        fullWidth
-                        // Disable both buttons the moment one is tapped so
-                        // a jittery double-tap can't send two events. The
-                        // server is also guarded via `alreadyResolved`.
-                        disabled={responded}
-                        onPress={() => {
-                          if (responded) return;
-                          setResponded(true);
-                          onAccept();
-                        }}
-                      />
-                      <Button
-                        title={t("punishment.refuse")}
-                        fullWidth
-                        variant="ghost"
-                        disabled={responded}
-                        onPress={() => {
-                          if (responded) return;
-                          setResponded(true);
-                          onRefuse();
-                        }}
-                      />
-                    </>
-                  )
-                ) : (
-                  <Text
-                    style={[
-                      styles.watching,
-                      { color: colors.mutedForeground, writingDirection: wd },
-                    ]}
-                  >
-                    {t("punishment.waitingDecision", {
-                      name: reveal.targetName,
-                    })}
-                  </Text>
-                )}
-              </Animated.View>
-            ) : null}
-          </View>
-        )}
+          {phase === "ready" ? (
+            <Animated.View
+              style={[styles.actions, { opacity: buttonsOpacity }]}
+            >
+              {showPickAnother ? (
+                // chooseAnother interstitial — only the target can act,
+                // and the only action is to redirect to a new player.
+                // No "Refuse" path: per the new rules, refusal/acceptance
+                // is no longer a concept. The picker (opened by the
+                // parent) commits the new target, then the server
+                // re-broadcasts a fresh reveal where everyone — target
+                // included — sees the single Close button below.
+                <Button
+                  title={t("punishment.pickAnother")}
+                  fullWidth
+                  disabled={!!redirectInFlight}
+                  onPress={() => {
+                    if (redirectInFlight) return;
+                    onPickAnother();
+                  }}
+                />
+              ) : (
+                // Default reveal action — one button, everyone (winner,
+                // target, spectators) sees it, each device dismisses
+                // independently. No server round-trip; closing on one
+                // device must not affect any other player's screen.
+                <Button
+                  title={t("punishment.close")}
+                  fullWidth
+                  onPress={onClose}
+                />
+              )}
+            </Animated.View>
+          ) : null}
+        </View>
       </View>
     </Modal>
-  );
-}
-
-function ResolutionPanel({
-  reveal,
-  resolved,
-  colors,
-  wd,
-  t,
-  onClose,
-}: {
-  reveal: PunishmentReveal;
-  resolved: PunishmentResolved;
-  colors: ReturnType<typeof useColors>;
-  wd: "ltr" | "rtl";
-  t: ReturnType<typeof useT>["t"];
-  onClose: () => void;
-}) {
-  // anotherChance is a forgiveness card — even on "accepted" we render
-  // a friendly green "Forgiven" panel instead of the default "Accepted
-  // the punishment" copy that fits the punitive cards.
-  const isForgiveness = reveal.cardId === "anotherChance" && resolved.accepted;
-  const accent = resolved.accepted ? colors.success : colors.destructive;
-  const icon: "heart" | "check-circle" | "x-octagon" = isForgiveness
-    ? "heart"
-    : resolved.accepted
-      ? "check-circle"
-      : "x-octagon";
-  const title = isForgiveness
-    ? t("punishment.forgivenTitle")
-    : resolved.accepted
-      ? t("punishment.accepted")
-      : t("punishment.refused");
-  const body = isForgiveness
-    ? t("punishment.forgivenBody", { name: resolved.targetName })
-    : resolved.accepted
-      ? t("punishment.acceptedBody", { name: resolved.targetName })
-      : t("punishment.refusedShort");
-  return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.card, borderColor: accent },
-      ]}
-    >
-      <Feather name={icon} size={56} color={accent} />
-      <Text
-        style={[styles.cardTitle, { color: accent, writingDirection: wd }]}
-      >
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.cardBody,
-          { color: colors.mutedForeground, writingDirection: wd },
-        ]}
-      >
-        {body}
-      </Text>
-      <View style={styles.actions}>
-        <Button title={t("punishment.close")} fullWidth onPress={onClose} />
-      </View>
-    </View>
   );
 }
 
@@ -663,24 +500,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_500Medium",
     marginTop: 2,
-    fontStyle: "italic",
   },
-  watching: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    textAlign: "center",
-    paddingVertical: 6,
-  },
-  actions: { width: "100%", gap: 8, marginTop: 6 },
+  actions: { width: "100%", gap: 10 },
   sparkle: {
     position: "absolute",
-    top: "50%",
-    left: "50%",
     width: 8,
     height: 8,
     borderRadius: 4,
+    alignSelf: "center",
+    top: "50%",
+    left: "50%",
+    marginLeft: -4,
+    marginTop: -4,
     shadowOpacity: 0.9,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
+    ...(Platform.OS === "android" ? { elevation: 6 } : null),
   },
 });

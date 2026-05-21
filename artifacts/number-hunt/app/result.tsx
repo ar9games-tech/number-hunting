@@ -28,22 +28,17 @@ import {
   getCachedRoom,
   leaveRoom,
   onPunishmentError,
-  onPunishmentResolved,
   onPunishmentRevealed,
   onPunishmentTargetChanged,
   redirectPunishmentTarget,
   requestPunishmentCard,
   requestRematch,
-  respondPunishment,
-  type PunishmentResolved,
   type PunishmentReveal,
   type PunishmentTargetChanged,
 } from "@/src/net/socketPlaceholder";
 import {
   playNewMatch,
-  playPunishmentAccept,
   playPunishmentPackOpen,
-  playPunishmentRefuse,
   playPunishmentReveal,
 } from "@/src/services/soundManager";
 import {
@@ -150,10 +145,14 @@ export default function ResultScreen() {
   // mount, only for online (solo already persisted in the solo screen so we
   // don't double-count).
   // Punishment state. The winner picks a target → server broadcasts the
-  // reveal → only the target's device can Accept/Refuse → server
-  // broadcasts the resolution to everyone.
+  // reveal → every device shows the card. The reveal IS the result —
+  // there is no Accept/Refuse round-trip anymore. Everyone (winner,
+  // target, spectators) can close the modal on their own device
+  // independently; closing on one device must not affect any other
+  // player's screen. EXCEPTION: a `chooseAnother` card with `canPass`
+  // still asks the target to redirect to a new player before the next
+  // reveal lands.
   const [punishment, setPunishment] = React.useState<PunishmentReveal | null>(null);
-  const [punishmentResolved, setPunishmentResolved] = React.useState<PunishmentResolved | null>(null);
   const [punishmentVisible, setPunishmentVisible] = React.useState(false);
   const [punishmentUsed, setPunishmentUsed] = React.useState(false);
   const [punishmentLoading, setPunishmentLoading] = React.useState(false);
@@ -202,7 +201,6 @@ export default function ResultScreen() {
         });
       }
       setPunishment(reveal);
-      setPunishmentResolved(null);
       setPunishmentVisible(true);
       setPunishmentUsed(true);
       setPunishmentLoading(false);
@@ -219,6 +217,43 @@ export default function ResultScreen() {
       // slides out. Both are gated by the central soundOn setting.
       playPunishmentPackOpen(settings.soundOn);
       playPunishmentReveal(settings.soundOn);
+
+      // Achievement crediting moved from the old `onPunishmentResolved`
+      // listener: the reveal itself is now the punishment event, so we
+      // credit Given (to the winner) and Received (to the target) on
+      // reveal. The single exception is the interstitial first reveal
+      // of a `chooseAnother` card — the target is going to redirect,
+      // so we wait for the follow-up reveal (where `canPass` is false
+      // OR the card is no longer chooseAnother) to credit the final
+      // target. The original chooseAnother target should NOT be
+      // credited as the punishment receiver, and the winner should
+      // only be credited once per drawn punishment.
+      const isInterstitialPass =
+        reveal.cardId === "chooseAnother" && reveal.canPass;
+      if (!isInterstitialPass) {
+        if (yourId && winnerId === yourId) {
+          void recordPunishmentGiven()
+            .then((r) => {
+              if (r.newUnlocks.length > 0) {
+                setUnlocks((prev) =>
+                  Array.from(new Set([...prev, ...r.newUnlocks])),
+                );
+              }
+            })
+            .catch(() => {});
+        }
+        if (yourId && reveal.targetId === yourId) {
+          void recordPunishmentReceived()
+            .then((r) => {
+              if (r.newUnlocks.length > 0) {
+                setUnlocks((prev) =>
+                  Array.from(new Set([...prev, ...r.newUnlocks])),
+                );
+              }
+            })
+            .catch(() => {});
+        }
+      }
     });
     const unsubRedirect = onPunishmentTargetChanged(code, (evt) => {
       if (__DEV__) {
@@ -233,47 +268,10 @@ export default function ResultScreen() {
       // everyone else sees a waiting message.
       setPunishmentVisible(false);
       setPunishment(null);
-      setPunishmentResolved(null);
       setReassignPickerVisible(false);
       setPunishmentLoading(false);
       setPunishmentError(null);
       setRedirect(evt);
-    });
-    const unsubResolved = onPunishmentResolved(code, (resolved) => {
-      if (__DEV__) {
-        console.log("[punishment] resolution received", {
-          accepted: resolved.accepted,
-          targetName: resolved.targetName,
-        });
-      }
-      setPunishmentResolved(resolved);
-      // Server-confirmed punishment trigger. We only credit achievements
-      // on resolution (not on intent/reveal) so the descriptions match
-      // what actually happened: the winner who drew the card gets the
-      // "given" credit, and only the final resolving target — after any
-      // chooseAnother reassignment — gets the "received" credit.
-      if (yourId && winnerId === yourId) {
-        void recordPunishmentGiven()
-          .then((r) => {
-            if (r.newUnlocks.length > 0) {
-              setUnlocks((prev) =>
-                Array.from(new Set([...prev, ...r.newUnlocks])),
-              );
-            }
-          })
-          .catch(() => {});
-      }
-      if (yourId && resolved.targetId === yourId) {
-        void recordPunishmentReceived()
-          .then((r) => {
-            if (r.newUnlocks.length > 0) {
-              setUnlocks((prev) =>
-                Array.from(new Set([...prev, ...r.newUnlocks])),
-              );
-            }
-          })
-          .catch(() => {});
-      }
     });
     const unsubErr = onPunishmentError(code, (reason) => {
       setPunishmentLoading(false);
@@ -296,10 +294,9 @@ export default function ResultScreen() {
     return () => {
       unsubReveal();
       unsubRedirect();
-      unsubResolved();
       unsubErr();
     };
-  }, [isOnline, code, settings.soundOn, t]);
+  }, [isOnline, code, settings.soundOn, t, yourId, winnerId]);
 
   // Auto-dismiss the soft error after a short delay so it doesn't linger.
   useEffect(() => {
@@ -675,16 +672,7 @@ export default function ResultScreen() {
       <PunishmentCardModal
         reveal={punishment}
         visible={punishmentVisible}
-        resolved={punishmentResolved}
         isTarget={youAreTarget}
-        onAccept={() => {
-          playPunishmentAccept(settings.soundOn);
-          if (code) respondPunishment(code, true);
-        }}
-        onRefuse={() => {
-          playPunishmentRefuse(settings.soundOn);
-          if (code) respondPunishment(code, false);
-        }}
         onPickAnother={() => {
           // Open the reassign picker on top of the reveal modal — once
           // the target picks a new player we'll fire reassignPunishment,
