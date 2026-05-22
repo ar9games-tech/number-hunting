@@ -38,6 +38,55 @@ import {
 } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 
+/**
+ * Small reusable card used by the lobby for Create / Join / Random Match.
+ * The icon + title + subtitle sit in a single horizontal header so the
+ * card stays vertically short — every byte of vertical space matters
+ * here because the spec requires all three cards to be visible without
+ * scrolling on small phones.
+ */
+function LobbyCard({
+  icon,
+  iconColor,
+  title,
+  subtitle,
+  wd,
+  children,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  iconColor: string;
+  title: string;
+  subtitle: string;
+  wd: "ltr" | "rtl";
+  children: React.ReactNode;
+}) {
+  const colors = useColors();
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.iconWrap, { backgroundColor: colors.secondary }]}>
+          <Feather name={icon} size={20} color={iconColor} />
+        </View>
+        <View style={styles.cardHeaderText}>
+          <Text
+            style={[styles.cardTitle, { color: colors.foreground, writingDirection: wd }]}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <Text
+            style={[styles.cardSub, { color: colors.mutedForeground, writingDirection: wd }]}
+            numberOfLines={2}
+          >
+            {subtitle}
+          </Text>
+        </View>
+      </View>
+      {children}
+    </View>
+  );
+}
+
 export default function MultiplayerLobbyScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -239,71 +288,69 @@ export default function MultiplayerLobbyScreen() {
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.iconWrap, { backgroundColor: colors.secondary }]}>
-            <Feather name="plus-circle" size={24} color={colors.primary} />
-          </View>
-          <Text style={[styles.cardTitle, { color: colors.foreground, writingDirection: wd }]}>
-            {t("lobby.create")}
-          </Text>
-          <Text style={[styles.cardSub, { color: colors.mutedForeground, writingDirection: wd }]}>
-            {t("lobby.createDesc")}
-          </Text>
+        {/* Compact three-card layout: each card has a small horizontal
+            header (icon + title + subtitle) above its action so all
+            three — Create / Join / Random Match — fit above the fold on
+            small phones (e.g. iPhone SE 320x568). The ScrollView is
+            still present as a safety net for the tiniest devices and
+            when font-scaling is enabled. */}
+        <LobbyCard
+          icon="plus-circle"
+          iconColor={colors.primary}
+          title={t("lobby.create")}
+          subtitle={t("lobby.createDesc")}
+          wd={wd}
+        >
           <Button
             title={t("lobby.createBtn")}
             fullWidth
             onPress={() => router.push("/create-room")}
           />
-        </View>
+        </LobbyCard>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.iconWrap, { backgroundColor: colors.secondary }]}>
-            <Feather name="log-in" size={24} color={colors.accent} />
+        <LobbyCard
+          icon="log-in"
+          iconColor={colors.accent}
+          title={t("lobby.join")}
+          subtitle={t("lobby.joinDesc")}
+          wd={wd}
+        >
+          <View style={styles.joinRow}>
+            <TextInput
+              value={code}
+              onChangeText={(v) => setCode(v.toUpperCase())}
+              placeholder={t("lobby.codePh")}
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={6}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.background,
+                  color: colors.foreground,
+                  borderColor: colors.border,
+                },
+              ]}
+            />
+            <Button
+              title={joining ? t("lobby.joinBtn") + "…" : t("lobby.joinBtn")}
+              variant="secondary"
+              disabled={joining}
+              onPress={() => {
+                void handleJoin();
+              }}
+            />
           </View>
-          <Text style={[styles.cardTitle, { color: colors.foreground, writingDirection: wd }]}>
-            {t("lobby.join")}
-          </Text>
-          <Text style={[styles.cardSub, { color: colors.mutedForeground, writingDirection: wd }]}>
-            {t("lobby.joinDesc")}
-          </Text>
-          <TextInput
-            value={code}
-            onChangeText={(v) => setCode(v.toUpperCase())}
-            placeholder={t("lobby.codePh")}
-            placeholderTextColor={colors.mutedForeground}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            maxLength={6}
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.background,
-                color: colors.foreground,
-                borderColor: colors.border,
-              },
-            ]}
-          />
-          <Button
-            title={joining ? t("lobby.joinBtn") + "…" : t("lobby.joinBtn")}
-            fullWidth
-            variant="secondary"
-            disabled={joining}
-            onPress={() => {
-              void handleJoin();
-            }}
-          />
-        </View>
+        </LobbyCard>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.iconWrap, { backgroundColor: colors.secondary }]}>
-            <Feather name="shuffle" size={24} color={colors.success} />
-          </View>
-          <Text style={[styles.cardTitle, { color: colors.foreground, writingDirection: wd }]}>
-            {t("lobby.random")}
-          </Text>
-          <Text style={[styles.cardSub, { color: colors.mutedForeground, writingDirection: wd }]}>
-            {t("lobby.randomDesc")}
-          </Text>
+        <LobbyCard
+          icon="shuffle"
+          iconColor={colors.success}
+          title={t("lobby.random")}
+          subtitle={t("lobby.randomDesc")}
+          wd={wd}
+        >
           <Button
             title={t("lobby.randomBtn")}
             fullWidth
@@ -311,7 +358,7 @@ export default function MultiplayerLobbyScreen() {
             disabled={searching}
             onPress={handleRandomMatch}
           />
-        </View>
+        </LobbyCard>
 
         <Text style={[styles.note, { color: colors.mutedForeground, writingDirection: wd, marginTop: 8 }]}>
           {t("lobby.note")}
@@ -364,28 +411,37 @@ export default function MultiplayerLobbyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 20, paddingTop: 8, gap: 16 },
+  container: { paddingHorizontal: 20, paddingTop: 6, gap: 12 },
   identityBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
     borderWidth: 1,
   },
   identityDot: { width: 8, height: 8, borderRadius: 4 },
   identityLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: "Inter_700Bold" },
-  identityName: { fontSize: 15, fontFamily: "Inter_700Bold", marginTop: 2 },
-  card: { padding: 18, borderRadius: 20, borderWidth: 1, gap: 10 },
+  identityName: { fontSize: 14, fontFamily: "Inter_700Bold", marginTop: 1 },
+  // Tight padding + small icon wrap so all three cards comfortably fit
+  // above the fold on the smallest supported phones.
+  card: { padding: 14, borderRadius: 18, borderWidth: 1, gap: 10 },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  cardHeaderText: { flex: 1, flexShrink: 1 },
   iconWrap: {
-    width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
+    width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center",
   },
-  cardTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
-  cardSub: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  cardTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  cardSub: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 16, marginTop: 1 },
+  // Code input + Join button live on one row so the Join card stays
+  // short — this is what was previously pushing Random Match below
+  // the fold on small phones.
+  joinRow: { flexDirection: "row", alignItems: "stretch", gap: 8 },
   input: {
-    borderWidth: 1, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16,
-    fontSize: 24, fontFamily: "Inter_700Bold", letterSpacing: 6, textAlign: "center",
+    flex: 1,
+    borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12,
+    fontSize: 20, fontFamily: "Inter_700Bold", letterSpacing: 4, textAlign: "center",
   },
   note: {
     fontSize: 12, fontFamily: "Inter_400Regular",
