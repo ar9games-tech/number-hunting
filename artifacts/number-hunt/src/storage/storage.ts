@@ -16,6 +16,41 @@ const ONLINE_STATS_KEY = "number-hunt:online-stats:v1";
 const ACH_KEY = "number-hunt:achievements:v1";
 const PENDING_RANDOM_KEY = "number-hunt:pending-random:v1";
 const PENDING_UNLOCKS_KEY = "number-hunt:pending-unlocks:v1";
+// Purchase entitlement — kept in its OWN key, deliberately NOT part of the
+// Settings object, so `resetAll()` (or a future "reset settings" gesture)
+// cannot wipe a legitimate paid entitlement. See src/services/iap.ts.
+const ADS_REMOVED_KEY = "number-hunt:ads-removed:v1";
+
+/**
+ * Returns true if the user has purchased (or restored) the Remove Ads
+ * Forever non-consumable. Defaults to false on first install and on any
+ * read error — i.e. we fail-closed so a corrupted value never accidentally
+ * gives free ad removal.
+ */
+export async function getAdsRemoved(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(ADS_REMOVED_KEY);
+    return raw === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Persists the Remove Ads entitlement. Should only ever be called from the
+ * IAP service after a verified purchase OR a verified restore. Returns
+ * `true` only when the write is durable — the caller MUST treat `false`
+ * as a hard failure (do NOT mark the entitlement granted in memory), so a
+ * paid entitlement is never silently lost on app restart.
+ */
+export async function setAdsRemoved(value: boolean): Promise<boolean> {
+  try {
+    await AsyncStorage.setItem(ADS_REMOVED_KEY, value ? "true" : "false");
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export type Record = {
   bestTimeSec: number;

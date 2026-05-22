@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
+import { RemoveAdsCard } from "@/src/components/RemoveAdsCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
@@ -178,6 +179,20 @@ export default function SettingsScreen() {
             />
           </Row>
         </Section>
+
+        {/* Shop / IAP surface — sits between Gameplay and the destructive
+            Reset buttons so it's visible without being mixed in with them. */}
+        <View style={{ gap: 8 }}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: colors.mutedForeground, writingDirection },
+            ]}
+          >
+            {t("iap.section").toUpperCase()}
+          </Text>
+          <RemoveAdsCard />
+        </View>
 
         <Button
           title={t("settings.resetRecords")}

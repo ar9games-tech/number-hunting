@@ -13,6 +13,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { Timer } from "@/src/components/Timer";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
+import { setGameplayActive } from "@/src/services/ads";
 import {
   recordSoloPlayed,
   recordWin,
@@ -74,6 +75,18 @@ export default function SoloGameScreen() {
     if (soloRecordedRef.current) return;
     soloRecordedRef.current = true;
     void recordSoloPlayed().catch(() => {});
+  }, []);
+
+  // Mark gameplay active for the entire lifetime of the solo screen so the
+  // ad gate (`useShowAds`) suppresses every banner / interstitial / rewarded
+  // prompt while the player is mid-match. Cleared on unmount via the
+  // returned cleanup function — including when navigating to the result
+  // screen, which is the correct moment to allow post-match ads again.
+  useEffect(() => {
+    setGameplayActive(true);
+    return () => {
+      setGameplayActive(false);
+    };
   }, []);
 
   const showCount = digits >= 3;

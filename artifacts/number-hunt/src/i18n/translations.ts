@@ -181,6 +181,14 @@ export type TranslationKey =
   | "settings.reactions"
   | "settings.reactionsOnA11y"
   | "settings.reactionsOffA11y"
+  // In-app purchases ("Remove Ads Forever")
+  | "iap.section"
+  | "iap.removeAdsTitle"
+  | "iap.removeAdsBody"
+  | "iap.buyCta"
+  | "iap.purchased"
+  | "iap.restore"
+  | "iap.processing"
   // Reactions
   | "reactions.openLabel"
   | "reactions.panelTitle"
@@ -544,6 +552,13 @@ const en: Record<TranslationKey, string> = {
   "settings.reactions": "In-game reactions",
   "settings.reactionsOnA11y": "Reactions on",
   "settings.reactionsOffA11y": "Reactions off",
+  "iap.section": "Shop",
+  "iap.removeAdsTitle": "Remove Ads Forever",
+  "iap.removeAdsBody": "One-time purchase. Removes banner, interstitial, and rewarded ad prompts across the whole app.",
+  "iap.buyCta": "Buy {price}",
+  "iap.purchased": "✓ Ads removed — thanks for your support!",
+  "iap.restore": "Restore Purchases",
+  "iap.processing": "Processing…",
 
   "reactions.openLabel": "Send a reaction",
   "reactions.panelTitle": "Send a reaction",
@@ -946,6 +961,13 @@ const ar: Record<TranslationKey, string> = {
   "settings.reactions": "ردود الفعل أثناء اللعبة",
   "settings.reactionsOnA11y": "ردود الفعل مفعّلة",
   "settings.reactionsOffA11y": "ردود الفعل متوقفة",
+  "iap.section": "المتجر",
+  "iap.removeAdsTitle": "إزالة الإعلانات نهائياً",
+  "iap.removeAdsBody": "عملية شراء لمرة واحدة. تزيل جميع لافتات الإعلانات والإعلانات البينية وإعلانات المكافآت في التطبيق.",
+  "iap.buyCta": "شراء {price}",
+  "iap.purchased": "✓ تم إزالة الإعلانات — شكراً لدعمك!",
+  "iap.restore": "استعادة المشتريات",
+  "iap.processing": "جارٍ المعالجة…",
 
   "reactions.openLabel": "أرسل رد فعل",
   "reactions.panelTitle": "أرسل رد فعل",

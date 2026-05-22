@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { GlassCard } from "@/src/components/GlassCard";
+import { RemoveAdsCard } from "@/src/components/RemoveAdsCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { StatsOverview } from "@/src/components/StatsOverview";
 import { useSettings } from "@/src/contexts/SettingsContext";
@@ -126,6 +127,14 @@ export default function ProfileScreen() {
           {t("profile.bestOnlineTimes")}
         </Text>
         <BestTimesRow modeRecords={records.online} lz={lz} t={t} />
+
+        {/* Profile screen doubles as the Shop surface — no standalone Shop
+            screen exists. Card self-suppresses while hydrating and switches
+            to a "✓ Ads removed" pill once the entitlement is granted. */}
+        <Text style={[styles.sectionHeading, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {t("iap.section")}
+        </Text>
+        <RemoveAdsCard />
       </ScrollView>
     </View>
   );
