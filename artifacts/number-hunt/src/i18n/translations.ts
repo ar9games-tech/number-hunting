@@ -292,6 +292,9 @@ export type TranslationKey =
   // Home
   | "home.achievements"
   | "home.profile"
+  | "home.store"
+  | "store.title"
+  | "store.intro"
   // Achievements screen
   | "ach.title"
   | "ach.progress"
@@ -387,6 +390,9 @@ const en: Record<TranslationKey, string> = {
   "home.howto": "How to Play",
   "home.achievements": "Achievements",
   "home.profile": "Profile",
+  "home.store": "Store",
+  "store.title": "Store",
+  "store.intro": "Support Number Hunt and enjoy an ad-free experience.",
 
   "mode.title": "Choose Mode",
   "mode.solo": "Solo",
@@ -797,6 +803,9 @@ const ar: Record<TranslationKey, string> = {
   "home.howto": "طريقة اللعب",
   "home.achievements": "الإنجازات",
   "home.profile": "الملف الشخصي",
+  "home.store": "المتجر",
+  "store.title": "المتجر",
+  "store.intro": "ادعم صيد الأرقام واستمتع بتجربة خالية من الإعلانات.",
 
   "mode.title": "اختر الوضع",
   "mode.solo": "فردي",
