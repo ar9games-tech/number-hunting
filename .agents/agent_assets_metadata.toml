@@ -6,6 +6,12 @@ uri = "file://artifacts/number-hunt/assets/images/icon.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "x0u018QwAiemtvoZ0xmfK"
+uri = "file://attached_assets/generated_images/a_premium_mobile_app_61bd.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "EE_tSjfwyEGfBc8tEuGLz"
 uri = "file://artifacts/number-hunt/assets/images/icon.png"

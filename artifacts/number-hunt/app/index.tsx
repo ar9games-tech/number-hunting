@@ -11,7 +11,14 @@ import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
 import { webBottomInset, webTopInset } from "@/src/theme/theme";
 
-const HERO_DIGITS = ["7", "3", "9"] as const;
+/**
+ * Home hero digits. Rendered LEFT-TO-RIGHT in every locale (including
+ * Arabic) — the row container forces `dir: 'ltr'` + `flexDirection: 'row'`
+ * and the chip text uses `writingDirection: 'ltr'` so the visual order is
+ * always 3-6-9 / ٣-٦-٩ and never the bidi-reversed ٩-٦-٣. Localised
+ * Arabic-Indic glyphs still come through via `lz()` in AR mode.
+ */
+const HERO_DIGITS = ["3", "6", "9"] as const;
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -121,7 +128,18 @@ export default function HomeScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.digitText, { color: colors.primary }]}>{lz(d)}</Text>
+                <Text
+                  style={[styles.digitText, { color: colors.primary }]}
+                  // Numbers must always read left-to-right, even in
+                  // Arabic mode — pin writingDirection to 'ltr' on the
+                  // text node itself so bidi reordering can never flip
+                  // a multi-char number (defensive — single-glyph chips
+                  // don't need it today, but future "12" / "369" chips
+                  // would be silently reversed without this).
+                  {...({ dir: "ltr" } as object)}
+                >
+                  {lz(d)}
+                </Text>
               </Animated.View>
             ))}
           </View>
@@ -184,12 +202,23 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   hero: { alignItems: "center", gap: 16 },
-  digitsRow: { flexDirection: "row", gap: 10, marginBottom: 8 },
+  // Force LTR layout on the digit row so Arabic mode shows 3-6-9 / ٣-٦-٩
+  // in the correct visual order, never bidi-flipped to 9-6-3 / ٩-٦-٣.
+  digitsRow: {
+    flexDirection: "row",
+    direction: "ltr",
+    gap: 10,
+    marginBottom: 8,
+  },
   digitChip: {
     width: 56, height: 72, borderRadius: 18, borderWidth: 2,
     alignItems: "center", justifyContent: "center",
   },
-  digitText: { fontSize: 32, fontFamily: "Inter_700Bold" },
+  digitText: {
+    fontSize: 32,
+    fontFamily: "Inter_700Bold",
+    writingDirection: "ltr",
+  },
   title: { fontSize: 44, fontFamily: "Inter_700Bold", textAlign: "center", letterSpacing: -1 },
   subtitle: { fontSize: 16, textAlign: "center", fontFamily: "Inter_400Regular", lineHeight: 22 },
   actions: { gap: 12 },
