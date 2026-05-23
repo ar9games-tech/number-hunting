@@ -104,7 +104,10 @@ export default function HomeScreen() {
                 },
               ]}
             >
-              <Feather name="shopping-bag" size={20} color="#FFFFFF" />
+              {/* Use the theme's foreground color so the icon is
+                  legible in BOTH light (dark glyph) and dark (light
+                  glyph) themes — matches the Settings gear. */}
+              <Feather name="shopping-bag" size={20} color={colors.foreground} />
             </View>
           </Pressable>
           <Pressable

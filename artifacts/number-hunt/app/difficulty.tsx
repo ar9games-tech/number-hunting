@@ -47,7 +47,10 @@ export default function DifficultyScreen() {
               ]}
             >
               <Text style={[styles.label, { color: colors.mutedForeground, writingDirection: wd }]}>
-                {t("diff.label", { n: d })}
+                {/* Use per-length keys so AR can render grammatically
+                    correct forms (خانتان / ثلاث خانات / أربع خانات)
+                    instead of the literal "{n} خانات" template. */}
+                {t(`diff.label${d}` as "diff.label2" | "diff.label3" | "diff.label4")}
               </Text>
               <View style={styles.cellsRow}>
                 {Array.from({ length: d }).map((_, i) => (

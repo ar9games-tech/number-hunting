@@ -792,13 +792,16 @@ export default function RoomScreen() {
                         opacity: pressed ? 0.85 : 1,
                       },
                     ]}
-                    accessibilityLabel={t("diff.label", { n })}
+                    accessibilityLabel={t(
+                      `diff.label${n}` as "diff.label2" | "diff.label3" | "diff.label4",
+                    )}
                   >
+                    {/* Online/host digit picker shows ONLY the numeral —
+                        no "Digits" / "خانات" label, per spec. The
+                        accessibility label still carries the full
+                        descriptive form for screen readers. */}
                     <Text style={[styles.digitNum, { color: colors.primary }]}>
                       {lz(n)}
-                    </Text>
-                    <Text style={[styles.digitLabel, { color: colors.mutedForeground }]}>
-                      {t("room.digitsShort")}
                     </Text>
                   </Pressable>
                 ))}

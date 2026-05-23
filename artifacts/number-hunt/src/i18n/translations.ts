@@ -27,6 +27,9 @@ export type TranslationKey =
   | "diff.title"
   | "diff.lead"
   | "diff.label"
+  | "diff.label2"
+  | "diff.label3"
+  | "diff.label4"
   | "diff.2desc"
   | "diff.3desc"
   | "diff.4desc"
@@ -403,6 +406,12 @@ const en: Record<TranslationKey, string> = {
   "diff.title": "Choose Difficulty",
   "diff.lead": "How long should the hidden number be?",
   "diff.label": "{n}-digit",
+  // Per-length labels used by the Solo difficulty picker. EN keeps the
+  // simple "N Digits" form; AR uses grammatically correct forms
+  // (dual for 2, named for 3/4) instead of the literal "٢ خانات".
+  "diff.label2": "2 Digits",
+  "diff.label3": "3 Digits",
+  "diff.label4": "4 Digits",
   "diff.2desc": "Quick warmup",
   "diff.3desc": "Balanced",
   "diff.4desc": "True challenge",
@@ -816,6 +825,9 @@ const ar: Record<TranslationKey, string> = {
   "diff.title": "اختر مستوى الصعوبة",
   "diff.lead": "ما طول الرقم المخفي؟",
   "diff.label": "{n} خانات",
+  "diff.label2": "خانتان",
+  "diff.label3": "ثلاث خانات",
+  "diff.label4": "أربع خانات",
   "diff.2desc": "إحماء سريع",
   "diff.3desc": "متوازن",
   "diff.4desc": "تحدٍ حقيقي",
