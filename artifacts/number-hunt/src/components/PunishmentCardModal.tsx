@@ -215,8 +215,14 @@ export function PunishmentCardModal({
   // pass). Every other reveal — including the post-redirect chooseAnother
   // reveal where `canPass` is false — collapses to a single Close button
   // for everyone.
-  const showPickAnother =
-    isTarget && reveal.cardId === "chooseAnother" && reveal.canPass;
+  // Per the updated rules, the chooseAnother card no longer offers an
+  // in-modal "Pass to another player" button. The redirect UI (player
+  // picker + Punishment button) lives on the result screen instead — the
+  // modal just shows the card with a single Close button for EVERYONE,
+  // target included. We keep the variable so the picker-gating math
+  // (back-dismiss block, etc.) stays consistent, but force it false.
+  const showPickAnother = false;
+  void isTarget; // intentionally retained as a prop for API stability
 
   const shakeTranslate = shake.interpolate({
     inputRange: [-1, 1],

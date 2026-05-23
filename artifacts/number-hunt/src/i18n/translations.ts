@@ -278,6 +278,7 @@ export type TranslationKey =
   | "punishment.drawNewCard"
   | "punishment.redirectWaiting"
   | "punishment.redirectYourTurn"
+  | "punishment.waitingRedirectSelection"
   // Welcome / first-run nickname
   | "welcome.title"
   | "welcome.subtitle"
@@ -663,6 +664,7 @@ const en: Record<TranslationKey, string> = {
   "punishment.drawNewCard": "Draw new card",
   "punishment.redirectWaiting": "Waiting for {name} to draw a new card…",
   "punishment.redirectYourTurn": "Your turn — draw a new card for {name}",
+  "punishment.waitingRedirectSelection": "Waiting for another player selection",
   "punishment.forgivenBody": "{name} is forgiven and plays another round.",
 
   "welcome.title": "Welcome to Number Hunt",
@@ -1078,6 +1080,7 @@ const ar: Record<TranslationKey, string> = {
   "punishment.drawNewCard": "اسحب بطاقة جديدة",
   "punishment.redirectWaiting": "بانتظار {name} لسحب بطاقة جديدة…",
   "punishment.redirectYourTurn": "دورك — اسحب بطاقة جديدة لـ {name}",
+  "punishment.waitingRedirectSelection": "ينتظر اختيار لاعب آخر",
   "punishment.forgivenBody": "{name} تمت مسامحته ويلعب جولة أخرى.",
 
   "welcome.title": "أهلاً بك في صيد الأرقام",

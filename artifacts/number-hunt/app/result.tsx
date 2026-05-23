@@ -190,6 +190,31 @@ export default function ResultScreen() {
     [cachedRoom?.players, yourId, winnerId],
   );
   const youAreTarget = !!punishment && !!yourId && punishment.targetId === yourId;
+  // chooseAnother redirect chain — driven by the LAST reveal (the
+  // chooseAnother card with canPass=true). The card has been revealed
+  // and (in the new flow) closed by everyone; the original target now
+  // owes the room a fresh pick. Two derived flags drive the UI:
+  //   • youArePendingRedirector — you are the chooseAnother target and
+  //     haven't fired the redirect yet. Show the Punishment button +
+  //     reassign picker.
+  //   • othersWaitingForRedirect — someone else is the redirector. Show
+  //     a "waiting for another player selection" hint.
+  // We also fall through to the legacy `redirect` event so the waiting
+  // hint stays visible during the brief gap between the redirect being
+  // sent and the new reveal landing.
+  const isChooseAnotherPendingPass =
+    !!punishment &&
+    punishment.cardId === "chooseAnother" &&
+    punishment.canPass;
+  const youArePendingRedirector =
+    isChooseAnotherPendingPass &&
+    !!yourId &&
+    punishment!.targetId === yourId &&
+    !redirect &&
+    !punishmentLoading;
+  const othersWaitingForRedirect =
+    (isChooseAnotherPendingPass && punishment!.targetId !== yourId) ||
+    (!!redirect && redirect.redirectedById !== yourId);
 
   useEffect(() => {
     if (!isOnline || !code) return;
@@ -559,7 +584,7 @@ export default function ResultScreen() {
                   rather than scattering checks; the modal/picker
                   components stay mounted but stay invisible because no
                   reveal event will ever fire for these rooms. */}
-              {!isRandomMatch && youWon && !redirect ? (
+              {!isRandomMatch && youWon && !redirect && !isChooseAnotherPendingPass ? (
                 <>
                   <PunishmentButton
                     used={punishmentUsed}
@@ -583,35 +608,25 @@ export default function ResultScreen() {
                   ) : null}
                 </>
               ) : null}
-              {!isRandomMatch && redirect && redirect.redirectedById === yourId ? (
-                // Original target's second-press: draw a new card for
-                // the player they just picked. No picker — the target
-                // is already chosen. The reveal animation runs for
-                // everyone via the standard onPunishmentRevealed path.
+              {/* chooseAnother redirect chain — NEW flow. The original
+                  target (not the winner) owns the next pick. They see
+                  the same Punishment button + picker the winner uses.
+                  On pick we fire redirectPunishmentTarget + the
+                  follow-up requestPunishment back-to-back, so the new
+                  card reveals immediately for the freshly chosen
+                  player. Everyone else sees a single waiting hint. */}
+              {!isRandomMatch && youArePendingRedirector ? (
                 <>
-                  <Text
-                    style={[styles.redirectHint, { color: colors.mutedForeground }]}
-                  >
-                    {t("punishment.redirectYourTurn").replace(
-                      "{name}",
-                      redirect.targetName,
-                    )}
-                  </Text>
                   <PunishmentButton
                     used={false}
                     loading={punishmentLoading}
-                    idleLabel={t("punishment.drawNewCard")}
                     onPress={() => {
                       if (!code || punishmentLoading) return;
                       if (__DEV__) {
-                        console.log("[punishment] redirect draw pressed", {
-                          code,
-                          targetId: redirect.targetId,
-                        });
+                        console.log("[punishment] redirector pressed", { code });
                       }
                       setPunishmentError(null);
-                      setPunishmentLoading(true);
-                      requestPunishmentCard(code, redirect.targetId);
+                      setReassignPickerVisible(true);
                     }}
                   />
                   {punishmentError ? (
@@ -621,14 +636,11 @@ export default function ResultScreen() {
                   ) : null}
                 </>
               ) : null}
-              {!isRandomMatch && redirect && redirect.redirectedById !== yourId ? (
+              {!isRandomMatch && othersWaitingForRedirect ? (
                 <Text
                   style={[styles.redirectHint, { color: colors.mutedForeground }]}
                 >
-                  {t("punishment.redirectWaiting").replace(
-                    "{name}",
-                    redirect.redirectedByName,
-                  )}
+                  {t("punishment.waitingRedirectSelection")}
                 </Text>
               ) : null}
               {isRandomMatch ? (
@@ -712,22 +724,14 @@ export default function ResultScreen() {
         reveal={punishment}
         visible={punishmentVisible}
         isTarget={youAreTarget}
-        onPickAnother={() => {
-          // Open the reassign picker on top of the reveal modal — once
-          // the target picks a new player we'll fire reassignPunishment,
-          // server re-broadcasts a fresh reveal with the new target.
-          if (__DEV__) {
-            console.log("[punishment] pick-another opened", {
-              candidates: reassignCandidates.length,
-            });
-          }
-          setReassignPickerVisible(true);
-        }}
-        // Locks the redirect-mode buttons once a new target has been
-        // picked — the modal will close on the server's
-        // `punishmentTargetChanged` broadcast, but in the meantime no
-        // second action (Refuse, re-Accept) should be possible.
-        redirectInFlight={punishmentLoading}
+        // The in-modal "Pass to another player" path is gone — the
+        // chooseAnother modal now shows just a Close button for
+        // everyone. The redirect picker + Punishment button live on
+        // the result screen below. These two props are kept for
+        // backwards compat with the component's API surface but no
+        // longer drive any UI.
+        onPickAnother={() => {}}
+        redirectInFlight={false}
         onClose={() => setPunishmentVisible(false)}
       />
       <TargetPickerModal
@@ -765,12 +769,22 @@ export default function ResultScreen() {
             });
           }
           setReassignPickerVisible(false);
-          // Optimistic loading state — until the server confirms the
-          // redirect, we don't want the original modal to stay open if
-          // the user double-taps. The actual UI swap happens when
-          // `punishmentTargetChanged` lands.
+          // Loading state — the picker tap is now a one-shot redirect
+          // + draw. Lock the Punishment button so a double-tap can't
+          // queue two draws.
           setPunishmentLoading(true);
+          // NEW flow: fire BOTH messages back-to-back on the same
+          // WebSocket so the server processes them in order. The
+          // server's requestPunishment handler accepts the second
+          // message as a "chain second draw" because
+          // redirectPunishmentTarget has already set
+          // punishmentChainActive + redirectedById + targetSocketId.
+          // Result: a brand-new card reveals for the freshly chosen
+          // player in a single tap, no intermediate "Draw new card"
+          // button. chooseAnother is excluded from the re-draw pool
+          // server-side, so the second reveal can never loop.
           redirectPunishmentTarget(code, opp.id);
+          requestPunishmentCard(code, opp.id);
         }}
       />
     </View>
