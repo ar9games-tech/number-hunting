@@ -185,7 +185,7 @@ export default function ResultScreen() {
   // flow (B → A). Must match the TEST_MODE flag in the api-server
   // (artifacts/api-server/src/ws/game.ts) — server enforces the same
   // relaxation; without both, the request will be rejected.
-  const TEST_MODE = true;
+  const TEST_MODE = false;
   // For the chooseAnother pass: exclude yourself (the current target).
   // Normally the winner is also excluded so the punishment can't bounce
   // back to the player who drew it; TEST_MODE keeps the winner in the

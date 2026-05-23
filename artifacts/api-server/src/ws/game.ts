@@ -136,7 +136,7 @@ const MAX_PUNISHMENT_REDIRECTS = 1;
  * The one-redirect cap and the rule that the second draw can NEVER be
  * chooseAnother remain enforced in both modes.
  */
-const TEST_MODE = true;
+const TEST_MODE = false;
 
 /**
  * Build the punishment card pool for a single draw. The available set
