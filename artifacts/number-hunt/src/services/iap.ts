@@ -27,21 +27,16 @@
  *        - expo-in-app-purchases  (recommended for Expo managed workflow)
  *        - react-native-iap       (more features, bare/EAS build)
  *
- *   3. Replace the body of `purchaseRemoveAds()` and `restorePurchases()`
- *      below with calls into the chosen SDK. Keep `setAdsRemoved(true)` as
- *      the success side-effect — every other surface in the app keys off
- *      AsyncStorage and will continue to work unchanged.
+ *   3. Replace the body of `purchaseRemoveAds()` below with a call into
+ *      the chosen SDK. Keep `setAdsRemoved(true)` as the success side-
+ *      effect — every other surface in the app keys off AsyncStorage
+ *      and will continue to work unchanged.
  *
  *   4. Add `NSUserTrackingUsageDescription` (iOS) only if you also ship the
  *      ad SDK that tracks. The IAP flow itself needs no extra permissions.
  *
  *   5. Test on a real device with a Sandbox tester (iOS) / License tester
  *      (Android). The simulator and Expo Go do NOT support real IAP.
- *
- * Apple requires a "Restore Purchases" button for non-consumables — it is
- * exposed here as `restorePurchases()` and surfaced in the UI on iOS only.
- * Google Play restores entitlements automatically on reinstall, so Android
- * does not strictly need the button (we still expose the API for parity).
  * ============================================================================
  */
 
@@ -53,7 +48,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
 
 import {
   getAdsRemoved,
@@ -75,16 +70,14 @@ export const REMOVE_ADS_PRICE_DISPLAY = "$1.99";
 // ---------------------------------------------------------------------------
 
 type AdsRemovedCtx = {
-  /** True once the user has bought (or restored) the Remove Ads entitlement. */
+  /** True once the user has bought the Remove Ads entitlement. */
   adsRemoved: boolean;
   /** True while we're hydrating the flag from AsyncStorage on first mount. */
   loading: boolean;
-  /** True while a purchase or restore round-trip is in flight. */
+  /** True while a purchase round-trip is in flight. */
   busy: boolean;
   /** Launch the purchase flow. Resolves true on success. */
   purchase: () => Promise<boolean>;
-  /** Restore previous non-consumable purchases (iOS requirement). */
-  restore: () => Promise<boolean>;
 };
 
 const Ctx = createContext<AdsRemovedCtx | null>(null);
@@ -170,51 +163,9 @@ export function AdsRemovedProvider({ children }: { children: React.ReactNode }) 
     }
   }, [adsRemoved]);
 
-  const restore = useCallback(async () => {
-    setBusy(true);
-    try {
-      // -------------------------------------------------------------------
-      // PLACEHOLDER RESTORE FLOW.
-      // Replace with the real store call, e.g.:
-      //
-      //   const purchases = await getAvailablePurchases();   // RN-IAP
-      //   const owned = purchases.some(p => p.productId === REMOVE_ADS_PRODUCT_ID);
-      //
-      // Or expo-in-app-purchases:
-      //
-      //   const { results } = await InAppPurchases.getPurchaseHistoryAsync();
-      //   const owned = results.some(r => r.productId === REMOVE_ADS_PRODUCT_ID
-      //                                  && r.acknowledged);
-      //
-      // If `owned` → `await persistAdsRemoved(true)` + setAdsRemovedState(true).
-      // -------------------------------------------------------------------
-      const owned = await getAdsRemoved();
-      if (owned) {
-        // Re-persist defensively so a successful restore also heals any
-        // partially-written entitlement; if the write fails we surface
-        // it instead of silently claiming success.
-        const ok = await persistAdsRemoved(true);
-        if (!ok) {
-          Alert.alert("Restore failed", "Couldn't save the restored entitlement. Please try again.");
-          return false;
-        }
-        setAdsRemovedState(true);
-        Alert.alert("Purchases Restored", "Your Remove Ads purchase has been restored.");
-        return true;
-      }
-      Alert.alert("Nothing to Restore", "No previous purchases were found for this account.");
-      return false;
-    } catch (err) {
-      Alert.alert("Restore failed", String((err as Error)?.message ?? err));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }, []);
-
   const value = useMemo<AdsRemovedCtx>(
-    () => ({ adsRemoved, loading, busy, purchase, restore }),
-    [adsRemoved, loading, busy, purchase, restore],
+    () => ({ adsRemoved, loading, busy, purchase }),
+    [adsRemoved, loading, busy, purchase],
   );
 
   return React.createElement(Ctx.Provider, { value }, children);
@@ -226,10 +177,3 @@ export function useAdsRemoved(): AdsRemovedCtx {
   return ctx;
 }
 
-/** Convenience for non-React modules (e.g. the ads gate during gameplay). */
-export function shouldShowRestoreButton(): boolean {
-  // Apple App Store guideline 3.1.1 requires a Restore button for any app
-  // that sells non-consumables. Google Play handles restoration silently,
-  // so the button is iOS-only by convention.
-  return Platform.OS === "ios";
-}

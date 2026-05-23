@@ -190,7 +190,6 @@ export type TranslationKey =
   | "iap.removeAdsBody"
   | "iap.buyCta"
   | "iap.purchased"
-  | "iap.restore"
   | "iap.processing"
   // Reactions
   | "reactions.openLabel"
@@ -573,7 +572,6 @@ const en: Record<TranslationKey, string> = {
   "iap.removeAdsBody": "One-time purchase. Removes banner, interstitial, and rewarded ad prompts across the whole app.",
   "iap.buyCta": "Buy {price}",
   "iap.purchased": "✓ Ads removed — thanks for your support!",
-  "iap.restore": "Restore Purchases",
   "iap.processing": "Processing…",
 
   "reactions.openLabel": "Send a reaction",
@@ -989,7 +987,6 @@ const ar: Record<TranslationKey, string> = {
   "iap.removeAdsBody": "عملية شراء لمرة واحدة. تزيل جميع لافتات الإعلانات والإعلانات البينية وإعلانات المكافآت في التطبيق.",
   "iap.buyCta": "شراء {price}",
   "iap.purchased": "✓ تم إزالة الإعلانات — شكراً لدعمك!",
-  "iap.restore": "استعادة المشتريات",
   "iap.processing": "جارٍ المعالجة…",
 
   "reactions.openLabel": "أرسل رد فعل",

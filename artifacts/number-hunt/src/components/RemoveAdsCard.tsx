@@ -7,7 +7,6 @@ import { Button } from "@/src/components/Button";
 import { useT } from "@/src/i18n/useT";
 import {
   REMOVE_ADS_PRICE_DISPLAY,
-  shouldShowRestoreButton,
   useAdsRemoved,
 } from "@/src/services/iap";
 
@@ -15,13 +14,13 @@ import {
  * "Remove Ads Forever" purchase card — single component reused on the
  * Settings screen AND the Profile screen (which doubles as the Shop
  * surface, since there is no standalone Shop screen). Self-contained:
- * reads its own state from the AdsRemovedProvider, switches between
- * "buy" / "purchased" UI, and shows the iOS-only Restore button.
+ * reads its own state from the AdsRemovedProvider and switches between
+ * "buy" / "purchased" UI.
  */
 export function RemoveAdsCard() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { adsRemoved, loading, busy, purchase, restore } = useAdsRemoved();
+  const { adsRemoved, loading, busy, purchase } = useAdsRemoved();
   const wd = isRTL ? "rtl" : "ltr";
 
   if (loading) return null; // avoid a flash of "Buy" while we hydrate
@@ -80,15 +79,6 @@ export function RemoveAdsCard() {
         />
       )}
 
-      {shouldShowRestoreButton() ? (
-        <Button
-          title={t("iap.restore")}
-          variant="ghost"
-          fullWidth
-          disabled={busy}
-          onPress={() => void restore()}
-        />
-      ) : null}
     </View>
   );
 }
