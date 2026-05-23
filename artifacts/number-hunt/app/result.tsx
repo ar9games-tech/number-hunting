@@ -550,7 +550,16 @@ export default function ResultScreen() {
         <View style={styles.actions}>
           {isOnline ? (
             <>
-              {youWon && !redirect ? (
+              {/* Punishment is a Create/Join-Room feature only. Random
+                  matches are one-shot pairings with strangers, so the
+                  winner screen for a random match shows just "Play
+                  Random Again" + "Leave Room" — no Punishment, no
+                  redirect/draw-new-card UI, no error pill. We gate the
+                  entire punishment-related block on `!isRandomMatch`
+                  rather than scattering checks; the modal/picker
+                  components stay mounted but stay invisible because no
+                  reveal event will ever fire for these rooms. */}
+              {!isRandomMatch && youWon && !redirect ? (
                 <>
                   <PunishmentButton
                     used={punishmentUsed}
@@ -574,7 +583,7 @@ export default function ResultScreen() {
                   ) : null}
                 </>
               ) : null}
-              {redirect && redirect.redirectedById === yourId ? (
+              {!isRandomMatch && redirect && redirect.redirectedById === yourId ? (
                 // Original target's second-press: draw a new card for
                 // the player they just picked. No picker — the target
                 // is already chosen. The reveal animation runs for
@@ -612,7 +621,7 @@ export default function ResultScreen() {
                   ) : null}
                 </>
               ) : null}
-              {redirect && redirect.redirectedById !== yourId ? (
+              {!isRandomMatch && redirect && redirect.redirectedById !== yourId ? (
                 <Text
                   style={[styles.redirectHint, { color: colors.mutedForeground }]}
                 >

@@ -84,47 +84,37 @@ export default function HomeScreen() {
       <View style={[styles.container, { paddingTop: topPad, paddingBottom: bottomPad }]}>
         {/* Top bar is force-LTR so the Store button stays in the
             visual top-LEFT corner in Arabic too (Arabic would otherwise
-            mirror flex-row and push it to the right). Help stays
-            top-right in both languages. */}
+            mirror flex-row and push it to the right). Top-left holds
+            ONLY the Store icon (white); the Settings gear sits at
+            top-right. How to Play remains reachable via the bottom
+            links row, so no help icon is needed in the header. */}
         <View style={styles.topBar} {...({ dir: "ltr" } as object)}>
-          <View style={styles.topLeftCluster}>
-            <Pressable
-              onPress={() => router.push("/store")}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={t("home.store")}
-            >
-              <View
-                style={[
-                  styles.iconBtn,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.primary,
-                  },
-                ]}
-              >
-                <Feather name="shopping-bag" size={18} color={colors.primary} />
-              </View>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push("/settings")}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={t("settings.title")}
-            >
-              <View style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Feather name="settings" size={20} color={colors.foreground} />
-              </View>
-            </Pressable>
-          </View>
           <Pressable
-            onPress={() => router.push("/how-to-play")}
+            onPress={() => router.push("/store")}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel={t("home.howto")}
+            accessibilityLabel={t("home.store")}
+          >
+            <View
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Feather name="shopping-bag" size={20} color="#FFFFFF" />
+            </View>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/settings")}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t("settings.title")}
           >
             <View style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Feather name="help-circle" size={20} color={colors.foreground} />
+              <Feather name="settings" size={20} color={colors.foreground} />
             </View>
           </Pressable>
         </View>
@@ -237,7 +227,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  topLeftCluster: { flexDirection: "row", direction: "ltr", gap: 10 },
   iconBtn: {
     width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
