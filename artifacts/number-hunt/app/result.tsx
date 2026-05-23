@@ -179,13 +179,21 @@ export default function ResultScreen() {
       (cachedRoom?.players ?? []).filter((p) => p.id && p.id !== yourId),
     [cachedRoom?.players, yourId],
   );
-  // For the chooseAnother pass: exclude both yourself (the current
-  // target) and the winner so the punishment never bounces back to the
-  // person who drew the card. Server enforces the same rule.
+  // REMOVE BEFORE PRODUCTION — temporary 2-player testing switch. When
+  // true, the reassign picker includes the winner as a valid candidate
+  // so a 2-player room can complete the full chooseAnother redirect
+  // flow (B → A). Must match the TEST_MODE flag in the api-server
+  // (artifacts/api-server/src/ws/game.ts) — server enforces the same
+  // relaxation; without both, the request will be rejected.
+  const TEST_MODE = true;
+  // For the chooseAnother pass: exclude yourself (the current target).
+  // Normally the winner is also excluded so the punishment can't bounce
+  // back to the player who drew it; TEST_MODE keeps the winner in the
+  // candidate list for end-to-end testing on two devices.
   const reassignCandidates = React.useMemo(
     () =>
       (cachedRoom?.players ?? []).filter(
-        (p) => p.id && p.id !== yourId && p.id !== winnerId,
+        (p) => p.id && p.id !== yourId && (TEST_MODE || p.id !== winnerId),
       ),
     [cachedRoom?.players, yourId, winnerId],
   );

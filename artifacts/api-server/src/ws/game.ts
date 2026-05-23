@@ -125,6 +125,20 @@ type PunishmentCardId =
 const MAX_PUNISHMENT_REDIRECTS = 1;
 
 /**
+ * REMOVE BEFORE PRODUCTION — temporary 2-player testing switch for the
+ * "Choose Another Player" redirect flow. When true:
+ *   • the chooseAnother card is allowed in 2-player rooms (normally
+ *     gated to 3+ players),
+ *   • the FIRST punishment draw of any match is FORCED to chooseAnother
+ *     so testers always hit the redirect path,
+ *   • the punished target is allowed to redirect the punishment back to
+ *     the winner (normally the winner is excluded from being a target).
+ * The one-redirect cap and the rule that the second draw can NEVER be
+ * chooseAnother remain enforced in both modes.
+ */
+const TEST_MODE = true;
+
+/**
  * Build the punishment card pool for a single draw. The available set
  * depends on the number of players in the room and on context flags:
  *
@@ -144,7 +158,12 @@ function buildPunishmentPool(
 ): PunishmentCardId[] {
   const pool: PunishmentCardId[] = ["directElimination", "anotherChance"];
   if (playerCount >= 4) pool.push("vote");
-  if (playerCount >= 3 && !opts.excludeChooseAnother) pool.push("chooseAnother");
+  // REMOVE BEFORE PRODUCTION — TEST_MODE relaxes the 3-player gate so
+  // the chooseAnother card can be drawn in 2-player rooms for testing.
+  const chooseAnotherMinPlayers = TEST_MODE ? 2 : 3;
+  if (playerCount >= chooseAnotherMinPlayers && !opts.excludeChooseAnother) {
+    pool.push("chooseAnother");
+  }
   return pool;
 }
 
@@ -738,7 +757,13 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       // guaranteed unique. Target must (a) exist in the room and (b) not
       // be the winner themselves.
       const target = playerById(room, targetId);
-      if (!target || target.socketId === room.winnerId) {
+      // REMOVE BEFORE PRODUCTION — TEST_MODE allows the chain SECOND
+      // draw to land on the original winner so a 2-player room can
+      // complete the full redirect flow (B picks A, A receives a fresh
+      // non-chooseAnother card). The first draw still forbids winner-as-
+      // target in both modes.
+      const allowWinnerAsTarget = TEST_MODE && isChainSecondDraw;
+      if (!target || (target.socketId === room.winnerId && !allowWinnerAsTarget)) {
         return sendErr("invalidTarget");
       }
       const now = Date.now();
@@ -756,8 +781,14 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       //       kept explicit so the invariant holds even if the cast of
       //       eligible players changes mid-match (e.g. winner-only
       //       exclusion rules shift).
+      // REMOVE BEFORE PRODUCTION — in TEST_MODE the winner counts as an
+      // eligible reassign candidate, so a 2-player room (winner + one
+      // loser) reports `hasReassignCandidate=true` and the chooseAnother
+      // card is allowed to roll on the first draw.
       const hasReassignCandidate = room.players.some(
-        (p) => p.socketId !== room.winnerId && p.socketId !== target.socketId,
+        (p) =>
+          p.socketId !== target.socketId &&
+          (TEST_MODE || p.socketId !== room.winnerId),
       );
       const excludeChooseAnother = isChainSecondDraw || !hasReassignCandidate;
       const pool = buildPunishmentPool(room.players.length, {
@@ -765,7 +796,15 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       });
       // `pool` always contains at least directElimination + anotherChance,
       // so the non-null assertion is safe for any valid room state.
-      const cardId = pool[Math.floor(Math.random() * pool.length)]!;
+      // REMOVE BEFORE PRODUCTION — TEST_MODE forces the FIRST draw of a
+      // match to be chooseAnother so testers always hit the redirect
+      // path. The chain second draw still rolls randomly from a pool
+      // that excludes chooseAnother, so the loop cap is preserved.
+      const forceChooseAnother =
+        TEST_MODE && !isChainSecondDraw && pool.includes("chooseAnother");
+      const cardId = forceChooseAnother
+        ? "chooseAnother"
+        : pool[Math.floor(Math.random() * pool.length)]!;
       room.punishmentCardId = cardId;
       room.punishmentTargetName = target.name;
       room.punishmentTargetSocketId = target.socketId;
@@ -869,9 +908,13 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       const newTarget = playerById(room, newTargetId);
       // The new target must exist, must not be the winner (punishment
       // can only land on losers), and must not be the caller themselves.
+      // REMOVE BEFORE PRODUCTION — TEST_MODE lets the target redirect
+      // the punishment BACK to the winner so a 2-player room can
+      // complete the full chain (B → A). Caller-as-target is still
+      // forbidden in both modes.
       if (
         !newTarget ||
-        newTarget.socketId === room.winnerId ||
+        (newTarget.socketId === room.winnerId && !TEST_MODE) ||
         newTarget.socketId === id.socketId
       ) {
         return sendErr("invalidTarget");
