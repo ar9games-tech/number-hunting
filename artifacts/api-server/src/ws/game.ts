@@ -22,8 +22,53 @@ type GuessEntry = {
 
 type Status = "waiting" | "playing" | "won";
 
+type VoteChoice = "eliminate" | "stay";
+
+/**
+ * Live state of a Vote-card vote. Lives on the room while the vote is
+ * open; cleared the instant the vote tallies (whether by majority,
+ * timeout, or tie-break). The room is "frozen" on /result while
+ * `vote.active` is true — auto-advance to the next round only fires
+ * AFTER the vote resolves.
+ */
+type VoteState = {
+  /** True between startVote and tally. */
+  active: boolean;
+  /** ms wall-clock deadline for the 15s countdown. */
+  deadline: number;
+  /** Socket id of the punished player (NOT eligible to vote). */
+  targetId: string;
+  /** Display name of the punished player — UI only. */
+  targetName: string;
+  /**
+   * Socket ids of players entitled to vote: all ACTIVE players minus
+   * the winner-who-drew and the target. Eliminated players never get
+   * a ballot.
+   */
+  eligibleIds: string[];
+  /** Stored ballots — one per eligible voter, at most. */
+  ballots: Map<string, VoteChoice>;
+  /**
+   * True once the timer fired (or all eligibles voted) and the result
+   * was a tie or no-votes. The winner gets a tie-break ballot; nobody
+   * else acts. Tally re-fires when the winner casts.
+   */
+  tieBreakPending: boolean;
+};
+
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 12;
+
+/** 15-second voting countdown — see castVote handler + startVote helper. */
+const VOTE_DURATION_MS = 15_000;
+/**
+ * Delay between revealing a punishment card and applying its effect
+ * server-side. Long enough for the client's pack-open + reveal
+ * animation to land before the room state flips (next round / vote
+ * starts / elimination). chooseAnother is excluded — its effect is
+ * "wait for redirect", which never auto-applies.
+ */
+const PUNISHMENT_EFFECT_DELAY_MS = 3_500;
 
 type Player = {
   /**
@@ -107,6 +152,56 @@ type RoomInternal = {
   punishmentRedirectedById: string | null;
   /** Display name of the redirector — UI only. */
   punishmentRedirectedByName: string | null;
+  // ---- Session state (multi-round play) -----------------------------------
+  /**
+   * Monotonically-increasing round counter. 0 before the first round
+   * starts; bumped to 1 by the first setDigits / random-match start,
+   * then by each session-driven startNextRound. Clients use this as
+   * the "the round flipped" edge to navigate from /result back to /room.
+   */
+  roundNumber: number;
+  /**
+   * Socket ids of players removed by Final Elimination or by a losing
+   * Vote during this session. Sticky for the lifetime of the room —
+   * eliminated players stay subscribed (can react, can spectate) but
+   * cannot guess and are skipped by turn rotation. Re-joining as a new
+   * socket starts fresh; we never look up by name.
+   */
+  eliminatedIds: Set<string>;
+  /**
+   * Becomes true the moment the session has a definitive outcome:
+   *   • 2-player room: Final Elimination removes the only opponent.
+   *   • 3+-player room: only one active player remains.
+   * Frozen state — no further rounds start, no new punishments roll.
+   * `status` stays "won" while sessionEnded is true so clients keep
+   * showing the result screen, but with the session-over UI instead.
+   */
+  sessionEnded: boolean;
+  /** Socket id of the session-winner once `sessionEnded === true`. */
+  sessionWinnerId: string | null;
+  /** Display name of the session-winner — UI only. */
+  sessionWinnerName: string | null;
+  /** Active Vote-card state, or null when no vote is open. */
+  vote: VoteState | null;
+  /**
+   * Handle for the 15s vote countdown timer so we can cancel it on
+   * room close / all-voted / disconnect-tally. Cleared whenever
+   * `vote` is cleared.
+   */
+  voteTimer: ReturnType<typeof setTimeout> | null;
+  /**
+   * Handle for the deferred `applyPunishmentEffect` scheduled
+   * PUNISHMENT_EFFECT_DELAY_MS after a card is revealed. Cleared on
+   * apply, on chooseAnother redirects (where the chain second draw
+   * schedules its own timer), and on room teardown.
+   */
+  effectTimer: ReturnType<typeof setTimeout> | null;
+  /**
+   * True for rooms created by the random-match pairing path. These
+   * rooms are one-shot — no punishments roll, no rounds after the first
+   * win, and the session freezes the instant someone guesses correctly.
+   */
+  random: boolean;
 };
 
 /** Punishment cards. IDs match what the client renders in its modal. */
@@ -153,15 +248,20 @@ const TEST_MODE = false;
  * Another" reveal but the picker UX couldn't open.
  */
 function buildPunishmentPool(
-  playerCount: number,
+  activeCount: number,
   opts: { excludeChooseAnother: boolean },
 ): PunishmentCardId[] {
+  // `activeCount` excludes eliminated players. The 4+ / 3+ thresholds
+  // are checked against the active pool so that a 4-player room with
+  // two eliminated players (= 2 active) behaves like a 2-player room
+  // for the next punishment draw, and never rolls Vote with zero
+  // eligible voters.
   const pool: PunishmentCardId[] = ["directElimination", "anotherChance"];
-  if (playerCount >= 4) pool.push("vote");
+  if (activeCount >= 4) pool.push("vote");
   // REMOVE BEFORE PRODUCTION — TEST_MODE relaxes the 3-player gate so
   // the chooseAnother card can be drawn in 2-player rooms for testing.
   const chooseAnotherMinPlayers = TEST_MODE ? 2 : 3;
-  if (playerCount >= chooseAnotherMinPlayers && !opts.excludeChooseAnother) {
+  if (activeCount >= chooseAnotherMinPlayers && !opts.excludeChooseAnother) {
     pool.push("chooseAnother");
   }
   return pool;
@@ -215,6 +315,60 @@ type PlayerView = {
   currentTurnId: string | null;
   /** Display name of the current-turn player, or null. UI only. */
   currentTurnName: string | null;
+  // ---- Session state (multi-round play) -----------------------------------
+  /** Monotonically-increasing round counter. Used by the client to detect
+   * round-flips and navigate from /result back to /room. */
+  roundNumber: number;
+  /** Stable ids of players eliminated this session. Order-independent. */
+  eliminatedIds: string[];
+  /** True if THIS viewer was eliminated. Used to lock the keypad and
+   * render the spectator banner. */
+  youAreEliminated: boolean;
+  /** True once the session has a definitive winner. `status` stays "won"
+   * but the result screen renders the session-over view instead of the
+   * per-round result + punishment UI. */
+  sessionEnded: boolean;
+  /** Stable id of the session winner, or null. */
+  sessionWinnerId: string | null;
+  /** Display name of the session winner, or null. */
+  sessionWinnerName: string | null;
+  /** Active Vote-card payload, or null. Live counts only — no ballots
+   * are leaked per-voter. */
+  vote: VoteView | null;
+};
+
+/**
+ * Per-viewer projection of the live vote. Same shape for all viewers
+ * except `youAreEligible` / `youHaveVoted`, which are personalized to
+ * the requester. Counts are aggregate only (no per-voter names).
+ */
+type VoteView = {
+  active: boolean;
+  /** ms wall-clock deadline for the 15s countdown. */
+  deadlineAt: number;
+  /** Stable id of the punished player. */
+  targetId: string;
+  /** Display name of the punished player. */
+  targetName: string;
+  /** Total number of eligible voters (denominator for the live counter). */
+  eligibleCount: number;
+  /** Total ballots received so far (numerator for the live counter). */
+  votedCount: number;
+  /** Live tally: how many have voted to eliminate. */
+  eliminateCount: number;
+  /** Live tally: how many have voted to keep. */
+  stayCount: number;
+  /** True if this viewer is allowed to cast a ballot. */
+  youAreEligible: boolean;
+  /** True if this viewer has already cast a ballot. */
+  youHaveVoted: boolean;
+  /** True once the vote has tied (or no one voted) and the winner owns
+   * the tie-break decision. Nobody else acts in this state. */
+  tieBreakPending: boolean;
+  /** Stable id of the winner (the player who owns the tie-break). */
+  winnerId: string;
+  /** Display name of the winner. */
+  winnerName: string;
 };
 
 const DISTANCE_THRESHOLDS: Record<Digits, number> = { 2: 10, 3: 50, 4: 200 };
@@ -321,6 +475,34 @@ function buildView(room: RoomInternal, socketId: string): PlayerView {
     ? room.players.find((p) => p.socketId === room.currentTurnId)
     : null;
 
+  let voteView: VoteView | null = null;
+  if (room.vote) {
+    const v = room.vote;
+    let eliminateCount = 0;
+    let stayCount = 0;
+    for (const choice of v.ballots.values()) {
+      if (choice === "eliminate") eliminateCount++;
+      else stayCount++;
+    }
+    const winnerName =
+      room.players.find((p) => p.socketId === room.winnerId)?.name ?? "";
+    voteView = {
+      active: v.active,
+      deadlineAt: v.deadline,
+      targetId: v.targetId,
+      targetName: v.targetName,
+      eligibleCount: v.eligibleIds.length,
+      votedCount: v.ballots.size,
+      eliminateCount,
+      stayCount,
+      youAreEligible: v.eligibleIds.includes(socketId),
+      youHaveVoted: v.ballots.has(socketId),
+      tieBreakPending: v.tieBreakPending,
+      winnerId: room.winnerId ?? "",
+      winnerName,
+    };
+  }
+
   return {
     code: room.code,
     maxPlayers: room.maxPlayers,
@@ -341,7 +523,299 @@ function buildView(room: RoomInternal, socketId: string): PlayerView {
     revealedHidden: room.status === "won" ? room.hidden : null,
     currentTurnId: room.currentTurnId,
     currentTurnName: currentTurnPlayer?.name ?? null,
+    roundNumber: room.roundNumber,
+    eliminatedIds: [...room.eliminatedIds],
+    youAreEliminated: room.eliminatedIds.has(socketId),
+    sessionEnded: room.sessionEnded,
+    sessionWinnerId: room.sessionWinnerId,
+    sessionWinnerName: room.sessionWinnerName,
+    vote: voteView,
   };
+}
+
+// ---- Session helpers -------------------------------------------------------
+//
+// "Session" = a sequence of rounds in a single room driven by Punishment
+// outcomes. A round ends when someone guesses correctly; the punishment
+// the winner applies determines whether the session continues (next
+// round starts automatically) or terminates (only one active player
+// left). All round-state mutation goes through these helpers so the
+// invariants stay in one place.
+
+/** Players who can still guess this session. */
+function activePlayers(room: RoomInternal): Player[] {
+  return room.players.filter((p) => !room.eliminatedIds.has(p.socketId));
+}
+
+/**
+ * Clear per-round state but preserve session state (roundNumber,
+ * eliminatedIds, sessionEnded/winner). Used by `startNextRound` to wipe
+ * the previous round's histories, hidden number, winner, punishment
+ * fields, and vote state before re-seeding "playing".
+ */
+function clearRoundState(room: RoomInternal) {
+  room.winnerId = null;
+  room.histories = new Map();
+  room.hidden = null;
+  room.currentTurnId = null;
+  // Punishment fields — reset all of them. Anything else here would
+  // let a previous round's draw bleed into the next.
+  room.punishmentUsed = false;
+  room.punishmentLockUntil = 0;
+  room.punishmentTargetName = null;
+  room.punishmentTargetSocketId = null;
+  room.punishmentCardId = null;
+  room.punishmentResolution = null;
+  room.punishmentCanPass = false;
+  room.punishmentChainActive = false;
+  room.punishmentRedirectedById = null;
+  room.punishmentRedirectedByName = null;
+  // Cancel any pending vote / scheduled effect — should already be
+  // null by the time we get here, but be defensive.
+  if (room.voteTimer) {
+    clearTimeout(room.voteTimer);
+    room.voteTimer = null;
+  }
+  room.vote = null;
+  if (room.effectTimer) {
+    clearTimeout(room.effectTimer);
+    room.effectTimer = null;
+  }
+}
+
+/**
+ * Start a fresh round in a session that's still running. Generates a
+ * new hidden number, seeds the turn with the first active player in
+ * join order, bumps `roundNumber`, and broadcasts. Skipped (caller
+ * should call `endSession` instead) if only one active player remains.
+ */
+function startNextRound(room: RoomInternal) {
+  if (room.sessionEnded) return;
+  if (!room.digits) return;
+  const active = activePlayers(room);
+  if (active.length <= 1) {
+    // Single survivor — promote them to session winner and freeze.
+    const survivor = active[0] ?? null;
+    endSession(room, survivor?.socketId ?? null);
+    return;
+  }
+  clearRoundState(room);
+  room.hidden = generateHidden(room.digits);
+  room.status = "playing";
+  room.currentTurnId = active[0]?.socketId ?? null;
+  room.roundNumber += 1;
+  broadcast(room.code);
+  logger.info(
+    { code: room.code, roundNumber: room.roundNumber, active: active.length },
+    "ws: next round started",
+  );
+}
+
+/**
+ * Eliminate `socketId` from the session. Idempotent. Does NOT proceed
+ * to the next round — caller is responsible for invoking
+ * `proceedAfterPunishment` once any in-flight UI (modals, animations)
+ * is done.
+ */
+function eliminatePlayer(room: RoomInternal, socketId: string) {
+  room.eliminatedIds.add(socketId);
+  logger.info({ code: room.code, socketId }, "ws: player eliminated");
+}
+
+/**
+ * Freeze the session with `winnerSocketId` as the session winner.
+ * `status` stays "won" so the result screen keeps showing; clients
+ * branch on `sessionEnded` to render the session-over view.
+ */
+function endSession(room: RoomInternal, winnerSocketId: string | null) {
+  if (room.sessionEnded) return;
+  room.sessionEnded = true;
+  room.sessionWinnerId = winnerSocketId;
+  const w = winnerSocketId
+    ? room.players.find((p) => p.socketId === winnerSocketId)
+    : null;
+  room.sessionWinnerName = w?.name ?? null;
+  room.status = "won";
+  room.currentTurnId = null;
+  if (room.voteTimer) {
+    clearTimeout(room.voteTimer);
+    room.voteTimer = null;
+  }
+  if (room.effectTimer) {
+    clearTimeout(room.effectTimer);
+    room.effectTimer = null;
+  }
+  room.vote = null;
+  broadcast(room.code);
+  logger.info(
+    { code: room.code, winnerId: winnerSocketId },
+    "ws: session ended",
+  );
+}
+
+/**
+ * Called after a punishment effect resolves. If two or fewer active
+ * players remain AND we just removed the only opponent of a 2-player
+ * room → endSession. If one active player remains → endSession.
+ * Otherwise → startNextRound.
+ */
+function proceedAfterPunishment(room: RoomInternal) {
+  if (room.sessionEnded) return;
+  const active = activePlayers(room);
+  if (active.length <= 1) {
+    endSession(room, active[0]?.socketId ?? null);
+    return;
+  }
+  startNextRound(room);
+}
+
+/**
+ * Open a 15-second Vote on the punished target. Eligible voters =
+ * active players minus the winner and minus the target. If nobody is
+ * eligible (degenerate 2-player corner case), fast-forward to the
+ * winner's tie-break ballot so the room never stalls.
+ */
+function startVote(room: RoomInternal, targetId: string, targetName: string) {
+  if (room.sessionEnded) return;
+  if (!room.winnerId) return;
+  const winnerId = room.winnerId;
+  const eligibleIds = activePlayers(room)
+    .map((p) => p.socketId)
+    .filter((id) => id !== winnerId && id !== targetId);
+  if (room.voteTimer) clearTimeout(room.voteTimer);
+  room.vote = {
+    active: true,
+    deadline: Date.now() + VOTE_DURATION_MS,
+    targetId,
+    targetName,
+    eligibleIds,
+    ballots: new Map(),
+    // If there's nobody to vote, jump straight to the tie-break path
+    // and let the winner decide.
+    tieBreakPending: eligibleIds.length === 0,
+  };
+  if (eligibleIds.length === 0) {
+    room.voteTimer = null;
+    broadcast(room.code);
+    logger.info(
+      { code: room.code, targetId, eligible: 0 },
+      "ws: vote opened with no eligible voters (tie-break to winner)",
+    );
+    return;
+  }
+  room.voteTimer = setTimeout(() => {
+    room.voteTimer = null;
+    tallyVote(room);
+  }, VOTE_DURATION_MS);
+  broadcast(room.code);
+  logger.info(
+    { code: room.code, targetId, eligible: eligibleIds.length },
+    "ws: vote opened",
+  );
+}
+
+/**
+ * Tally the open vote and either apply the result or hand the decision
+ * to the winner as a tie-break.
+ */
+function tallyVote(room: RoomInternal) {
+  const v = room.vote;
+  if (!v || !v.active) return;
+  let eliminateCount = 0;
+  let stayCount = 0;
+  for (const choice of v.ballots.values()) {
+    if (choice === "eliminate") eliminateCount++;
+    else stayCount++;
+  }
+  if (eliminateCount === stayCount) {
+    // Tie (including no-votes). Park the vote in tie-break mode and
+    // wait for the winner's castTieBreak. Eligible voters can no
+    // longer cast; the room sits frozen until the winner decides.
+    v.active = false;
+    v.tieBreakPending = true;
+    if (room.voteTimer) {
+      clearTimeout(room.voteTimer);
+      room.voteTimer = null;
+    }
+    broadcast(room.code);
+    logger.info(
+      { code: room.code, targetId: v.targetId, eliminateCount, stayCount },
+      "ws: vote tied — awaiting winner tie-break",
+    );
+    return;
+  }
+  const result: VoteChoice = eliminateCount > stayCount ? "eliminate" : "stay";
+  applyVoteResult(room, result);
+}
+
+/**
+ * Resolve the vote with `result` and advance the session. Clears the
+ * vote state before proceeding so the next round's view doesn't carry
+ * a stale vote.
+ */
+function applyVoteResult(room: RoomInternal, result: VoteChoice) {
+  const v = room.vote;
+  if (!v) return;
+  const targetId = v.targetId;
+  if (room.voteTimer) {
+    clearTimeout(room.voteTimer);
+    room.voteTimer = null;
+  }
+  room.vote = null;
+  if (result === "eliminate") {
+    eliminatePlayer(room, targetId);
+  }
+  // Either way, the next round (or session end) follows.
+  proceedAfterPunishment(room);
+}
+
+/**
+ * Apply a revealed punishment card's effect. Called after a short
+ * delay so the client reveal animation can finish before the room
+ * flips. chooseAnother is intentionally a no-op here — the chain
+ * second draw will schedule its own apply.
+ */
+function applyPunishmentEffect(room: RoomInternal) {
+  if (room.sessionEnded) return;
+  const cardId = room.punishmentCardId;
+  const targetId = room.punishmentTargetSocketId;
+  const targetName = room.punishmentTargetName ?? "";
+  room.effectTimer = null;
+  if (!cardId || !targetId) return;
+  switch (cardId) {
+    case "directElimination": {
+      eliminatePlayer(room, targetId);
+      proceedAfterPunishment(room);
+      break;
+    }
+    case "anotherChance": {
+      // Forgiveness — no elimination. Move directly to the next round.
+      proceedAfterPunishment(room);
+      break;
+    }
+    case "vote": {
+      startVote(room, targetId, targetName);
+      break;
+    }
+    case "chooseAnother": {
+      // No-op — the original target picks a new player, and the chain
+      // second draw will schedule the real effect.
+      break;
+    }
+  }
+}
+
+/**
+ * Schedule the effect to apply after the standard reveal delay. Cancels
+ * any previously-scheduled effect first (defensive — there should never
+ * be one pending at this point, but a stale timer would be hard to
+ * debug).
+ */
+function scheduleApplyEffect(room: RoomInternal) {
+  if (room.effectTimer) clearTimeout(room.effectTimer);
+  room.effectTimer = setTimeout(() => {
+    applyPunishmentEffect(room);
+  }, PUNISHMENT_EFFECT_DELAY_MS);
 }
 
 function sendState(ws: WebSocket, room: RoomInternal) {
@@ -388,6 +862,18 @@ function sanitizeName(raw: unknown, fallback: string): string {
 
 function closeRoom(code: string, reason: string) {
   if (!rooms.has(code)) return;
+  // Cancel any pending session timers BEFORE we drop the room from the
+  // registry, so a late-firing applyEffect / tallyVote can't try to
+  // operate on a torn-down room.
+  const r = rooms.get(code)?.room;
+  if (r?.voteTimer) {
+    clearTimeout(r.voteTimer);
+    r.voteTimer = null;
+  }
+  if (r?.effectTimer) {
+    clearTimeout(r.effectTimer);
+    r.effectTimer = null;
+  }
   rooms.delete(code);
   const subs = subscribers.get(code);
   if (subs) {
@@ -406,11 +892,11 @@ type ClientMessage =
   | { type: "subscribe"; code: string }
   | { type: "setDigits"; code: string; digits: Digits }
   | { type: "guess"; code: string; guess: string }
-  | { type: "rematch"; code: string }
   | { type: "leave"; code: string }
   | { type: "requestPunishment"; reqId?: string; code: string; targetId: string }
-  | { type: "respondPunishment"; reqId?: string; code: string; accepted: boolean }
   | { type: "redirectPunishmentTarget"; reqId?: string; code: string; newTargetId: string }
+  | { type: "castVote"; reqId?: string; code: string; choice: VoteChoice }
+  | { type: "castTieBreak"; reqId?: string; code: string; choice: VoteChoice }
   | { type: "joinRandomQueue"; reqId?: string; playerName: string }
   | { type: "cancelRandomQueue"; reqId?: string }
   | { type: "sendReaction"; code: string; reaction: string }
@@ -520,6 +1006,15 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         histories: new Map(),
         punishmentLockUntil: 0,
         currentTurnId: null,
+        roundNumber: 0,
+        eliminatedIds: new Set(),
+        sessionEnded: false,
+        sessionWinnerId: null,
+        sessionWinnerName: null,
+        vote: null,
+        voteTimer: null,
+        effectTimer: null,
+        random: false,
       };
       rooms.set(code, { room, updatedAt: Date.now() });
       socketIdentity.set(ws, { code, socketId: hostId });
@@ -629,6 +1124,9 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       // Turn-based play: the host (players[0]) opens the round, then
       // turns rotate in join order on every non-winning guess.
       room.currentTurnId = room.players[0]?.socketId ?? null;
+      // First round of a session — bump the round counter. Subsequent
+      // rounds are started by `startNextRound` after punishment effects.
+      room.roundNumber = 1;
       broadcast(code);
       logger.info({ code, digits }, "ws: game started");
       break;
@@ -641,6 +1139,20 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       const room = getRoom(code);
       if (!room || room.status !== "playing" || !room.hidden || !room.digits) return;
       if (!playerById(room, id.socketId)) return;
+      // Eliminated players keep their subscription (so they can react /
+      // spectate) but can never submit a guess. The client already
+      // hides the keypad for them; this is the authoritative gate.
+      if (room.eliminatedIds.has(id.socketId)) {
+        safeSend(ws, {
+          type: "turnError",
+          code,
+          reason: "eliminated",
+          currentTurnId: room.currentTurnId,
+          currentTurnName:
+            room.players.find((p) => p.socketId === room.currentTurnId)?.name ?? null,
+        });
+        return;
+      }
       // Turn gate. The client already disables the keypad when it's not
       // your turn, but this is the authoritative check — without it a
       // racing or malicious client could submit out of turn.
@@ -668,49 +1180,33 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         room.status = "won";
         room.winnerId = id.socketId;
         room.currentTurnId = null;
+        // Random-match rooms are one-shot — there are no punishments
+        // and no follow-up rounds, so freeze the session here.
+        if (room.random) {
+          room.sessionEnded = true;
+          room.sessionWinnerId = id.socketId;
+          room.sessionWinnerName = playerById(room, id.socketId)?.name ?? null;
+        }
         broadcast(code);
       } else {
-        // Advance to the next player in join order. Wraps after the
-        // last player so 2..12-player rooms all cycle correctly.
-        const idx = room.players.findIndex((p) => p.socketId === id.socketId);
-        const nextIdx = idx >= 0 ? (idx + 1) % room.players.length : 0;
-        room.currentTurnId = room.players[nextIdx]?.socketId ?? null;
+        // Advance to the next ACTIVE player in join order. We rotate
+        // through the full player list (so join order is preserved
+        // across the session) and skip eliminated ones. There's always
+        // at least one active player here — eliminated guessers are
+        // rejected above, so the current turn is by definition active.
+        const order = room.players;
+        const idx = order.findIndex((p) => p.socketId === id.socketId);
+        let next: string | null = null;
+        for (let step = 1; step <= order.length; step++) {
+          const candidate = order[(idx + step) % order.length];
+          if (candidate && !room.eliminatedIds.has(candidate.socketId)) {
+            next = candidate.socketId;
+            break;
+          }
+        }
+        room.currentTurnId = next;
         broadcast(code);
       }
-      break;
-    }
-
-    case "rematch": {
-      const code = String(raw.code).toUpperCase();
-      const id = socketIdentity.get(ws);
-      if (!id || id.code !== code) return;
-      const room = getRoom(code);
-      if (!room) return;
-      // Only the host can call for a rematch — everyone else just sees the
-      // room return to the digit-picker state.
-      if (!isHost(room, id.socketId)) return;
-      if (room.status !== "won") return;
-      room.digits = null;
-      room.hidden = null;
-      room.winnerId = null;
-      room.histories = new Map();
-      room.status = "waiting";
-      // Turn is re-seeded the next time the host calls setDigits.
-      room.currentTurnId = null;
-      // Reset all punishment state — rematch must NEVER replay or carry
-      // over a previous match's draw/decision.
-      room.punishmentUsed = false;
-      room.punishmentLockUntil = 0;
-      room.punishmentTargetName = null;
-      room.punishmentTargetSocketId = null;
-      room.punishmentCardId = null;
-      room.punishmentResolution = null;
-      room.punishmentCanPass = false;
-      room.punishmentChainActive = false;
-      room.punishmentRedirectedById = null;
-      room.punishmentRedirectedByName = null;
-      broadcast(code);
-      logger.info({ code }, "ws: rematch armed (awaiting digits)");
       break;
     }
 
@@ -766,6 +1262,13 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       if (!target || (target.socketId === room.winnerId && !allowWinnerAsTarget)) {
         return sendErr("invalidTarget");
       }
+      // Eliminated players are session-spectators — a punishment can
+      // never be aimed at someone already out of the session. Without
+      // this gate a stale client could revive a spectator into the
+      // vote/effect pipeline and produce nonsensical state.
+      if (room.eliminatedIds.has(target.socketId)) {
+        return sendErr("invalidTarget");
+      }
       const now = Date.now();
       if (now < room.punishmentLockUntil) return sendErr("alreadyUsed");
       room.punishmentLockUntil = now + PUNISHMENT_LOCK_MS;
@@ -785,13 +1288,19 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       // eligible reassign candidate, so a 2-player room (winner + one
       // loser) reports `hasReassignCandidate=true` and the chooseAnother
       // card is allowed to roll on the first draw.
-      const hasReassignCandidate = room.players.some(
+      //
+      // Both `hasReassignCandidate` and the pool size are computed
+      // against ACTIVE players only — eliminated session-spectators
+      // can't be redirect targets and shouldn't widen the pool past
+      // its real-cast thresholds (vote unlocks at 4+ active, etc).
+      const active = activePlayers(room);
+      const hasReassignCandidate = active.some(
         (p) =>
           p.socketId !== target.socketId &&
           (TEST_MODE || p.socketId !== room.winnerId),
       );
       const excludeChooseAnother = isChainSecondDraw || !hasReassignCandidate;
-      const pool = buildPunishmentPool(room.players.length, {
+      const pool = buildPunishmentPool(active.length, {
         excludeChooseAnother,
       });
       // `pool` always contains at least directElimination + anotherChance,
@@ -825,6 +1334,10 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         !isChainSecondDraw &&
         cardId === "chooseAnother" &&
         hasReassignCandidate;
+      // Schedule the effect to apply after the reveal animation lands.
+      // chooseAnother is a no-op in applyPunishmentEffect — the chain
+      // second draw will schedule its own timer for the new card.
+      scheduleApplyEffect(room);
       const subs = subscribers.get(code);
       const peerCount = subs ? subs.size : 0;
       if (subs) {
@@ -915,7 +1428,9 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       if (
         !newTarget ||
         (newTarget.socketId === room.winnerId && !TEST_MODE) ||
-        newTarget.socketId === id.socketId
+        newTarget.socketId === id.socketId ||
+        // Reassign cannot land on a session-spectator.
+        room.eliminatedIds.has(newTarget.socketId)
       ) {
         return sendErr("invalidTarget");
       }
@@ -931,6 +1446,14 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       // Clear the brief mutex so the redirector's follow-up draw isn't
       // rejected by punishmentLockUntil from the original reveal.
       room.punishmentLockUntil = 0;
+      // Cancel any pending applyPunishmentEffect from the first draw —
+      // for chooseAnother the effect is a no-op, but defensively
+      // canceling here means a future change to the apply path can't
+      // double-fire.
+      if (room.effectTimer) {
+        clearTimeout(room.effectTimer);
+        room.effectTimer = null;
+      }
       const subs = subscribers.get(code);
       const peerCount = subs ? subs.size : 0;
       if (subs) {
@@ -959,64 +1482,46 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       break;
     }
 
-    case "respondPunishment": {
+    case "castVote": {
+      // Vote-card ballot. Validated: room exists, vote is open, the
+      // sender is on the eligible list, and they haven't already voted.
+      // We tally immediately once all eligibles have voted so the room
+      // doesn't sit idle for the rest of the 15s window.
       const code = String(raw.code).toUpperCase();
-      const accepted = !!raw.accepted;
+      const choice: VoteChoice = raw.choice === "stay" ? "stay" : "eliminate";
       const id = socketIdentity.get(ws);
-      logger.info(
-        { code, socketId: id?.socketId ?? null, accepted },
-        "ws: respondPunishment received",
-      );
-      const sendErr = (reason: PunishmentErrorReason) => {
-        logger.info({ code, reason }, "ws: punishment response rejected");
-        safeSend(ws, {
-          type: "punishmentError",
-          reqId: raw.reqId,
-          code,
-          reason,
-        });
-      };
-      if (!id || id.code !== code) return sendErr("notInRoom");
+      if (!id || id.code !== code) return;
       const room = getRoom(code);
-      if (!room) return sendErr("notInRoom");
-      const responder = playerById(room, id.socketId);
-      if (!responder) return sendErr("notInRoom");
-      if (
-        !room.punishmentUsed ||
-        !room.punishmentCardId ||
-        !room.punishmentTargetSocketId
-      ) {
-        return sendErr("noPunishment");
-      }
-      if (room.punishmentResolution) return sendErr("alreadyResolved");
-      // Authority key is the stored socketId, NOT the display name —
-      // display names aren't guaranteed unique within a room.
-      if (id.socketId !== room.punishmentTargetSocketId) return sendErr("notTarget");
-      room.punishmentResolution = { accepted };
-      const subs = subscribers.get(code);
-      const peerCount = subs ? subs.size : 0;
-      if (subs) {
-        for (const peer of subs) {
-          safeSend(peer, {
-            type: "punishmentResolved",
-            code,
-            accepted,
-            targetId: responder.socketId,
-            targetName: responder.name,
-          });
-        }
-      }
+      if (!room) return;
+      const v = room.vote;
+      if (!v || !v.active || v.tieBreakPending) return;
+      if (!v.eligibleIds.includes(id.socketId)) return;
+      if (v.ballots.has(id.socketId)) return;
+      v.ballots.set(id.socketId, choice);
       touch(code);
-      logger.info(
-        {
-          code,
-          accepted,
-          targetId: responder.socketId,
-          targetName: responder.name,
-          peerCount,
-        },
-        "ws: punishment resolved + broadcast",
-      );
+      if (v.ballots.size >= v.eligibleIds.length) {
+        // Everyone voted — tally now. broadcast() fires inside the
+        // tally → apply path, so we don't need to broadcast here.
+        tallyVote(room);
+      } else {
+        broadcast(code);
+      }
+      break;
+    }
+
+    case "castTieBreak": {
+      // Tie-break ballot — only the winner may cast, and only when the
+      // vote is parked in tieBreakPending. Resolves the round.
+      const code = String(raw.code).toUpperCase();
+      const choice: VoteChoice = raw.choice === "stay" ? "stay" : "eliminate";
+      const id = socketIdentity.get(ws);
+      if (!id || id.code !== code) return;
+      const room = getRoom(code);
+      if (!room) return;
+      const v = room.vote;
+      if (!v || !v.tieBreakPending) return;
+      if (room.winnerId !== id.socketId) return;
+      applyVoteResult(room, choice);
       break;
     }
 
@@ -1169,6 +1674,19 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         // with the queue-head player (hostId) so they guess first and
         // the guest goes second.
         currentTurnId: hostId,
+        // Random match is a single-round pairing — sessionEnded is
+        // set to true the moment someone wins (see the guess handler
+        // for the random-match branch). Session helpers are still
+        // present so the type stays uniform.
+        roundNumber: 1,
+        eliminatedIds: new Set(),
+        sessionEnded: false,
+        sessionWinnerId: null,
+        sessionWinnerName: null,
+        vote: null,
+        voteTimer: null,
+        effectTimer: null,
+        random: true,
       };
       rooms.set(code, { room, updatedAt: Date.now() });
       socketIdentity.set(opponent.ws, { code, socketId: hostId });
@@ -1237,13 +1755,21 @@ function removePlayer(
   room.histories.delete(socketId);
 
   if (wasCurrentTurn && room.status === "playing") {
-    if (room.players.length === 0) {
-      room.currentTurnId = null;
-    } else {
-      const nextIdx =
-        leaverIndex >= 0 && leaverIndex < room.players.length ? leaverIndex : 0;
-      room.currentTurnId = room.players[nextIdx]?.socketId ?? null;
+    // Advance to the next ACTIVE player in join order — same rotation
+    // rule as the post-guess advance. Walking only the surviving list
+    // would silently route to an eliminated spectator in a multi-round
+    // session and stall the round.
+    const order = room.players;
+    const start = leaverIndex >= 0 ? leaverIndex : 0;
+    let next: string | null = null;
+    for (let step = 0; step < order.length; step++) {
+      const candidate = order[(start + step) % order.length];
+      if (candidate && !room.eliminatedIds.has(candidate.socketId)) {
+        next = candidate.socketId;
+        break;
+      }
     }
+    room.currentTurnId = next;
   }
 
   // Detach from subscribers + identity so we don't leak future state.
@@ -1259,70 +1785,101 @@ function removePlayer(
     return;
   }
 
-  // If the redirector leaves during an active chooseAnother chain (after
-  // they handed the punishment off, before they re-pressed Punishment),
-  // the new target would otherwise be stuck waiting for a draw that
-  // can't happen. Tear the chain down cleanly: auto-refuse on behalf
-  // of the (intended) new target so the room can move on. The auto-
-  // resolve broadcast below still fires for the *target-left* case, so
-  // here we just clear chain state and emit our own resolution.
+  // If the redirector leaves during an active chooseAnother chain
+  // (after they handed the punishment off, before they re-pressed
+  // Punishment), the new target would otherwise be stuck. Treat the
+  // chain as forgiven and advance the session.
   if (
     room.punishmentChainActive &&
-    room.punishmentRedirectedById === socketId &&
-    !room.punishmentResolution
+    room.punishmentRedirectedById === socketId
   ) {
-    const targetName = room.punishmentTargetName ?? "";
-    const targetId = room.punishmentTargetSocketId ?? "";
     room.punishmentChainActive = false;
     room.punishmentRedirectedById = null;
     room.punishmentRedirectedByName = null;
-    room.punishmentResolution = { accepted: false };
-    const subs = subscribers.get(code);
-    if (subs) {
-      for (const peer of subs) {
-        safeSend(peer, {
-          type: "punishmentResolved",
-          code,
-          accepted: false,
-          targetId,
-          targetName,
-        });
-      }
+    if (room.effectTimer) {
+      clearTimeout(room.effectTimer);
+      room.effectTimer = null;
     }
     logger.info(
-      { code, targetId, targetName, reason },
-      "ws: punishment chain auto-refused (redirector left)",
+      { code, reason },
+      "ws: punishment chain dropped (redirector left), advancing session",
     );
+    proceedAfterPunishment(room);
   }
 
-  // If the chosen punishment target left before responding, auto-resolve
-  // as "refused" so the rest of the table isn't stuck on "Waiting for X
-  // to decide…" forever. The result of refusing is direct elimination,
-  // which is the obvious interpretation of "the target left mid-decision".
+  // If the original target leaves before any punishment effect lands,
+  // treat the punishment as forgiven and advance. (Eliminated leavers
+  // simply stop spectating — no punishment is in flight for them.)
+  //
+  // Mid-vote/mid-tiebreak target leaves are a separate case: an active
+  // vote whose subject has disconnected is moot — cancel the vote +
+  // timers FIRST so we don't auto-advance while a decision is in flight
+  // for a player who is no longer there.
   if (
     room.punishmentUsed &&
     room.punishmentTargetSocketId === socketId &&
-    !room.punishmentResolution
+    !room.eliminatedIds.has(socketId)
   ) {
-    const targetName = room.punishmentTargetName ?? "";
-    const targetId = room.punishmentTargetSocketId ?? "";
-    room.punishmentResolution = { accepted: false };
-    const subs = subscribers.get(code);
-    if (subs) {
-      for (const peer of subs) {
-        safeSend(peer, {
-          type: "punishmentResolved",
-          code,
-          accepted: false,
-          targetId,
-          targetName,
-        });
+    if (room.vote && (room.vote.active || room.vote.tieBreakPending)) {
+      room.vote = null;
+      if (room.voteTimer) {
+        clearTimeout(room.voteTimer);
+        room.voteTimer = null;
       }
+      logger.info(
+        { code, reason },
+        "ws: vote cancelled — target left mid-vote",
+      );
+    }
+    if (room.effectTimer) {
+      clearTimeout(room.effectTimer);
+      room.effectTimer = null;
     }
     logger.info(
-      { code, targetId, targetName, reason },
-      "ws: punishment auto-refused (target left)",
+      { code, reason },
+      "ws: punishment target left mid-effect, advancing session",
     );
+    proceedAfterPunishment(room);
+  }
+
+  // If an eligible voter leaves mid-vote, drop their pending ballot
+  // and re-tally if everyone remaining has now voted. Failing to do
+  // this would leave the room stuck on a 15s timer when N-1 of N
+  // eligibles already voted and the missing one disconnects.
+  if (room.vote && room.vote.active) {
+    const v = room.vote;
+    const beforeEligible = v.eligibleIds.length;
+    v.eligibleIds = v.eligibleIds.filter((vid) => vid !== socketId);
+    v.ballots.delete(socketId);
+    if (beforeEligible !== v.eligibleIds.length) {
+      if (v.eligibleIds.length === 0) {
+        // Nobody left to vote — go straight to the winner's tie-break.
+        v.active = false;
+        v.tieBreakPending = true;
+        if (room.voteTimer) {
+          clearTimeout(room.voteTimer);
+          room.voteTimer = null;
+        }
+      } else if (v.ballots.size >= v.eligibleIds.length) {
+        tallyVote(room);
+      }
+    }
+  }
+
+  // The session winner cannot leave gracefully mid-tie-break (the room
+  // would be stuck), so if they do, end the session with whoever is
+  // left as the winner (or just close the room if nobody is left).
+  if (
+    room.vote &&
+    room.vote.tieBreakPending &&
+    room.winnerId === socketId
+  ) {
+    room.vote = null;
+    if (room.voteTimer) {
+      clearTimeout(room.voteTimer);
+      room.voteTimer = null;
+    }
+    proceedAfterPunishment(room);
   }
 
   // Mid-game leaves are tolerated — the remaining players keep racing.

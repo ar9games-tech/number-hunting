@@ -40,6 +40,30 @@ export type OpponentSummary = {
   guessCount: number;
 };
 
+export type VoteChoice = "eliminate" | "stay";
+
+/**
+ * Per-viewer projection of the live Vote-card state. Counts are
+ * aggregate only — the server never leaks per-voter names.
+ */
+export type VoteView = {
+  active: boolean;
+  /** ms wall-clock deadline for the 15s countdown. */
+  deadlineAt: number;
+  targetId: string;
+  targetName: string;
+  eligibleCount: number;
+  votedCount: number;
+  eliminateCount: number;
+  stayCount: number;
+  youAreEligible: boolean;
+  youHaveVoted: boolean;
+  /** Tie / no-votes → winner owns the tie-break. */
+  tieBreakPending: boolean;
+  winnerId: string;
+  winnerName: string;
+};
+
 export type RoomState = {
   code: string;
   maxPlayers: number;
@@ -68,6 +92,20 @@ export type RoomState = {
   currentTurnId: string | null;
   /** Display name of the current-turn player, or null. UI only. */
   currentTurnName: string | null;
+  // ---- Session state (multi-round play) ---------------------------------
+  /** Monotonically-increasing round counter — flips drive /result → /room
+   *  auto-navigation. */
+  roundNumber: number;
+  /** Stable ids eliminated this session. */
+  eliminatedIds: string[];
+  /** True if THIS viewer was eliminated. Locks the keypad. */
+  youAreEliminated: boolean;
+  /** Session-over flag. status stays "won". */
+  sessionEnded: boolean;
+  sessionWinnerId: string | null;
+  sessionWinnerName: string | null;
+  /** Live Vote-card projection, or null when no vote is open. */
+  vote: VoteView | null;
 };
 
 export type RoomMeta = {
@@ -323,15 +361,17 @@ function connect(): Promise<WebSocket> {
 
       if (msg.type === "state" && msg.state) {
         const state = msg.state;
-        lastState.set(state.code, state);
-        // Once the room cycles back to "waiting" (rematch armed) the
-        // previous match's reveal is no longer relevant — drop it so a
-        // late /result mount in the *next* match doesn't replay an old
-        // card.
-        if (state.status === "waiting") {
+        // Drop cached punishment reveals when a NEW round starts (the
+        // round counter just bumped). This is what previously rode on
+        // status === "waiting" — but in the new session flow rounds
+        // restart directly from "won" into "playing" without going
+        // back through "waiting", so we key on roundNumber instead.
+        const prev = lastState.get(state.code);
+        if (!prev || prev.roundNumber !== state.roundNumber) {
           lastPunishmentReveal.delete(state.code);
           lastPunishmentResolved.delete(state.code);
         }
+        lastState.set(state.code, state);
         listeners.get(state.code)?.forEach((l) => l(state));
         return;
       }
@@ -590,16 +630,6 @@ export function submitGuess(code: string, guess: string): void {
   fire("guess", { code: code.toUpperCase(), guess });
 }
 
-export function requestRematch(code: string): void {
-  const upper = code.toUpperCase();
-  // Defensive: a rematch must NEVER replay a previous match's punishment
-  // to a late-mounting /result. Drop both caches the instant we ask for
-  // a rematch, even before the server's state echo lands.
-  lastPunishmentReveal.delete(upper);
-  lastPunishmentResolved.delete(upper);
-  fire("rematch", { code: upper });
-}
-
 export function leaveRoom(code: string): void {
   const upper = code.toUpperCase();
   activeSubs.delete(upper);
@@ -647,15 +677,21 @@ export function redirectPunishmentTarget(code: string, newTargetId: string): voi
 }
 
 /**
- * Target-only — Accept / Refuse the punishment. Server validates that the
- * caller is the chosen target and broadcasts `punishmentResolved`.
+ * Cast a Vote-card ballot. Server validates eligibility (sender is on
+ * the eligible list AND hasn't voted yet AND the vote is open). Silently
+ * dropped otherwise — the UI gates the call so reaching the server in
+ * an invalid state is a race, not a normal flow.
  */
-export function respondPunishment(code: string, accepted: boolean): void {
-  const upper = code.toUpperCase();
-  if (__DEV__) {
-    console.log("[punishment] emit respondPunishment", { code: upper, accepted });
-  }
-  fire("respondPunishment", { code: upper, accepted });
+export function castVote(code: string, choice: VoteChoice): void {
+  fire("castVote", { code: code.toUpperCase(), choice });
+}
+
+/**
+ * Winner-only — cast the tie-break decision after a tied / no-votes
+ * Vote-card. The server rejects any caller who isn't the round winner.
+ */
+export function castTieBreak(code: string, choice: VoteChoice): void {
+  fire("castTieBreak", { code: code.toUpperCase(), choice });
 }
 
 export function onPunishmentRevealed(

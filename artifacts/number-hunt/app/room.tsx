@@ -259,11 +259,13 @@ export default function RoomScreen() {
   // after every non-winning guess. The keypad + auto-submit are both
   // gated on this — clients can never send a guess out of turn, and the
   // server independently rejects any that slip through.
+  const youAreEliminated = !!state?.youAreEliminated;
   const isMyTurn =
     !!state &&
     state.status === "playing" &&
     !!state.currentTurnId &&
-    state.currentTurnId === state.yourId;
+    state.currentTurnId === state.yourId &&
+    !youAreEliminated;
   const currentTurnName = state?.currentTurnName ?? null;
   const currentTurnIsMe = isMyTurn;
 
@@ -431,6 +433,10 @@ export default function RoomScreen() {
   const onDigit = (d: string) => {
     if (submittingRef.current) return;
     if (!state || state.status !== "playing" || !digits) return;
+    // Eliminated players are spectators — keypad is dead even when the
+    // server would otherwise have them in the rotation (defensive: the
+    // server already skips them).
+    if (state.youAreEliminated) return;
     // Turn gate — don't even buffer keystrokes when it isn't our turn,
     // so a player can never queue up a guess for the moment their turn
     // comes around.
@@ -544,6 +550,29 @@ export default function RoomScreen() {
               {turnBannerText}
             </Text>
           </View>
+
+          {/* Spectator banner — eliminated players keep their socket
+              attached so they can still react and watch the live
+              guesses, but the keypad + auto-submit are dead for them. */}
+          {youAreEliminated ? (
+            <View
+              style={[
+                styles.spectatorBanner,
+                { backgroundColor: colors.muted, borderColor: colors.border },
+              ]}
+            >
+              <Feather name="eye" size={14} color={colors.mutedForeground} />
+              <Text
+                style={[
+                  styles.spectatorText,
+                  { color: colors.mutedForeground, writingDirection: wd },
+                ]}
+                numberOfLines={1}
+              >
+                {t("spectator.banner")}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Transient rejection notice (server said "not your turn"). */}
           {turnNotice ? (
@@ -916,6 +945,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: -4,
   },
+  spectatorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignSelf: "center",
+  },
+  spectatorText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   oppChip: {
     flexDirection: "row", alignItems: "center", gap: 6,
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,

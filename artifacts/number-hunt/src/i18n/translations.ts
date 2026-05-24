@@ -396,7 +396,28 @@ export type TranslationKey =
   | "misc.player2"
   | "misc.host"
   | "misc.guest"
-  | "misc.goBack";
+  | "misc.goBack"
+  // Session (multi-round play)
+  | "session.over"
+  | "session.winner"
+  | "session.youWon"
+  | "session.eliminated"
+  | "session.youEliminated"
+  | "session.round"
+  // Vote card
+  | "vote.title"
+  | "vote.eliminate"
+  | "vote.stay"
+  | "vote.waiting"
+  | "vote.live"
+  | "vote.tieBreakTitle"
+  | "vote.tieBreakBody"
+  | "vote.waitingTieBreak"
+  | "vote.resultEliminate"
+  | "vote.resultStay"
+  | "vote.youVoted"
+  // Spectator banner
+  | "spectator.banner";
 
 const en: Record<TranslationKey, string> = {
   "common.cancel": "Cancel",
@@ -838,6 +859,27 @@ const en: Record<TranslationKey, string> = {
   "misc.host": "host",
   "misc.guest": "guest",
   "misc.goBack": "Go back",
+
+  "session.over": "Session Over",
+  "session.winner": "{name} wins the session!",
+  "session.youWon": "You won the session!",
+  "session.eliminated": "{name} was eliminated",
+  "session.youEliminated": "You were eliminated. You can still watch and react.",
+  "session.round": "Round {n}",
+
+  "vote.title": "Should {name} be eliminated?",
+  "vote.eliminate": "Eliminate",
+  "vote.stay": "Stay",
+  "vote.waiting": "Waiting for the rest to vote…",
+  "vote.live": "{voted} of {total} voted",
+  "vote.tieBreakTitle": "Tie — your call",
+  "vote.tieBreakBody": "As the winner you decide: eliminate {name} or let them stay?",
+  "vote.waitingTieBreak": "Tie — waiting for {name} to decide.",
+  "vote.resultEliminate": "Voted out",
+  "vote.resultStay": "Stays in",
+  "vote.youVoted": "Your vote is in.",
+
+  "spectator.banner": "You're eliminated — spectator only",
 };
 
 const ar: Record<TranslationKey, string> = {
@@ -1273,6 +1315,27 @@ const ar: Record<TranslationKey, string> = {
   "misc.host": "المضيف",
   "misc.guest": "الضيف",
   "misc.goBack": "رجوع",
+
+  "session.over": "انتهت الجلسة",
+  "session.winner": "{name} يفوز بالجلسة!",
+  "session.youWon": "لقد فزت بالجلسة!",
+  "session.eliminated": "تم إقصاء {name}",
+  "session.youEliminated": "تم إقصاؤك. لا يزال بإمكانك المشاهدة والتفاعل.",
+  "session.round": "الجولة {n}",
+
+  "vote.title": "هل يجب إقصاء {name}؟",
+  "vote.eliminate": "خروج",
+  "vote.stay": "بقاء",
+  "vote.waiting": "بانتظار تصويت البقية…",
+  "vote.live": "{voted} من {total} صوّتوا",
+  "vote.tieBreakTitle": "تعادل — القرار لك",
+  "vote.tieBreakBody": "بصفتك الفائز، أنت تقرر: إقصاء {name} أم إبقاؤه؟",
+  "vote.waitingTieBreak": "تعادل — بانتظار قرار {name}.",
+  "vote.resultEliminate": "تم الإقصاء",
+  "vote.resultStay": "يبقى",
+  "vote.youVoted": "تم تسجيل صوتك.",
+
+  "spectator.banner": "تم إقصاؤك — مشاهد فقط",
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {

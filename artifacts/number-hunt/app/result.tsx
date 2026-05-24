@@ -25,16 +25,20 @@ import { PunishmentButton } from "@/src/components/PunishmentButton";
 import { PunishmentCardModal } from "@/src/components/PunishmentCardModal";
 import { useT } from "@/src/i18n/useT";
 import {
+  castTieBreak,
+  castVote,
   getCachedRoom,
   leaveRoom,
   onPunishmentError,
   onPunishmentRevealed,
   onPunishmentTargetChanged,
+  onUpdate,
   redirectPunishmentTarget,
   requestPunishmentCard,
-  requestRematch,
   type PunishmentReveal,
   type PunishmentTargetChanged,
+  type RoomState,
+  type VoteView,
 } from "@/src/net/socketPlaceholder";
 import {
   playNewMatch,
@@ -168,10 +172,18 @@ export default function ResultScreen() {
   // rematch/leave.
   const [redirect, setRedirect] = React.useState<PunishmentTargetChanged | null>(null);
 
-  // Pull the live room snapshot so we know our own stable id and the
-  // opponent list. We identify the target by id, not name, because
-  // display names aren't guaranteed unique within a room.
-  const cachedRoom = isOnline && code ? getCachedRoom(code) : null;
+  // Live room snapshot — kept in component state so vote counts /
+  // session flags / roundNumber updates trigger re-renders. Seeded
+  // from the cached room and refreshed via onUpdate below.
+  const [liveRoom, setLiveRoom] = React.useState<RoomState | null>(() =>
+    isOnline && code ? getCachedRoom(code) : null,
+  );
+  useEffect(() => {
+    if (!isOnline || !code) return;
+    const unsub = onUpdate(code, (s) => setLiveRoom(s));
+    return () => unsub();
+  }, [isOnline, code]);
+  const cachedRoom = liveRoom;
   const yourId = cachedRoom?.yourId ?? "";
   const winnerId = cachedRoom?.winnerId ?? "";
   const opponents = React.useMemo(
@@ -179,6 +191,26 @@ export default function ResultScreen() {
       (cachedRoom?.players ?? []).filter((p) => p.id && p.id !== yourId),
     [cachedRoom?.players, yourId],
   );
+
+  // Auto-navigate back to /room when the server starts a new round
+  // (the round counter bumped). The new flow has no manual Rematch /
+  // Play Again button — punishments resolve and the server fires the
+  // next round automatically, so /result must yield the moment it
+  // sees the bump.
+  const initialRoundRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isOnline || !cachedRoom) return;
+    if (initialRoundRef.current == null) {
+      initialRoundRef.current = cachedRoom.roundNumber;
+      return;
+    }
+    if (
+      cachedRoom.roundNumber > initialRoundRef.current &&
+      !cachedRoom.sessionEnded
+    ) {
+      router.replace({ pathname: "/room", params: { code: cachedRoom.code } });
+    }
+  }, [isOnline, cachedRoom?.roundNumber, cachedRoom?.sessionEnded, cachedRoom?.code, cachedRoom]);
   // REMOVE BEFORE PRODUCTION — temporary 2-player testing switch. When
   // true, the reassign picker includes the winner as a valid candidate
   // so a 2-player room can complete the full chooseAnother redirect
@@ -651,45 +683,53 @@ export default function ResultScreen() {
                   {t("punishment.waitingRedirectSelection")}
                 </Text>
               ) : null}
-              {isRandomMatch ? (
-                // Random match: the previous opponent is gone for good.
-                // "Play Random Again" tears down the finished room
-                // server-side (leaveRoom) and re-queues from the lobby
-                // via the `autoRandom` param. We never offer Rematch
-                // here — random pairings are one-shot by design.
-                <Button
-                  title={t("result.playRandomAgain")}
-                  fullWidth
-                  onPress={() => {
-                    playNewMatch(settings.soundOn);
-                    if (code) leaveRoom(code);
-                    void clearPendingRandomMatch();
-                    router.replace({
-                      pathname: "/lobby",
-                      params: { autoRandom: "1" },
-                    });
-                  }}
+              {/*
+                Vote panel — visible whenever the server has an active
+                vote (or pending tie-break). Renders its own buttons
+                (Eliminate / Stay) for eligibles, a live counter for
+                everyone, and a tie-break call-to-action for the winner.
+              */}
+              {cachedRoom?.vote ? (
+                <VotePanel
+                  vote={cachedRoom.vote}
+                  code={code}
+                  yourId={yourId}
                 />
-              ) : (
-                <Button
-                  title={t("result.rematch")}
-                  fullWidth
-                  onPress={() => {
-                    playNewMatch(settings.soundOn);
-                    // Only the host's rematch request actually resets the
-                    // room on the server. For everyone else, fire-and-forget
-                    // is fine — the room screen will receive the reset state
-                    // via subscription. Either way we re-attach to the same
-                    // room and let the room screen drive the next phase
-                    // (waiting → host picks digits → playing).
-                    if (code) requestRematch(code);
-                    router.replace({
-                      pathname: "/room",
-                      params: { code },
-                    });
-                  }}
-                />
-              )}
+              ) : null}
+
+              {/* Session-over banner — once `sessionEnded` is true the
+                  server will never restart. We surface the winner and
+                  leave Leave Room as the only action. */}
+              {cachedRoom?.sessionEnded ? (
+                <View
+                  style={[
+                    sessionStyles.banner,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                >
+                  <Feather name="award" size={22} color={colors.accent} />
+                  <Text
+                    style={[
+                      sessionStyles.title,
+                      { color: colors.foreground, writingDirection: isRTL ? "rtl" : "ltr" },
+                    ]}
+                  >
+                    {t("session.over")}
+                  </Text>
+                  <Text
+                    style={[
+                      sessionStyles.body,
+                      { color: colors.mutedForeground, writingDirection: isRTL ? "rtl" : "ltr" },
+                    ]}
+                  >
+                    {cachedRoom.sessionWinnerId === yourId
+                      ? t("session.youWon")
+                      : t("session.winner", {
+                          name: cachedRoom.sessionWinnerName ?? "",
+                        })}
+                  </Text>
+                </View>
+              ) : null}
               <Button
                 title={t("result.leaveRoom")}
                 fullWidth
@@ -896,6 +936,195 @@ function TargetPickerModal({
     </Modal>
   );
 }
+
+/**
+ * Live Vote-card panel. Drives three sub-views off the server's
+ * VoteView projection:
+ *   • active vote, you're eligible & haven't voted → Eliminate/Stay
+ *   • active vote, you voted or aren't eligible → live counter +
+ *     "your vote is in" hint
+ *   • tieBreakPending → winner sees Eliminate/Stay; everyone else
+ *     sees "waiting for the winner to decide"
+ */
+function VotePanel({
+  vote,
+  code,
+  yourId,
+}: {
+  vote: VoteView;
+  code: string;
+  yourId: string;
+}) {
+  const colors = useColors();
+  const { t, isRTL, lz } = useT();
+  const wd = isRTL ? "rtl" : "ltr";
+
+  // Countdown — refreshes once a second off wall-clock so a paused
+  // tab catches up on resume.
+  const [remaining, setRemaining] = React.useState(() =>
+    Math.max(0, Math.ceil((vote.deadlineAt - Date.now()) / 1000)),
+  );
+  useEffect(() => {
+    if (vote.tieBreakPending || !vote.active) return;
+    const tick = () => {
+      setRemaining(Math.max(0, Math.ceil((vote.deadlineAt - Date.now()) / 1000)));
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [vote.deadlineAt, vote.active, vote.tieBreakPending]);
+
+  const isWinner = yourId && yourId === vote.winnerId;
+
+  // Tie-break path: only the winner gets buttons.
+  if (vote.tieBreakPending) {
+    if (isWinner) {
+      return (
+        <View
+          style={[
+            voteStyles.panel,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[voteStyles.title, { color: colors.foreground, writingDirection: wd }]}>
+            {t("vote.tieBreakTitle")}
+          </Text>
+          <Text style={[voteStyles.body, { color: colors.mutedForeground, writingDirection: wd }]}>
+            {t("vote.tieBreakBody", { name: vote.targetName })}
+          </Text>
+          <View style={voteStyles.row}>
+            <Button
+              title={t("vote.eliminate")}
+              fullWidth
+              variant="destructive"
+              onPress={() => castTieBreak(code, "eliminate")}
+            />
+            <Button
+              title={t("vote.stay")}
+              fullWidth
+              variant="secondary"
+              onPress={() => castTieBreak(code, "stay")}
+            />
+          </View>
+        </View>
+      );
+    }
+    return (
+      <View
+        style={[
+          voteStyles.panel,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[voteStyles.body, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {t("vote.waitingTieBreak", { name: vote.winnerName })}
+        </Text>
+      </View>
+    );
+  }
+
+  if (!vote.active) return null;
+
+  const canVote = vote.youAreEligible && !vote.youHaveVoted;
+
+  return (
+    <View
+      style={[
+        voteStyles.panel,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <Text style={[voteStyles.title, { color: colors.foreground, writingDirection: wd }]}>
+        {t("vote.title", { name: vote.targetName })}
+      </Text>
+      <View style={voteStyles.metaRow}>
+        <Feather name="clock" size={14} color={colors.mutedForeground} />
+        <Text style={[voteStyles.meta, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {lz(remaining)}s · {t("vote.live", {
+            voted: String(lz(vote.votedCount)),
+            total: String(lz(vote.eligibleCount)),
+          })}
+        </Text>
+      </View>
+      <View style={voteStyles.tallyRow}>
+        <View style={[voteStyles.tally, { backgroundColor: colors.destructive + "22" }]}>
+          <Feather name="x-circle" size={14} color={colors.destructive} />
+          <Text style={[voteStyles.tallyText, { color: colors.destructive }]}>
+            {t("vote.eliminate")} · {lz(vote.eliminateCount)}
+          </Text>
+        </View>
+        <View style={[voteStyles.tally, { backgroundColor: colors.success + "22" }]}>
+          <Feather name="check-circle" size={14} color={colors.success} />
+          <Text style={[voteStyles.tallyText, { color: colors.success }]}>
+            {t("vote.stay")} · {lz(vote.stayCount)}
+          </Text>
+        </View>
+      </View>
+      {canVote ? (
+        <View style={voteStyles.row}>
+          <Button
+            title={t("vote.eliminate")}
+            fullWidth
+            variant="destructive"
+            onPress={() => castVote(code, "eliminate")}
+          />
+          <Button
+            title={t("vote.stay")}
+            fullWidth
+            variant="secondary"
+            onPress={() => castVote(code, "stay")}
+          />
+        </View>
+      ) : (
+        <Text style={[voteStyles.body, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {vote.youHaveVoted ? t("vote.youVoted") : t("vote.waiting")}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+const voteStyles = StyleSheet.create({
+  panel: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+  },
+  title: { fontSize: 16, fontFamily: "Inter_700Bold", textAlign: "center" },
+  body: { fontSize: 13, fontFamily: "Inter_500Medium", textAlign: "center" },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  meta: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  tallyRow: { flexDirection: "row", gap: 8, justifyContent: "center" },
+  tally: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  tallyText: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  row: { flexDirection: "row", gap: 8 },
+});
+
+const sessionStyles = StyleSheet.create({
+  banner: {
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  title: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },
+  body: { fontSize: 14, fontFamily: "Inter_500Medium", textAlign: "center" },
+});
 
 const targetStyles = StyleSheet.create({
   backdrop: {
