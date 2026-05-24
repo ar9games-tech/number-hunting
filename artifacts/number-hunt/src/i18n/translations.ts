@@ -625,7 +625,8 @@ const en: Record<TranslationKey, string> = {
   "howto.pun.forgive.title": "Forgiveness",
   "howto.pun.forgive.body": "The player is forgiven and can continue playing.",
   "howto.pun.vote.title": "Vote",
-  "howto.pun.vote.body": "Players vote on the punishment result.",
+  "howto.pun.vote.body":
+    "Players vote on whether the punished player should be eliminated or allowed to stay.",
   "howto.pun.chooseAnother.title": "Choose Another Player",
   "howto.pun.chooseAnother.body":
     "The punished player chooses another player to receive the punishment instead, then presses the Punishment button to reveal a new punishment.",
@@ -689,7 +690,8 @@ const en: Record<TranslationKey, string> = {
   "punishment.card.directElimination.title": "Direct Elimination",
   "punishment.card.directElimination.body": "The chosen player is eliminated immediately.",
   "punishment.card.vote.title": "Vote",
-  "punishment.card.vote.body": "Everyone votes on the punishment.",
+  "punishment.card.vote.body":
+    "Players vote on whether the punished player should be eliminated or allowed to stay.",
   "punishment.card.anotherChance.title": "Another Chance",
   "punishment.card.anotherChance.body": "The player is forgiven and gets to play another round.",
   "punishment.card.chooseAnother.title": "Choose Another Player",
@@ -1061,7 +1063,7 @@ const ar: Record<TranslationKey, string> = {
   "howto.pun.forgive.title": "سماح",
   "howto.pun.forgive.body": "تتم مسامحة اللاعب ويستطيع اللعب مرة أخرى.",
   "howto.pun.vote.title": "تصويت",
-  "howto.pun.vote.body": "يقوم اللاعبون بالتصويت على العقاب.",
+  "howto.pun.vote.body": "يقوم اللاعبون بالتصويت على خروج اللاعب المعاقَب أو بقائه.",
   "howto.pun.chooseAnother.title": "اختيار لاعب آخر للعقاب",
   "howto.pun.chooseAnother.body":
     "اللاعب المعاقَب يختار لاعبًا آخر ليأخذ العقاب بدلًا منه، ثم يضغط زر العقاب لإظهار عقاب جديد.",
@@ -1125,7 +1127,7 @@ const ar: Record<TranslationKey, string> = {
   "punishment.card.directElimination.title": "خروج مباشر",
   "punishment.card.directElimination.body": "يخرج اللاعب المختار فوراً.",
   "punishment.card.vote.title": "تصويت",
-  "punishment.card.vote.body": "يصوّت الجميع على نتيجة العقاب.",
+  "punishment.card.vote.body": "يقوم اللاعبون بالتصويت على خروج اللاعب المعاقَب أو بقائه.",
   "punishment.card.anotherChance.title": "فرصة أخرى",
   "punishment.card.anotherChance.body": "تتم مسامحة اللاعب ويلعب جولة أخرى.",
   "punishment.card.chooseAnother.title": "اختار لاعب غيرك",
