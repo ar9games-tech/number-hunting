@@ -27,11 +27,6 @@ import {
   onRandomQueueError,
 } from "@/src/net/socketPlaceholder";
 import {
-  playMatchFound,
-  playRandomSearching,
-  stopRandomSearching,
-} from "@/src/services/soundManager";
-import {
   formatPlayerIdentity,
   recordRandomMatchStarted,
   setPendingRandomMatch,
@@ -131,10 +126,6 @@ export default function MultiplayerLobbyScreen() {
     const offFound = onRandomMatchFound(({ code }) => {
       searchingRef.current = false;
       setSearching(false);
-      // Cut the search ambience and play the "match found" cue before
-      // navigating, so the audio transition lands with the screen.
-      stopRandomSearching();
-      playMatchFound(settings.soundOn);
       // Mark this upcoming game as a random match so the result screen can
       // attribute a win to the random-match queue (random_win achievement).
       // Set-and-forget: the flag is consumed exactly once on recordWin.
@@ -154,7 +145,6 @@ export default function MultiplayerLobbyScreen() {
       if (msg) {
         searchingRef.current = false;
         setSearching(false);
-        stopRandomSearching();
         Alert.alert(t("lobby.randomErrorTitle"), msg);
       }
     });
@@ -162,7 +152,7 @@ export default function MultiplayerLobbyScreen() {
       offFound();
       offErr();
     };
-  }, [t, settings.soundOn]);
+  }, [t]);
 
   // If the user navigates away while still queued, pull them back out
   // so we don't strand the server with a stale entry.
@@ -172,10 +162,6 @@ export default function MultiplayerLobbyScreen() {
         searchingRef.current = false;
         cancelRandomQueue();
       }
-      // Always stop the search loop on unmount — guards against the
-      // sound bleeding into the next screen if navigation happens
-      // through some path that doesn't tear down state cleanly.
-      stopRandomSearching();
     };
   }, []);
 
@@ -187,9 +173,6 @@ export default function MultiplayerLobbyScreen() {
     }
     searchingRef.current = true;
     setSearching(true);
-    // Start the looping "searching for opponent" ambience; it gets
-    // stopped on match-found, cancel, error, or unmount.
-    playRandomSearching(settings.soundOn);
     // Bump the random-match-used counter so the "Use Random Match N times"
     // achievements can unlock even if matchmaking is cancelled before a
     // game starts. Non-blocking; failure is non-fatal.
@@ -217,7 +200,6 @@ export default function MultiplayerLobbyScreen() {
     if (!searchingRef.current) return;
     searchingRef.current = false;
     setSearching(false);
-    stopRandomSearching();
     cancelRandomQueue();
   };
 

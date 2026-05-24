@@ -7,10 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { GlassCard } from "@/src/components/GlassCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
-import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
 import { webBottomInset } from "@/src/theme/theme";
-import { playTap, tapHaptic } from "@/src/utils/sound";
 
 export default function ModeSelectionScreen() {
   const colors = useColors();
@@ -46,7 +44,6 @@ function Card({
   icon: keyof typeof Feather.glyphMap; onPress: () => void;
 }) {
   const colors = useColors();
-  const { settings } = useSettings();
   const { isRTL } = useT();
   const wd = isRTL ? "rtl" : "ltr";
   const scale = useRef(new Animated.Value(1)).current;
@@ -57,11 +54,7 @@ function Card({
     <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable
         onPress={onPress}
-        onPressIn={() => {
-          animateTo(0.98);
-          tapHaptic(settings.hapticsOn);
-          playTap(settings.soundOn);
-        }}
+        onPressIn={() => animateTo(0.98)}
         onPressOut={() => animateTo(1)}
       >
         <GlassCard tone="primary" style={styles.card}>

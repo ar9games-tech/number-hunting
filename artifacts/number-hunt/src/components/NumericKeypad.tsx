@@ -1,9 +1,7 @@
 import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import React, { useRef } from "react";
 import {
   Animated,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,7 +9,6 @@ import {
 } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
-import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
 
 type KeyValue = string | "back" | "clear";
@@ -66,7 +63,6 @@ function Key({
   disabled: boolean;
 }) {
   const colors = useColors();
-  const { settings } = useSettings();
   const { lz, t } = useT();
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -83,9 +79,6 @@ function Key({
       <Pressable
         onPress={() => {
           if (disabled) return;
-          if (settings.hapticsOn && Platform.OS !== "web") {
-            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }
           onPress();
         }}
         onPressIn={() => !disabled && animateTo(0.93)}

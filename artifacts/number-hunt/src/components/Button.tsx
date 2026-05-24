@@ -12,8 +12,6 @@ import {
 } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
-import { useSettings } from "@/src/contexts/SettingsContext";
-import { playTap, tapHaptic } from "@/src/utils/sound";
 
 type Variant = "primary" | "secondary" | "ghost" | "destructive";
 
@@ -43,7 +41,6 @@ export function Button({
   size = "md",
 }: ButtonProps) {
   const colors = useColors();
-  const { settings } = useSettings();
   const scale = useRef(new Animated.Value(1)).current;
 
   const animateTo = (v: number) =>
@@ -51,8 +48,6 @@ export function Button({
 
   const handlePressIn = () => {
     animateTo(0.97);
-    tapHaptic(settings.hapticsOn);
-    playTap(settings.soundOn);
   };
   const handlePressOut = () => animateTo(1);
 

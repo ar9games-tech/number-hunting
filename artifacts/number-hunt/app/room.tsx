@@ -33,9 +33,7 @@ import {
   REACTION_MAX_STACK,
 } from "@/src/services/reactionManager";
 import { setGameplayActive } from "@/src/services/ads";
-import { playGameStart, playPlayerJoined, playReactionPop } from "@/src/services/soundManager";
 import { formatPlayerIdentity } from "@/src/storage/storage";
-import { tapHaptic } from "@/src/utils/sound";
 import { webBottomInset } from "@/src/theme/theme";
 import { isValidGuess, normalizeDigits } from "@/src/utils/gameLogic";
 
@@ -187,41 +185,18 @@ export default function RoomScreen() {
     };
   }, [state?.code, t]);
 
-  // Track round start / end for the online timer. Also fires the
-  // game-start sound exactly once per round — the same edge that
-  // resets the timer is the canonical "the match just kicked off"
-  // moment, which keeps the cue in sync with the gameplay change
-  // regardless of how we got into "playing" (host pick, random match).
+  // Track round start / end for the online timer.
   useEffect(() => {
     if (state?.status === "playing" && roundStartedAtRef.current == null) {
       roundStartedAtRef.current = Date.now();
       roundElapsedSecRef.current = 0;
-      playGameStart(settings.soundOn);
     }
     if (state?.status !== "playing" && state?.status !== "won") {
       // Reset between rounds (e.g. rematch back to waiting).
       roundStartedAtRef.current = null;
       roundElapsedSecRef.current = 0;
     }
-  }, [state?.status, settings.soundOn]);
-
-  // Opponent-joined cue: ring softly the first time a new peer appears
-  // in the room while we're still in the waiting lobby. We compare the
-  // current and previous player counts so the sound fires only on the
-  // join edge, not on every re-render of the same state.
-  const lastPlayerCountRef = useRef<number | null>(null);
-  useEffect(() => {
-    const count = state?.players.length ?? 0;
-    const prev = lastPlayerCountRef.current;
-    if (
-      prev != null &&
-      count > prev &&
-      state?.status === "waiting"
-    ) {
-      playPlayerJoined(settings.soundOn);
-    }
-    lastPlayerCountRef.current = count;
-  }, [state?.players.length, state?.status, settings.soundOn]);
+  }, [state?.status]);
 
   // 3) Navigate to result on win.
   useEffect(() => {
@@ -402,14 +377,11 @@ export default function RoomScreen() {
           ? next.slice(next.length - REACTION_MAX_STACK)
           : next;
       });
-      // Audio + haptic placeholders (no shipped asset → no-op for sound).
-      playReactionPop(settings.soundOn);
-      tapHaptic(settings.hapticsOn);
     });
     return () => {
       unsub();
     };
-  }, [code, reactionsActive, settings.soundOn, settings.hapticsOn]);
+  }, [code, reactionsActive]);
 
   const onPickReaction = (reaction: string) => {
     if (!state) return;

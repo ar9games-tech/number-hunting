@@ -28,7 +28,6 @@
     "expo-constants": "~18.0.11",
     "expo-font": "~14.0.10",
     "expo-glass-effect": "~0.1.4",
-    "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
     "expo-image-picker": "~17.0.9",
     "expo-linear-gradient": "~15.0.8",
@@ -54,8 +53,5 @@
     "typescript": "~5.9.2",
     "zod": "catalog:",
     "zod-validation-error": "^3.4.0"
-  },
-  "dependencies": {
-    "expo-audio": "~1.1.1"
   }
 }

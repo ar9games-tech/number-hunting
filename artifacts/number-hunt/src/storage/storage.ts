@@ -82,12 +82,9 @@ export type Language = "en" | "ar";
 export type Settings = {
   themeMode: ThemeMode;
   allowLeadingZero: boolean;
-  soundOn: boolean;
-  hapticsOn: boolean;
   /**
    * When false, the reactions button is hidden in online rooms AND
-   * incoming reactions from other players are suppressed (no float, no
-   * sound, no haptic). Default on.
+   * incoming reactions from other players are suppressed. Default on.
    */
   enableReactions: boolean;
   language: Language;
@@ -106,8 +103,6 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   themeMode: "system",
   allowLeadingZero: false,
-  soundOn: true,
-  hapticsOn: true,
   enableReactions: true,
   language: "en",
   playerName: "",
@@ -600,7 +595,9 @@ export async function getSettings(): Promise<Settings> {
     if (!raw) {
       return { ...DEFAULT_SETTINGS };
     }
-    const parsed = JSON.parse(raw) as Partial<Settings>;
+    const parsed = JSON.parse(raw) as Partial<Settings> & {
+      [key: string]: unknown;
+    };
 
     let { playerName, playerSerial } = parsed;
     let migrated = false;
@@ -620,9 +617,18 @@ export async function getSettings(): Promise<Settings> {
     const hasOnboarded = parsed.hasOnboarded ?? true;
     if (parsed.hasOnboarded === undefined) migrated = true;
 
+    // Scrub legacy keys (e.g. soundOn, hapticsOn) that may still live in
+    // AsyncStorage from older installs. Whitelist explicitly rather than
+    // spreading `parsed` so removed feature flags can't sneak through.
+    if ("soundOn" in parsed || "hapticsOn" in parsed) migrated = true;
+
     const result: Settings = {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
+      themeMode: parsed.themeMode ?? DEFAULT_SETTINGS.themeMode,
+      allowLeadingZero:
+        parsed.allowLeadingZero ?? DEFAULT_SETTINGS.allowLeadingZero,
+      enableReactions:
+        parsed.enableReactions ?? DEFAULT_SETTINGS.enableReactions,
+      language: parsed.language ?? DEFAULT_SETTINGS.language,
       playerName: playerName ?? "",
       playerSerial,
       hasOnboarded,

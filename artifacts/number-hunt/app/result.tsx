@@ -41,11 +41,6 @@ import {
   type VoteView,
 } from "@/src/net/socketPlaceholder";
 import {
-  playNewMatch,
-  playPunishmentPackOpen,
-  playPunishmentReveal,
-} from "@/src/services/soundManager";
-import {
   clearPendingRandomMatch,
   consumePendingRandomMatch,
   consumePendingUnlocks,
@@ -57,7 +52,6 @@ import {
 } from "@/src/storage/storage";
 import { peekPendingRandomMatch } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
-import { errorHaptic, playLose, playWin, successHaptic } from "@/src/utils/sound";
 import type { Digits } from "@/src/utils/gameLogic";
 import { formatTime } from "@/src/utils/scoring";
 
@@ -277,11 +271,6 @@ export default function ResultScreen() {
       setReassignPickerVisible(false);
       // The chain's second reveal closes the redirect waiting state.
       setRedirect(null);
-      // Two distinct cues: the "pack opening" rumble plays as the
-      // sealed pack appears, and the reveal sting hits when the card
-      // slides out. Both are gated by the central soundOn setting.
-      playPunishmentPackOpen(settings.soundOn);
-      playPunishmentReveal(settings.soundOn);
 
       // Achievement crediting moved from the old `onPunishmentResolved`
       // listener: the reveal itself is now the punishment event, so we
@@ -363,7 +352,7 @@ export default function ResultScreen() {
       unsubRedirect();
       unsubErr();
     };
-  }, [isOnline, code, settings.soundOn, t, yourId, winnerId]);
+  }, [isOnline, code, t, yourId, winnerId]);
 
   // Auto-dismiss the soft error after a short delay so it doesn't linger.
   useEffect(() => {
@@ -419,14 +408,7 @@ export default function ResultScreen() {
       }
     });
 
-    if (showVictory) {
-      playWin(settings.soundOn);
-      successHaptic(settings.hapticsOn);
-    } else {
-      playLose(settings.soundOn);
-      errorHaptic(settings.hapticsOn);
-    }
-  }, [isOnline, youWon, digits, guesses, showVictory, settings.soundOn, settings.hapticsOn]);
+  }, [isOnline, youWon, digits, guesses, showVictory]);
 
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
 

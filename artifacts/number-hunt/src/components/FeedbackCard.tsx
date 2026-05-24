@@ -3,17 +3,13 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
-import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
-import { errorHaptic, successHaptic } from "@/src/utils/sound";
 import { type Feedback } from "@/src/utils/gameLogic";
 
 /**
  * Renders the most recent guess outcome with a tone-coloured icon, animated
  * fade/slide entry, and a glow border that pulses each time a new feedback
- * arrives. Also fires haptics:
- *   - success on a correct guess
- *   - error on a "tooHigh"/"tooLow" (far-from-target) guess
+ * arrives.
  */
 export function FeedbackCard({
   feedback,
@@ -25,7 +21,6 @@ export function FeedbackCard({
   guess?: string;
 }) {
   const colors = useColors();
-  const { settings } = useSettings();
   const { t, lz, isRTL } = useT();
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(8)).current;
@@ -51,15 +46,7 @@ export function FeedbackCard({
         Animated.timing(glow, { toValue: 0.4, duration: 700, useNativeDriver: false }),
       ]),
     ]).start();
-
-    // Haptic cue: success for a correct guess, error sting for a far guess
-    // (the "too" variants). Near guesses stay silent to avoid spam.
-    if (feedback.correct) {
-      successHaptic(settings.hapticsOn);
-    } else if (feedback.level === "tooHigh" || feedback.level === "tooLow") {
-      errorHaptic(settings.hapticsOn);
-    }
-  }, [feedback, fade, slide, glow, settings.hapticsOn]);
+  }, [feedback, fade, slide, glow]);
 
   if (!feedback) {
     return (
