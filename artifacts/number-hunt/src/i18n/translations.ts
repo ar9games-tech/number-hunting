@@ -207,6 +207,25 @@ export type TranslationKey =
   | "howto.soloText"
   | "howto.mp"
   | "howto.mpText"
+  | "howto.pun.section"
+  | "howto.pun.intro"
+  | "howto.pun.byCount"
+  | "howto.pun.count2"
+  | "howto.pun.count3"
+  | "howto.pun.count4"
+  | "howto.pun.cardsHeader"
+  | "howto.pun.directElim.title"
+  | "howto.pun.directElim.body"
+  | "howto.pun.forgive.title"
+  | "howto.pun.forgive.body"
+  | "howto.pun.vote.title"
+  | "howto.pun.vote.body"
+  | "howto.pun.chooseAnother.title"
+  | "howto.pun.chooseAnother.body"
+  | "howto.pun.notesHeader"
+  | "howto.pun.note1"
+  | "howto.pun.note2"
+  | "howto.pun.note3"
   // Feedback labels
   | "fb.correct"
   | "fb.tooHigh"
@@ -593,6 +612,27 @@ const en: Record<TranslationKey, string> = {
   "howto.mp": "Multiplayer Mode",
   "howto.mpText":
     "Create a room and share the code. Once your friend joins, both of you race privately to guess the same server-chosen number. You only see your own guesses and feedback — the first to crack it wins.",
+  "howto.pun.section": "Punishments",
+  "howto.pun.intro":
+    "After every multiplayer match the winner can draw a Punishment card for one of the losers. The available cards depend on how many players are in the room.",
+  "howto.pun.byCount": "Available by player count",
+  "howto.pun.count2": "2 players: Final Elimination, Forgiveness",
+  "howto.pun.count3": "3 players: Final Elimination, Forgiveness, Choose Another Player",
+  "howto.pun.count4": "4+ players: Final Elimination, Forgiveness, Vote, Choose Another Player",
+  "howto.pun.cardsHeader": "The cards",
+  "howto.pun.directElim.title": "Final Elimination",
+  "howto.pun.directElim.body": "The player is eliminated from the next round.",
+  "howto.pun.forgive.title": "Forgiveness",
+  "howto.pun.forgive.body": "The player is forgiven and can continue playing.",
+  "howto.pun.vote.title": "Vote",
+  "howto.pun.vote.body": "Players vote on the punishment result.",
+  "howto.pun.chooseAnother.title": "Choose Another Player",
+  "howto.pun.chooseAnother.body":
+    "The punished player chooses another player to receive the punishment instead, then presses the Punishment button to reveal a new punishment.",
+  "howto.pun.notesHeader": "Good to know",
+  "howto.pun.note1": "Punishments appear only after a match ends.",
+  "howto.pun.note2": "Only the winner can start a punishment.",
+  "howto.pun.note3": "Random Match does not include punishments.",
 
   "fb.correct": "Correct!",
   "fb.tooHigh": "Too High",
@@ -1008,6 +1048,27 @@ const ar: Record<TranslationKey, string> = {
   "howto.mp": "وضع متعدد اللاعبين",
   "howto.mpText":
     "أنشئ غرفة وشارك الرمز. عندما ينضم صديقك، يتسابق كل منكما بشكل خاص لتخمين الرقم نفسه الذي يختاره الخادم. ترى فقط تخميناتك وتغذيتك الراجعة — والأسرع في كشفه يفوز.",
+  "howto.pun.section": "العقابات",
+  "howto.pun.intro":
+    "بعد كل مباراة متعددة اللاعبين يمكن للفائز سحب بطاقة عقاب لأحد الخاسرين. تعتمد البطاقات المتاحة على عدد اللاعبين في الغرفة.",
+  "howto.pun.byCount": "المتاح حسب عدد اللاعبين",
+  "howto.pun.count2": "لاعبان: خروج نهائي، سماح",
+  "howto.pun.count3": "ثلاثة لاعبين: خروج نهائي، سماح، اختيار لاعب آخر",
+  "howto.pun.count4": "أربعة لاعبين فأكثر: خروج نهائي، سماح، تصويت، اختيار لاعب آخر",
+  "howto.pun.cardsHeader": "البطاقات",
+  "howto.pun.directElim.title": "خروج نهائي",
+  "howto.pun.directElim.body": "يتم إقصاء اللاعب من الجولة القادمة.",
+  "howto.pun.forgive.title": "سماح",
+  "howto.pun.forgive.body": "تتم مسامحة اللاعب ويستطيع اللعب مرة أخرى.",
+  "howto.pun.vote.title": "تصويت",
+  "howto.pun.vote.body": "يقوم اللاعبون بالتصويت على العقاب.",
+  "howto.pun.chooseAnother.title": "اختيار لاعب آخر للعقاب",
+  "howto.pun.chooseAnother.body":
+    "اللاعب المعاقَب يختار لاعبًا آخر ليأخذ العقاب بدلًا منه، ثم يضغط زر العقاب لإظهار عقاب جديد.",
+  "howto.pun.notesHeader": "ملاحظات",
+  "howto.pun.note1": "العقابات تظهر فقط بعد نهاية المباراة.",
+  "howto.pun.note2": "الفائز فقط يستطيع بدء العقاب.",
+  "howto.pun.note3": "اللعب العشوائي لا يحتوي على عقابات.",
 
   "fb.correct": "صحيح!",
   "fb.tooHigh": "مرتفع جداً",

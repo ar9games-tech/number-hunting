@@ -1,0 +1,105 @@
+Add a Punishments explanation section inside the existing “How To Play” screen in Number Hunt.
+
+Requirements:
+- Add a new section:
+  - English: Punishments
+  - Arabic: العقابات
+
+Placement:
+- Inside the existing How To Play screen.
+- Place it after the Online Multiplayer explanation.
+
+UI:
+- Use clean cards for each punishment.
+- Add icons/illustrations for each punishment.
+- Make the section scrollable.
+- Support Arabic and English.
+- Arabic must use RTL correctly.
+
+Explain punishment availability by player count:
+
+2 Players:
+Available punishments:
+- Final Elimination
+- Forgiveness
+
+3 Players:
+Available punishments:
+- Final Elimination
+- Forgiveness
+- Choose Another Player
+
+4+ Players:
+Available punishments:
+- Final Elimination
+- Forgiveness
+- Vote
+- Choose Another Player
+
+Punishment explanations:
+
+1. Final Elimination
+Arabic:
+خروج نهائي
+English:
+Final Elimination
+
+Description Arabic:
+يتم إقصاء اللاعب من الجولة القادمة.
+
+Description English:
+The player is eliminated from the next round.
+
+2. Forgiveness
+Arabic:
+سماح
+English:
+Forgiveness
+
+Description Arabic:
+تتم مسامحة اللاعب ويستطيع اللعب مرة أخرى.
+
+Description English:
+The player is forgiven and can continue playing.
+
+3. Vote
+Arabic:
+تصويت
+English:
+Vote
+
+Description Arabic:
+يقوم اللاعبون بالتصويت على العقاب.
+
+Description English:
+Players vote on the punishment result.
+
+4. Choose Another Player
+Arabic:
+اختيار لاعب آخر للعقاب
+English:
+Choose Another Player
+
+Description Arabic:
+اللاعب المعاقَب يختار لاعبًا آخر ليأخذ العقاب بدلًا منه، ثم يضغط زر العقاب لإظهار عقاب جديد.
+
+Description English:
+The punished player chooses another player to receive the punishment instead, then presses the Punishment button to reveal a new punishment.
+
+Additional notes section:
+Arabic:
+- العقابات تظهر فقط بعد نهاية المباراة.
+- الفائز فقط يستطيع بدء العقاب.
+- اللعب العشوائي لا يحتوي على عقابات.
+
+English:
+- Punishments appear only after a match ends.
+- Only the winner can start a punishment.
+- Random Match does not include punishments.
+
+Design requirements:
+- Use purple theme before reveal.
+- Use red highlight for Final Elimination.
+- Use green highlight for non-elimination punishments.
+- Add small animations/icons if possible.
+- Keep the page responsive on small screens.
