@@ -21,7 +21,6 @@ type SettingsContextValue = {
   effectiveScheme: "light" | "dark";
   isRTL: boolean;
   update: (patch: Partial<Settings>) => Promise<void>;
-  resetAll: () => Promise<void>;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -55,11 +54,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [settings],
   );
 
-  const resetAll = useCallback(async () => {
-    setSettings(DEFAULT_SETTINGS);
-    await saveSettings(DEFAULT_SETTINGS);
-  }, []);
-
   const effectiveScheme: "light" | "dark" = useMemo(() => {
     if (settings.themeMode === "system") {
       return (systemScheme ?? "light") as "light" | "dark";
@@ -91,8 +85,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [isRTL, settings.language]);
 
   const value = useMemo(
-    () => ({ settings, ready, effectiveScheme, isRTL, update, resetAll }),
-    [settings, ready, effectiveScheme, isRTL, update, resetAll],
+    () => ({ settings, ready, effectiveScheme, isRTL, update }),
+    [settings, ready, effectiveScheme, isRTL, update],
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
@@ -118,6 +112,5 @@ export function useSettingsOrDefault(): SettingsContextValue {
     effectiveScheme: "light",
     isRTL: false,
     update: async () => {},
-    resetAll: async () => {},
   };
 }

@@ -1,7 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import {
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -14,7 +13,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { Button } from "@/src/components/Button";
 import { RemoveAdsCard } from "@/src/components/RemoveAdsCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
@@ -25,17 +23,10 @@ import { webBottomInset } from "@/src/theme/theme";
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { settings, update, resetAll } = useSettings();
+  const { settings, update } = useSettings();
   const { t, isRTL } = useT();
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
   const writingDirection = isRTL ? "rtl" : "ltr";
-
-  const onResetAll = () => {
-    Alert.alert(t("settings.resetAll"), t("settings.resetAllConfirm"), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("common.reset"), style: "destructive", onPress: () => void resetAll() },
-    ]);
-  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -111,8 +102,7 @@ export default function SettingsScreen() {
           </Row>
         </Section>
 
-        {/* Shop / IAP surface — sits between Gameplay and the destructive
-            Reset buttons so it's visible without being mixed in with them. */}
+        {/* Shop / IAP surface */}
         <View style={{ gap: 8 }}>
           <Text
             style={[
@@ -124,13 +114,6 @@ export default function SettingsScreen() {
           </Text>
           <RemoveAdsCard />
         </View>
-
-        <Button
-          title={t("settings.resetAll")}
-          variant="ghost"
-          fullWidth
-          onPress={onResetAll}
-        />
 
         <Text style={[styles.note, { color: colors.mutedForeground, writingDirection }]}>
           {t("settings.note")}

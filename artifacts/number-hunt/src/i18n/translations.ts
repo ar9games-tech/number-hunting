@@ -169,8 +169,6 @@ export type TranslationKey =
   | "settings.language"
   | "settings.gameplay"
   | "settings.note"
-  | "settings.resetAll"
-  | "settings.resetAllConfirm"
   | "settings.danger"
   | "settings.data"
   | "settings.reactions"
@@ -585,8 +583,6 @@ const en: Record<TranslationKey, string> = {
   "settings.gameplay": "Gameplay",
   "settings.note":
     "Settings save automatically — changes apply instantly.",
-  "settings.resetAll": "Reset all settings",
-  "settings.resetAllConfirm": "This will restore all preferences to their defaults.",
   "settings.danger": "Data",
   "settings.data": "Data",
   "settings.reactions": "In-game reactions",
@@ -1037,8 +1033,6 @@ const ar: Record<TranslationKey, string> = {
   "settings.language": "اللغة",
   "settings.gameplay": "اللعب",
   "settings.note": "يتم حفظ الإعدادات تلقائياً — التغييرات تُطبَّق فوراً.",
-  "settings.resetAll": "إعادة تعيين كل الإعدادات",
-  "settings.resetAllConfirm": "سيؤدي هذا إلى استعادة جميع التفضيلات إلى قيمها الافتراضية.",
   "settings.danger": "البيانات",
   "settings.data": "البيانات",
   "settings.reactions": "ردود الفعل أثناء اللعبة",
