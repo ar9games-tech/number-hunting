@@ -1,0 +1,158 @@
+Remove the Rematch/New Match system and replace it with automatic punishment-based session flow.
+
+Goal:
+The next round/session should now depend completely on the punishment result.
+
+1. Remove replay buttons:
+- Remove:
+  - Rematch
+  - New Match
+  - Play Again
+  - Play Random Again
+- Remove related logic and UI.
+- The game flow must continue automatically based on punishment results.
+
+2. 2-player room punishment logic:
+
+Available punishments:
+- Final Elimination
+- Forgiveness
+
+If punishment = Final Elimination:
+- The punished player is removed immediately.
+- The session ends completely.
+- Show final session result screen.
+- Players can then manually leave the room.
+
+If punishment = Forgiveness:
+- Automatically start a new round with the same 2 players.
+- Server generates a new hidden number.
+- Reset:
+  - guesses
+  - timers
+  - turn order
+  - punishment state
+- Keep room alive.
+
+3. 3-player and 4+ player punishment logic:
+
+If punishment = Final Elimination:
+- Remove punished player from the active session.
+- Remaining players continue playing.
+- Automatically start the next round without the eliminated player.
+- If only 1 player remains:
+  - Declare final session winner.
+  - End room session.
+
+If punishment = Forgiveness:
+- Start a new round with all current active players.
+- Reset round state.
+- Keep session alive.
+
+4. Vote punishment logic:
+
+Vote meaning:
+- Players vote whether the punished player:
+  - stays
+  - or is eliminated
+
+Voting rules:
+- Everyone votes EXCEPT:
+  - the punished player
+  - the winner who selected the punished player
+
+Vote options:
+- Arabic:
+  - خروج
+  - بقاء
+- English:
+  - Eliminate
+  - Stay
+
+UI:
+- Show vote modal to eligible voters only.
+- Show countdown timer for voting.
+- Broadcast live vote count optionally without revealing voters.
+
+Vote result rules:
+
+If majority votes Eliminate:
+- Punished player is removed from session.
+- Start next round without them.
+
+If majority votes Stay:
+- Start next round with them still included.
+
+If vote is tied:
+- Show tie-break screen ONLY to the winner who selected the punished player.
+- Winner chooses:
+  - Eliminate
+  - Stay
+- Winner decision becomes final.
+
+5. Choose Another Player punishment logic:
+
+Flow:
+- Punished player chooses another player.
+- Punished player presses Punishment.
+- New punishment reveals for new target.
+
+After the second punishment resolves:
+- Apply automatic session flow normally:
+  - elimination
+  - forgiveness
+  - vote result
+
+6. Automatic next round system:
+
+After punishment resolution:
+- Automatically:
+  - generate new hidden number
+  - reset guesses
+  - reset timers
+  - reset turn order
+  - clear reactions
+  - clear punishment state
+  - start next round
+- No replay buttons.
+
+7. Session/player state management:
+
+Server must track:
+- activePlayers
+- eliminatedPlayers
+- currentRound
+- sessionWinner
+- punishmentState
+- votingState
+
+Eliminated players:
+- Become spectators OR leave room automatically.
+- Cannot guess.
+- Cannot react during active rounds.
+- Can still watch if spectator mode enabled.
+
+8. End session conditions:
+
+2-player room:
+- Final Elimination ends session immediately.
+
+3+ player room:
+- Continue until only one active player remains.
+- Last remaining player becomes session winner.
+
+9. Important:
+- Random Match still has NO punishments.
+- Random Match ends normally after winner.
+- Do not break turn-based gameplay.
+- Do not break online room flow.
+- Keep all animations and sounds.
+
+10. Testing checklist:
+- 2-player Final Elimination ends session.
+- 2-player Forgiveness starts new round automatically.
+- 3-player elimination removes player and continues.
+- Vote works correctly.
+- Tie vote gives decision to original winner.
+- No Rematch/New Match buttons exist anymore.
+- New rounds start automatically.
