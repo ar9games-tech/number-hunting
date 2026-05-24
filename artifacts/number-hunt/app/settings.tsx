@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
 import React from "react";
 import {
   Alert,
@@ -20,7 +19,7 @@ import { RemoveAdsCard } from "@/src/components/RemoveAdsCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
-import { clearOnlineStats, clearRecords, type Language, type ThemeMode } from "@/src/storage/storage";
+import { type Language, type ThemeMode } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 
 export default function SettingsScreen() {
@@ -35,42 +34,6 @@ export default function SettingsScreen() {
     Alert.alert(t("settings.resetAll"), t("settings.resetAllConfirm"), [
       { text: t("common.cancel"), style: "cancel" },
       { text: t("common.reset"), style: "destructive", onPress: () => void resetAll() },
-    ]);
-  };
-
-  // Reset Profile clears nickname + serial + onboarded flag so the next
-  // launch (or this immediate redirect) shows the welcome screen again.
-  // It deliberately leaves stats / records / achievements intact.
-  // Reset Records wipes the per-mode best-time snapshots AND the online
-  // lifetime stats surface (shown on Records / Profile). Leaves profile,
-  // settings, and unlocked achievements intact — those are separate data.
-  const onResetRecords = () => {
-    Alert.alert(t("settings.resetRecords"), t("settings.resetRecordsMsg"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.reset"),
-        style: "destructive",
-        onPress: async () => {
-          // Mirror Records screen: wipe best times + the user-visible
-          // online lifetime stats. Internal stats (used for achievement
-          // progression) are deliberately preserved.
-          await Promise.all([clearRecords(), clearOnlineStats()]);
-        },
-      },
-    ]);
-  };
-
-  const onResetProfile = () => {
-    Alert.alert(t("settings.resetProfile"), t("settings.resetProfileMsg"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.reset"),
-        style: "destructive",
-        onPress: async () => {
-          await update({ playerName: "", playerSerial: "", hasOnboarded: false });
-          router.replace("/welcome");
-        },
-      },
     ]);
   };
 
@@ -162,18 +125,6 @@ export default function SettingsScreen() {
           <RemoveAdsCard />
         </View>
 
-        <Button
-          title={t("settings.resetRecords")}
-          variant="secondary"
-          fullWidth
-          onPress={onResetRecords}
-        />
-        <Button
-          title={t("settings.resetProfile")}
-          variant="secondary"
-          fullWidth
-          onPress={onResetProfile}
-        />
         <Button
           title={t("settings.resetAll")}
           variant="ghost"

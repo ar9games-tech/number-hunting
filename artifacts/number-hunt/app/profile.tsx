@@ -1,9 +1,17 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { Button } from "@/src/components/Button";
 import { GlassCard } from "@/src/components/GlassCard";
 import { RemoveAdsCard } from "@/src/components/RemoveAdsCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
@@ -36,12 +44,32 @@ const DIGITS_LIST = [2, 3, 4] as const;
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { settings } = useSettings();
+  const { settings, update } = useSettings();
   const { t, lz, isRTL } = useT();
   const wd = isRTL ? "rtl" : "ltr";
   const [records, setRecords] = useState<Records>({ solo: {}, online: {} });
   const [onlineStats, setOnlineStats] = useState<OnlineStats>(DEFAULT_ONLINE_STATS);
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
+
+  // Local draft of the nickname while the player is editing. We seed it
+  // from the persisted settings and only push it back to AsyncStorage
+  // when the Save button is tapped — the serial is never touched here.
+  const [nameDraft, setNameDraft] = useState<string>(settings.playerName);
+  useEffect(() => {
+    setNameDraft(settings.playerName);
+  }, [settings.playerName]);
+
+  const trimmedDraft = nameDraft.trim();
+  const isDirty = trimmedDraft !== settings.playerName.trim();
+  const canSave = isDirty && trimmedDraft.length > 0;
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  const onSaveName = async () => {
+    if (!canSave) return;
+    await update({ playerName: trimmedDraft.slice(0, 24) });
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 1500);
+  };
 
   const load = useCallback(async () => {
     const [r, s] = await Promise.all([getRecords(), getOnlineStats()]);
@@ -88,6 +116,59 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </GlassCard>
+
+        {/* Editable nickname. The serial above is read-only and intentionally
+            preserved across edits — only the display name is mutable here. */}
+        <View
+          style={[
+            styles.editCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.editLabel, { color: colors.mutedForeground, writingDirection: wd }]}>
+            {t("settings.playerName")}
+          </Text>
+          <TextInput
+            value={nameDraft}
+            onChangeText={(v) => setNameDraft(v.slice(0, 24))}
+            placeholder={t("settings.playerPh")}
+            placeholderTextColor={colors.mutedForeground}
+            style={[
+              styles.editInput,
+              {
+                color: colors.foreground,
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+                writingDirection: wd,
+                textAlign: isRTL ? "right" : "left",
+              },
+            ]}
+            maxLength={24}
+            returnKeyType="done"
+            onSubmitEditing={() => void onSaveName()}
+          />
+          <View style={styles.editFooter}>
+            <Text
+              style={[
+                styles.editHint,
+                {
+                  color: savedFlash ? colors.success : colors.mutedForeground,
+                  writingDirection: wd,
+                },
+              ]}
+            >
+              {savedFlash
+                ? t("common.saved")
+                : `#${settings.playerSerial || "00000"}`}
+            </Text>
+            <Button
+              title={t("common.save")}
+              onPress={() => void onSaveName()}
+              disabled={!canSave}
+              size="sm"
+            />
+          </View>
+        </View>
 
         <Text style={[styles.sectionHeading, { color: colors.mutedForeground, writingDirection: wd }]}>
           {t("profile.onlineStats")}
@@ -201,6 +282,37 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     marginTop: 2,
     fontVariant: ["tabular-nums"],
+  },
+  editCard: {
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+  },
+  editLabel: {
+    fontSize: 12,
+    letterSpacing: 0.6,
+    fontFamily: "Inter_600SemiBold",
+  },
+  editInput: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
+  },
+  editFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  editHint: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    fontVariant: ["tabular-nums"],
+    flexShrink: 1,
   },
   totalsRow: { flexDirection: "row", gap: 8 },
   totalCell: {

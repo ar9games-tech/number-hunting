@@ -8,6 +8,8 @@ export type TranslationKey =
   // Common
   | "common.cancel"
   | "common.reset"
+  | "common.save"
+  | "common.saved"
   | "common.ok"
   | "common.back"
   // Home
@@ -159,8 +161,6 @@ export type TranslationKey =
   | "settings.playerName"
   | "settings.playerPh"
   | "settings.serial"
-  | "settings.resetProfile"
-  | "settings.resetProfileMsg"
   | "settings.appearance"
   | "settings.theme"
   | "settings.themeSystem"
@@ -171,8 +171,6 @@ export type TranslationKey =
   | "settings.note"
   | "settings.resetAll"
   | "settings.resetAllConfirm"
-  | "settings.resetRecords"
-  | "settings.resetRecordsMsg"
   | "settings.danger"
   | "settings.data"
   | "settings.reactions"
@@ -418,6 +416,8 @@ export type TranslationKey =
 const en: Record<TranslationKey, string> = {
   "common.cancel": "Cancel",
   "common.reset": "Reset",
+  "common.save": "Save",
+  "common.saved": "Saved",
   "common.ok": "OK",
   "common.back": "Back",
 
@@ -576,8 +576,6 @@ const en: Record<TranslationKey, string> = {
   "settings.playerName": "Player name",
   "settings.playerPh": "Your name",
   "settings.serial": "Serial",
-  "settings.resetProfile": "Reset profile",
-  "settings.resetProfileMsg": "Clears your nickname and serial. Your stats and records stay. You'll pick a new nickname next.",
   "settings.appearance": "Appearance",
   "settings.theme": "Theme",
   "settings.themeSystem": "System",
@@ -589,8 +587,6 @@ const en: Record<TranslationKey, string> = {
     "Settings save automatically — changes apply instantly.",
   "settings.resetAll": "Reset all settings",
   "settings.resetAllConfirm": "This will restore all preferences to their defaults.",
-  "settings.resetRecords": "Reset records",
-  "settings.resetRecordsMsg": "Erases best times and online lifetime stats. Your profile and unlocked achievements stay.",
   "settings.danger": "Data",
   "settings.data": "Data",
   "settings.reactions": "In-game reactions",
@@ -876,6 +872,8 @@ const en: Record<TranslationKey, string> = {
 const ar: Record<TranslationKey, string> = {
   "common.cancel": "إلغاء",
   "common.reset": "إعادة تعيين",
+  "common.save": "حفظ",
+  "common.saved": "تم الحفظ",
   "common.ok": "حسناً",
   "common.back": "رجوع",
 
@@ -1031,8 +1029,6 @@ const ar: Record<TranslationKey, string> = {
   "settings.playerName": "اسم اللاعب",
   "settings.playerPh": "اسمك",
   "settings.serial": "الرقم التسلسلي",
-  "settings.resetProfile": "إعادة تعيين الملف الشخصي",
-  "settings.resetProfileMsg": "يمسح اسمك ورقمك التسلسلي. تبقى إحصائياتك وسجلاتك. ستختار اسماً جديداً بعدها.",
   "settings.appearance": "المظهر",
   "settings.theme": "السمة",
   "settings.themeSystem": "النظام",
@@ -1043,8 +1039,6 @@ const ar: Record<TranslationKey, string> = {
   "settings.note": "يتم حفظ الإعدادات تلقائياً — التغييرات تُطبَّق فوراً.",
   "settings.resetAll": "إعادة تعيين كل الإعدادات",
   "settings.resetAllConfirm": "سيؤدي هذا إلى استعادة جميع التفضيلات إلى قيمها الافتراضية.",
-  "settings.resetRecords": "إعادة تعيين السجلات",
-  "settings.resetRecordsMsg": "يمسح أفضل الأوقات وإحصائيات الأونلاين التراكمية. يبقى ملفك الشخصي وإنجازاتك.",
   "settings.danger": "البيانات",
   "settings.data": "البيانات",
   "settings.reactions": "ردود الفعل أثناء اللعبة",
