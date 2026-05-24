@@ -81,7 +81,6 @@ export type Language = "en" | "ar";
 
 export type Settings = {
   themeMode: ThemeMode;
-  allowLeadingZero: boolean;
   /**
    * When false, the reactions button is hidden in online rooms AND
    * incoming reactions from other players are suppressed. Default on.
@@ -102,7 +101,6 @@ export type Settings = {
 
 export const DEFAULT_SETTINGS: Settings = {
   themeMode: "system",
-  allowLeadingZero: false,
   enableReactions: true,
   language: "en",
   playerName: "",
@@ -617,15 +615,20 @@ export async function getSettings(): Promise<Settings> {
     const hasOnboarded = parsed.hasOnboarded ?? true;
     if (parsed.hasOnboarded === undefined) migrated = true;
 
-    // Scrub legacy keys (e.g. soundOn, hapticsOn) that may still live in
-    // AsyncStorage from older installs. Whitelist explicitly rather than
-    // spreading `parsed` so removed feature flags can't sneak through.
-    if ("soundOn" in parsed || "hapticsOn" in parsed) migrated = true;
+    // Scrub legacy keys (e.g. soundOn, hapticsOn, allowLeadingZero) that
+    // may still live in AsyncStorage from older installs. Whitelist
+    // explicitly rather than spreading `parsed` so removed feature flags
+    // can't sneak through.
+    if (
+      "soundOn" in parsed ||
+      "hapticsOn" in parsed ||
+      "allowLeadingZero" in parsed
+    ) {
+      migrated = true;
+    }
 
     const result: Settings = {
       themeMode: parsed.themeMode ?? DEFAULT_SETTINGS.themeMode,
-      allowLeadingZero:
-        parsed.allowLeadingZero ?? DEFAULT_SETTINGS.allowLeadingZero,
       enableReactions:
         parsed.enableReactions ?? DEFAULT_SETTINGS.enableReactions,
       language: parsed.language ?? DEFAULT_SETTINGS.language,

@@ -134,13 +134,6 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title={t("settings.gameplay")}>
-          <Row label={t("settings.allowLeading")} icon="hash">
-            <Switch
-              value={settings.allowLeadingZero}
-              onValueChange={(v) => void update({ allowLeadingZero: v })}
-              trackColor={{ true: colors.primary }}
-            />
-          </Row>
           <Row label={t("settings.reactions")} icon="smile">
             <Switch
               value={settings.enableReactions}
@@ -190,9 +183,6 @@ export default function SettingsScreen() {
 
         <Text style={[styles.note, { color: colors.mutedForeground, writingDirection }]}>
           {t("settings.note")}
-        </Text>
-        <Text style={[styles.note, { color: colors.mutedForeground, writingDirection }]}>
-          {t("settings.rtlNote")}
         </Text>
       </ScrollView>
     </View>

@@ -168,11 +168,9 @@ export type TranslationKey =
   | "settings.themeDark"
   | "settings.language"
   | "settings.gameplay"
-  | "settings.allowLeading"
   | "settings.note"
   | "settings.resetAll"
   | "settings.resetAllConfirm"
-  | "settings.rtlNote"
   | "settings.resetRecords"
   | "settings.resetRecordsMsg"
   | "settings.danger"
@@ -587,13 +585,10 @@ const en: Record<TranslationKey, string> = {
   "settings.themeDark": "Dark",
   "settings.language": "Language",
   "settings.gameplay": "Gameplay",
-  "settings.allowLeading": "Allow leading zero",
   "settings.note":
     "Settings save automatically — changes apply instantly.",
   "settings.resetAll": "Reset all settings",
   "settings.resetAllConfirm": "This will restore all preferences to their defaults.",
-  "settings.rtlNote":
-    "Tip: switching language updates the layout direction immediately on web. On a real device, a full app reload may be required for native RTL.",
   "settings.resetRecords": "Reset records",
   "settings.resetRecordsMsg": "Erases best times and online lifetime stats. Your profile and unlocked achievements stay.",
   "settings.danger": "Data",
@@ -1045,12 +1040,9 @@ const ar: Record<TranslationKey, string> = {
   "settings.themeDark": "داكن",
   "settings.language": "اللغة",
   "settings.gameplay": "اللعب",
-  "settings.allowLeading": "السماح بصفر في البداية",
   "settings.note": "يتم حفظ الإعدادات تلقائياً — التغييرات تُطبَّق فوراً.",
   "settings.resetAll": "إعادة تعيين كل الإعدادات",
   "settings.resetAllConfirm": "سيؤدي هذا إلى استعادة جميع التفضيلات إلى قيمها الافتراضية.",
-  "settings.rtlNote":
-    "ملاحظة: يتم تغيير اتجاه التخطيط فوراً على الويب. على الجهاز الفعلي، قد يلزم إعادة تشغيل التطبيق لتطبيق RTL بالكامل.",
   "settings.resetRecords": "إعادة تعيين السجلات",
   "settings.resetRecordsMsg": "يمسح أفضل الأوقات وإحصائيات الأونلاين التراكمية. يبقى ملفك الشخصي وإنجازاتك.",
   "settings.danger": "البيانات",

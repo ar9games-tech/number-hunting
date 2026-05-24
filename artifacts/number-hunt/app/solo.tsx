@@ -11,7 +11,6 @@ import { NumberDisplay } from "@/src/components/NumberDisplay";
 import { NumericKeypad } from "@/src/components/NumericKeypad";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { Timer } from "@/src/components/Timer";
-import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
 import { setGameplayActive } from "@/src/services/ads";
 import {
@@ -41,14 +40,13 @@ const AUTO_SUBMIT_DELAY_MS = 130;
 export default function SoloGameScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { settings } = useSettings();
   const { t } = useT();
   const params = useLocalSearchParams<{ digits?: string }>();
   const digits = (Math.min(4, Math.max(2, parseInt(params.digits ?? "3", 10))) || 3) as Digits;
 
   const hidden = useMemo(
-    () => generateHidden(digits, settings.allowLeadingZero),
-    [digits, settings.allowLeadingZero],
+    () => generateHidden(digits, false),
+    [digits],
   );
 
   const [input, setInput] = useState("");
