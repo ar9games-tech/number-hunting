@@ -1,0 +1,107 @@
+Update punishment system rules and How To Play explanations.
+
+1. Remove punishments completely from 2-player rooms:
+- Do NOT include punishments in:
+  - Create Room with 2 players
+  - Random Match
+- After a 2-player match ends:
+  - Show winner normally
+  - End session normally
+  - No punishment button
+  - No punishment cards
+  - No vote system
+
+2. Punishments are now ONLY available in:
+- 3-player rooms
+- 4+ player rooms
+
+3. Updated punishment availability:
+
+3 Players:
+- Final Elimination
+- Forgiveness
+- Choose Another Player
+
+4+ Players:
+- Final Elimination
+- Forgiveness
+- Vote
+- Choose Another Player
+
+4. Update How To Play screen:
+Replace punishment explanation section with:
+
+Arabic:
+
+العقابات تتوفر فقط في الجلسات التي تحتوي على 3 لاعبين أو أكثر.
+
+3 لاعبين:
+- خروج نهائي
+- سماح
+- اختيار لاعب آخر للعقاب
+
+4 لاعبين أو أكثر:
+- خروج نهائي
+- سماح
+- تصويت
+- اختيار لاعب آخر للعقاب
+
+شرح العقابات:
+
+خروج نهائي:
+خروج اللاعب مباشرة.
+
+سماح:
+تتم مسامحة اللاعب وتبدأ الجولة التالية.
+
+تصويت:
+يقوم اللاعبون بالتصويت على خروج اللاعب المعاقَب أو بقائه.
+
+اختيار لاعب آخر للعقاب:
+اللاعب المعاقَب يختار لاعبًا آخر ليأخذ العقاب بدلًا منه، ثم يضغط زر العقاب لإظهار عقاب جديد.
+
+ملاحظات:
+- العقابات تظهر فقط بعد نهاية المباراة.
+- الفائز فقط يستطيع بدء العقاب.
+- اللعب العشوائي لا يحتوي على عقابات.
+- الجولات التالية تبدأ تلقائيًا حسب نتيجة العقاب.
+
+English:
+
+Punishments are available only in sessions with 3 or more players.
+
+3 Players:
+- Final Elimination
+- Forgiveness
+- Choose Another Player
+
+4+ Players:
+- Final Elimination
+- Forgiveness
+- Vote
+- Choose Another Player
+
+Punishment explanations:
+
+Final Elimination:
+The player is removed immediately.
+
+Forgiveness:
+The player is forgiven and the next round starts.
+
+Vote:
+Players vote on whether the punished player should stay or be eliminated.
+
+Choose Another Player:
+The punished player chooses another player to receive the punishment instead, then presses the Punishment button to reveal a new punishment.
+
+Notes:
+- Punishments appear only after a match ends.
+- Only the winner can start a punishment.
+- Random Match does not include punishments.
+- Next rounds start automatically depending on punishment results.
+
+5. Remove:
+- Punishment button from 2-player rooms
+- Any punishment logic for 2-player sessions
+- Any vote logic for 2-player sessions

@@ -133,7 +133,8 @@ export type PunishmentErrorReason =
   | "invalidTarget"
   | "notTarget"
   | "noPunishment"
-  | "alreadyResolved";
+  | "alreadyResolved"
+  | "notAllowed";
 
 export type PunishmentReveal = {
   cardId: PunishmentCardId;

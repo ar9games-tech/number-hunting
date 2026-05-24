@@ -353,7 +353,9 @@ export default function ResultScreen() {
             ? t("punishment.notWonBody")
             : reason === "noTarget" || reason === "invalidTarget"
               ? t("punishment.invalidTargetBody")
-              : t("punishment.errorTitle");
+              : reason === "notAllowed"
+                ? t("punishment.notAllowedBody")
+                : t("punishment.errorTitle");
       setPunishmentError(body);
     });
     return () => {
@@ -624,7 +626,19 @@ export default function ResultScreen() {
                   rather than scattering checks; the modal/picker
                   components stay mounted but stay invisible because no
                   reveal event will ever fire for these rooms. */}
-              {!isRandomMatch && youWon && !redirect && !isChooseAnotherPendingPass ? (
+              {/* Hide the Punishment button entirely when fewer than 3
+                  active players remain (2-player rooms never see it;
+                  multi-round sessions drop it once attrition leaves
+                  only 2). The server also rejects requestPunishment
+                  with `notAllowed` if a stale client reaches this code
+                  path. */}
+              {!isRandomMatch &&
+              youWon &&
+              !redirect &&
+              !isChooseAnotherPendingPass &&
+              ((cachedRoom?.players?.length ?? 0) -
+                (cachedRoom?.eliminatedIds?.length ?? 0)) >=
+                3 ? (
                 <>
                   <PunishmentButton
                     used={punishmentUsed}

@@ -181,7 +181,6 @@ export default function HowToPlayScreen() {
             </Text>
           </View>
           <View style={styles.counts}>
-            <CountRow tKey="howto.pun.count2" />
             <CountRow tKey="howto.pun.count3" />
             <CountRow tKey="howto.pun.count4" />
           </View>
@@ -246,6 +245,7 @@ export default function HowToPlayScreen() {
             <NoteRow tKey="howto.pun.note1" />
             <NoteRow tKey="howto.pun.note2" />
             <NoteRow tKey="howto.pun.note3" />
+            <NoteRow tKey="howto.pun.note4" />
           </View>
         </View>
       </ScrollView>

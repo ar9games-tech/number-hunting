@@ -251,17 +251,22 @@ function buildPunishmentPool(
   activeCount: number,
   opts: { excludeChooseAnother: boolean },
 ): PunishmentCardId[] {
-  // `activeCount` excludes eliminated players. The 4+ / 3+ thresholds
-  // are checked against the active pool so that a 4-player room with
-  // two eliminated players (= 2 active) behaves like a 2-player room
-  // for the next punishment draw, and never rolls Vote with zero
-  // eligible voters.
+  // Punishments are disabled entirely for 2-active-player sessions.
+  // The result screen also hides the Punishment button when active < 3,
+  // and `requestPunishment` rejects the call on the server — this empty
+  // pool is the third belt-and-braces guard.
+  // REMOVE BEFORE PRODUCTION — TEST_MODE keeps the legacy 2-player pool
+  // (directElimination + anotherChance) so single-pair test rooms can
+  // still exercise the punishment pipeline.
+  if (activeCount < 3) {
+    return TEST_MODE ? ["directElimination", "anotherChance"] : [];
+  }
+  // 3+ active players — Final Elimination + Forgiveness are always
+  // available. Vote unlocks at 4+ active. Choose Another unlocks at
+  // 3+ active and is suppressed by the redirect-chain cap.
   const pool: PunishmentCardId[] = ["directElimination", "anotherChance"];
   if (activeCount >= 4) pool.push("vote");
-  // REMOVE BEFORE PRODUCTION — TEST_MODE relaxes the 3-player gate so
-  // the chooseAnother card can be drawn in 2-player rooms for testing.
-  const chooseAnotherMinPlayers = TEST_MODE ? 2 : 3;
-  if (activeCount >= chooseAnotherMinPlayers && !opts.excludeChooseAnother) {
+  if (!opts.excludeChooseAnother) {
     pool.push("chooseAnother");
   }
   return pool;
@@ -948,7 +953,8 @@ type PunishmentErrorReason =
   | "invalidTarget"
   | "notTarget"
   | "noPunishment"
-  | "alreadyResolved";
+  | "alreadyResolved"
+  | "notAllowed";
 
 // Public room metadata returned by getRoom (no privileged data).
 type PublicRoomMeta = {
@@ -1268,6 +1274,15 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       // vote/effect pipeline and produce nonsensical state.
       if (room.eliminatedIds.has(target.socketId)) {
         return sendErr("invalidTarget");
+      }
+      // Punishments are disabled for 2-active-player sessions. The
+      // /result screen hides the Punishment button below this threshold,
+      // but a racing/stale client could still reach the server — reject
+      // explicitly so the empty pool never fires a degenerate draw.
+      // REMOVE BEFORE PRODUCTION — TEST_MODE allows 2-player rooms
+      // through so the punishment pipeline can be exercised in tests.
+      if (!TEST_MODE && activePlayers(room).length < 3) {
+        return sendErr("notAllowed");
       }
       const now = Date.now();
       if (now < room.punishmentLockUntil) return sendErr("alreadyUsed");

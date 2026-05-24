@@ -226,6 +226,7 @@ export type TranslationKey =
   | "howto.pun.note1"
   | "howto.pun.note2"
   | "howto.pun.note3"
+  | "howto.pun.note4"
   // Feedback labels
   | "fb.correct"
   | "fb.tooHigh"
@@ -279,6 +280,7 @@ export type TranslationKey =
   | "punishment.acceptedBody"
   | "punishment.refusedShort"
   | "punishment.invalidTargetBody"
+  | "punishment.notAllowedBody"
   | "punishment.card.directElimination.title"
   | "punishment.card.directElimination.body"
   | "punishment.card.vote.title"
@@ -635,26 +637,27 @@ const en: Record<TranslationKey, string> = {
     "Create a room and share the code. Once your friend joins, both of you race privately to guess the same server-chosen number. You only see your own guesses and feedback — the first to crack it wins.",
   "howto.pun.section": "Punishments",
   "howto.pun.intro":
-    "After every multiplayer match the winner can draw a Punishment card for one of the losers. The available cards depend on how many players are in the room.",
+    "Punishments are available only in sessions with 3 or more players.",
   "howto.pun.byCount": "Available by player count",
-  "howto.pun.count2": "2 players: Final Elimination, Forgiveness",
+  "howto.pun.count2": "2 players: no punishments",
   "howto.pun.count3": "3 players: Final Elimination, Forgiveness, Choose Another Player",
   "howto.pun.count4": "4+ players: Final Elimination, Forgiveness, Vote, Choose Another Player",
-  "howto.pun.cardsHeader": "The cards",
+  "howto.pun.cardsHeader": "Punishment explanations",
   "howto.pun.directElim.title": "Final Elimination",
   "howto.pun.directElim.body": "The player is removed immediately.",
   "howto.pun.forgive.title": "Forgiveness",
-  "howto.pun.forgive.body": "The player is forgiven and can continue playing.",
+  "howto.pun.forgive.body": "The player is forgiven and the next round starts.",
   "howto.pun.vote.title": "Vote",
   "howto.pun.vote.body":
-    "Players vote on whether the punished player should be eliminated or allowed to stay.",
+    "Players vote on whether the punished player should stay or be eliminated.",
   "howto.pun.chooseAnother.title": "Choose Another Player",
   "howto.pun.chooseAnother.body":
     "The punished player chooses another player to receive the punishment instead, then presses the Punishment button to reveal a new punishment.",
-  "howto.pun.notesHeader": "Good to know",
+  "howto.pun.notesHeader": "Notes",
   "howto.pun.note1": "Punishments appear only after a match ends.",
   "howto.pun.note2": "Only the winner can start a punishment.",
   "howto.pun.note3": "Random Match does not include punishments.",
+  "howto.pun.note4": "Next rounds start automatically depending on punishment results.",
 
   "fb.correct": "Correct!",
   "fb.tooHigh": "Too High",
@@ -708,6 +711,7 @@ const en: Record<TranslationKey, string> = {
   "punishment.acceptedBody": "{name} accepted the punishment.",
   "punishment.refusedShort": "Refused punishment — Direct elimination",
   "punishment.invalidTargetBody": "That target isn't valid anymore.",
+  "punishment.notAllowedBody": "Punishments are only available in 3+ player sessions.",
   "punishment.card.directElimination.title": "Direct Elimination",
   "punishment.card.directElimination.body": "The player is removed immediately.",
   "punishment.card.vote.title": "Vote",
@@ -1094,16 +1098,16 @@ const ar: Record<TranslationKey, string> = {
     "أنشئ غرفة وشارك الرمز. عندما ينضم صديقك، يتسابق كل منكما بشكل خاص لتخمين الرقم نفسه الذي يختاره الخادم. ترى فقط تخميناتك وتغذيتك الراجعة — والأسرع في كشفه يفوز.",
   "howto.pun.section": "العقابات",
   "howto.pun.intro":
-    "بعد كل مباراة متعددة اللاعبين يمكن للفائز سحب بطاقة عقاب لأحد الخاسرين. تعتمد البطاقات المتاحة على عدد اللاعبين في الغرفة.",
+    "العقابات تتوفر فقط في الجلسات التي تحتوي على 3 لاعبين أو أكثر.",
   "howto.pun.byCount": "المتاح حسب عدد اللاعبين",
-  "howto.pun.count2": "لاعبان: خروج نهائي، سماح",
-  "howto.pun.count3": "ثلاثة لاعبين: خروج نهائي، سماح، اختيار لاعب آخر",
-  "howto.pun.count4": "أربعة لاعبين فأكثر: خروج نهائي، سماح، تصويت، اختيار لاعب آخر",
-  "howto.pun.cardsHeader": "البطاقات",
+  "howto.pun.count2": "لاعبان: لا توجد عقابات",
+  "howto.pun.count3": "ثلاثة لاعبين: خروج نهائي، سماح، اختيار لاعب آخر للعقاب",
+  "howto.pun.count4": "أربعة لاعبين فأكثر: خروج نهائي، سماح، تصويت، اختيار لاعب آخر للعقاب",
+  "howto.pun.cardsHeader": "شرح العقابات",
   "howto.pun.directElim.title": "خروج نهائي",
   "howto.pun.directElim.body": "خروج اللاعب مباشرة.",
   "howto.pun.forgive.title": "سماح",
-  "howto.pun.forgive.body": "تتم مسامحة اللاعب ويستطيع اللعب مرة أخرى.",
+  "howto.pun.forgive.body": "تتم مسامحة اللاعب وتبدأ الجولة التالية.",
   "howto.pun.vote.title": "تصويت",
   "howto.pun.vote.body": "يقوم اللاعبون بالتصويت على خروج اللاعب المعاقَب أو بقائه.",
   "howto.pun.chooseAnother.title": "اختيار لاعب آخر للعقاب",
@@ -1113,6 +1117,7 @@ const ar: Record<TranslationKey, string> = {
   "howto.pun.note1": "العقابات تظهر فقط بعد نهاية المباراة.",
   "howto.pun.note2": "الفائز فقط يستطيع بدء العقاب.",
   "howto.pun.note3": "اللعب العشوائي لا يحتوي على عقابات.",
+  "howto.pun.note4": "الجولات التالية تبدأ تلقائيًا حسب نتيجة العقاب.",
 
   "fb.correct": "صحيح!",
   "fb.tooHigh": "مرتفع جداً",
@@ -1166,6 +1171,7 @@ const ar: Record<TranslationKey, string> = {
   "punishment.acceptedBody": "{name} قبل العقاب.",
   "punishment.refusedShort": "رفض العقاب — خروج مباشر",
   "punishment.invalidTargetBody": "الهدف المحدد لم يعد متاحاً.",
+  "punishment.notAllowedBody": "العقابات تتوفر فقط في الجلسات التي تحتوي على 3 لاعبين أو أكثر.",
   "punishment.card.directElimination.title": "خروج مباشر",
   "punishment.card.directElimination.body": "خروج اللاعب مباشرة.",
   "punishment.card.vote.title": "تصويت",
