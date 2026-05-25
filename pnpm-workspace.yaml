@@ -160,3 +160,9 @@ overrides:
   esbuild: "0.27.3"
   # postcss <8.5.10 has XSS vulnerability (GHSA-qx2v-qp2m-jg93)
   postcss: ">=8.5.10"
+  # uuid <11.1.1 has missing buffer bounds check (GHSA-w5hq-g745-h8pq)
+  # Pinned to ^11 (CommonJS-compatible) rather than a wider range to avoid
+  # breaking @expo/ngrok and xcode which are CommonJS-era packages
+  uuid: "^11.1.1"
+  # qs >=6.11.1 <=6.15.1 has DoS vulnerability (GHSA-q8mj-m7cp-5q26)
+  qs: ">=6.15.2"
