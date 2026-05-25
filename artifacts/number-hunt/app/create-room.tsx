@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
@@ -62,11 +62,23 @@ export default function CreateRoomScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView
+      edges={["bottom"]}
+      style={{ flex: 1, backgroundColor: colors.background }}
+    >
       <ScreenHeader title={t("create.title")} />
+      {/* flexGrow:1 lets the content fill short viewports; the extra
+          40px on top of the safe-area inset keeps the Create button
+          fully visible above the home indicator / web preview chrome
+          on the smallest supported screens. */}
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: bottomPad + 40, flexGrow: 1 },
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.identityBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
           <View style={[styles.identityDot, { backgroundColor: colors.primary }]} />
@@ -146,7 +158,7 @@ export default function CreateRoomScreen() {
           onPress={() => void onCreate()}
         />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

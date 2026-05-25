@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { Button } from "@/src/components/Button";
@@ -242,11 +242,18 @@ export default function MultiplayerLobbyScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView
+      edges={["bottom"]}
+      style={{ flex: 1, backgroundColor: colors.background }}
+    >
       <ScreenHeader title={t("lobby.title")} />
       {/* ScrollView so all three cards (Create / Join / Random Match)
           remain reachable on short phones — without it the bottom card
-          gets clipped behind the home indicator / nav bar. */}
+          gets clipped behind the home indicator / nav bar. flexGrow:1
+          lets the content fill the viewport when it's short, and the
+          generous paddingBottom guarantees the last button (Random
+          Match) stays clear of the home indicator / web preview
+          chrome on the smallest supported screens. */}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={[
@@ -297,7 +304,11 @@ export default function MultiplayerLobbyScreen() {
           subtitle={t("lobby.joinDesc")}
           wd={wd}
         >
-          <View style={styles.joinRow}>
+          {/* Code input + Join button are stacked vertically so the Join
+              button is always full-width and fully visible — even on the
+              narrowest preview viewports (≈360–400px) where an inline
+              row could push the button past the right edge of the card. */}
+          <View style={styles.joinColumn}>
             <TextInput
               value={code}
               onChangeText={(v) => setCode(v.toUpperCase())}
@@ -318,6 +329,7 @@ export default function MultiplayerLobbyScreen() {
             <Button
               title={joining ? t("lobby.joinBtn") + "…" : t("lobby.joinBtn")}
               variant="secondary"
+              fullWidth
               disabled={joining}
               onPress={() => {
                 void handleJoin();
@@ -388,7 +400,7 @@ export default function MultiplayerLobbyScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -416,12 +428,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
   cardSub: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 16, marginTop: 1 },
-  // Code input + Join button live on one row so the Join card stays
-  // short — this is what was previously pushing Random Match below
-  // the fold on small phones.
-  joinRow: { flexDirection: "row", alignItems: "stretch", gap: 8 },
+  // Code input above, full-width Join button below. Stacking guarantees
+  // the Join button is always fully visible inside the card on narrow
+  // viewports (Replit preview, small phones), where the previous
+  // side-by-side row could push it past the right edge.
+  joinColumn: { flexDirection: "column", alignItems: "stretch", gap: 10 },
   input: {
-    flex: 1,
+    width: "100%",
     borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12,
     fontSize: 20, fontFamily: "Inter_700Bold", letterSpacing: 4, textAlign: "center",
   },
