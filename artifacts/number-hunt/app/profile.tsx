@@ -228,20 +228,24 @@ function BestTimesRow({
 }: {
   modeRecords: ModeRecords;
   lz: (n: string | number) => string;
-  t: (k: "records.label" | "profile.noTime", v?: Record<string, string | number>) => string;
+  t: (
+    k: "diff.label2" | "diff.label3" | "diff.label4" | "profile.noTime",
+    v?: Record<string, string | number>,
+  ) => string;
 }) {
   const colors = useColors();
   return (
     <View style={styles.timesRow}>
       {DIGITS_LIST.map((d) => {
         const r = modeRecords[d];
+        const labelKey = `diff.label${d}` as "diff.label2" | "diff.label3" | "diff.label4";
         return (
           <View
             key={d}
             style={[styles.timeCell, { backgroundColor: colors.card, borderColor: colors.border }]}
           >
             <Text style={[styles.timeLabel, { color: colors.mutedForeground }]}>
-              {t("records.label", { n: d })}
+              {t(labelKey)}
             </Text>
             <Text style={[styles.timeValue, { color: colors.foreground }]}>
               {r ? lz(formatTime(r.bestTimeSec)) : t("profile.noTime")}
