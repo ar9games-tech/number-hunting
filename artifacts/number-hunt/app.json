@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Number Hunt",
+    "name": "Number Hunting",
     "slug": "number-hunt",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,9 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon.png",
+      "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#eef2ff"
+      "backgroundColor": "#0b0820"
     },
     "ios": {
       "supportsTablet": false

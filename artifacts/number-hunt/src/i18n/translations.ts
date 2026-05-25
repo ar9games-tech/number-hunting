@@ -419,7 +419,7 @@ const en: Record<TranslationKey, string> = {
   "common.ok": "OK",
   "common.back": "Back",
 
-  "home.title": "Number Hunt",
+  "home.title": "Number Hunting",
   "home.subtitle": "Crack the hidden number\nas fast as you can",
   "home.solo": "Solo",
   "home.multiplayer": "Multiplayer",
@@ -429,7 +429,7 @@ const en: Record<TranslationKey, string> = {
   "home.profile": "Profile",
   "home.store": "Store",
   "store.title": "Store",
-  "store.intro": "Support Number Hunt and enjoy an ad-free experience.",
+  "store.intro": "Support Number Hunting and enjoy an ad-free experience.",
 
   "mode.title": "Choose Mode",
   "mode.solo": "Solo",
@@ -711,7 +711,7 @@ const en: Record<TranslationKey, string> = {
   "punishment.waitingRedirectSelection": "Waiting for another player selection",
   "punishment.forgivenBody": "{name} is forgiven and plays another round.",
 
-  "welcome.title": "Welcome to Number Hunt",
+  "welcome.title": "Welcome to Number Hunting",
   "welcome.subtitle": "Pick a nickname so we can show it next to your scores. You can change it anytime in Settings.",
   "welcome.nickname": "NICKNAME",
   "welcome.nicknamePh": "Your nickname",
