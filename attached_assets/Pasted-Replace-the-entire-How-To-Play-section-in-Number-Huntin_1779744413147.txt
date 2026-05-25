@@ -1,0 +1,226 @@
+Replace the entire “How To Play” section in Number Hunting with this cleaner and easier explanation.
+
+Requirements:
+- Support Arabic and English.
+- Use clean cards/sections.
+- Add icons beside sections if possible.
+- Make page scrollable.
+- Make text readable on small phones.
+- Keep Arabic RTL support.
+- Number sequences in Arabic must stay left-to-right.
+
+Arabic Version:
+
+كيف تلعب؟
+
+هدف اللعبة:
+قم بتخمين الرقم الصحيح قبل باقي اللاعبين.
+
+طريقة اللعب:
+- يقوم النظام باختيار رقم مخفي.
+- كل لاعب يحاول تخمين الرقم أثناء دوره.
+- بعد كل محاولة ستحصل على تلميحات تساعدك للوصول إلى الرقم الصحيح.
+
+التلميحات:
+بعد كتابة الرقم سيظهر لك:
+
+- مرتفع
+- مرتفع جدا
+- منخفض
+- منخفض جدا
+
+شرح التلميحات:
+
+في خانتين:
+- إذا كان الفرق ١٠ أو أقل:
+  - مرتفع / منخفض
+- إذا كان الفرق أكبر من ١٠:
+  - مرتفع جدا / منخفض جدا
+
+في ثلاث خانات:
+- إذا كان الفرق ٥٠ أو أقل:
+  - مرتفع / منخفض
+- إذا كان الفرق أكبر من ٥٠:
+  - مرتفع جدا / منخفض جدا
+
+في أربع خانات:
+- إذا كان الفرق ٢٠٠ أو أقل:
+  - مرتفع / منخفض
+- إذا كان الفرق أكبر من ٢٠٠:
+  - مرتفع جدا / منخفض جدا
+
+وأيضًا:
+- اللعبة توضح لك كم رقم صحيح موجود داخل تخمينك.
+
+مثال:
+إذا كان الرقم الصحيح:
+٣٦٩
+
+وكتبت:
+٣٤٩
+
+سيظهر:
+- مرتفع أو منخفض حسب الرقم
+- ويوضح أن لديك رقمين صحيحين
+
+لكن:
+- اللعبة لا توضح أماكن الأرقام الصحيحة.
+- عليك اكتشاف الترتيب الصحيح بنفسك.
+
+طريقة الفوز:
+- أول لاعب يكتب الرقم الصحيح بالكامل يفوز بالجولة.
+
+اللعب الفردي:
+- تلعب ضد النظام.
+- لا يوجد حد للمحاولات.
+- حاول تحقيق أفضل وقت.
+
+الأون لاين:
+- تلعب ضد لاعبين حقيقيين.
+- اللعب يكون بالأدوار.
+- لا يمكنك التخمين إلا عندما يأتي دورك.
+
+العقوبات:
+العقوبات تظهر فقط إذا كان عدد اللاعبين ٣ أو أكثر.
+
+٣ لاعبين:
+- خروج نهائي
+- سماح
+- اختيار لاعب آخر للعقاب
+
+٤ لاعبين أو أكثر:
+- خروج نهائي
+- سماح
+- تصويت
+- اختيار لاعب آخر للعقاب
+
+شرح العقوبات:
+
+خروج نهائي:
+خروج اللاعب مباشرة.
+
+سماح:
+تتم مسامحة اللاعب وتبدأ الجولة التالية.
+
+تصويت:
+يقوم اللاعبون بالتصويت على خروج اللاعب المعاقَب أو بقائه.
+
+اختيار لاعب آخر للعقاب:
+اللاعب المعاقَب يختار لاعبًا آخر ليأخذ العقاب بدلًا منه، ثم يضغط زر العقاب لإظهار عقاب جديد.
+
+طريقة اختيار العقوبة:
+- بعد نهاية الجولة، الفائز هو من يختار اللاعب الذي سيتم معاقبته.
+- بعد ذلك يتم سحب عقوبة عشوائية لهذا اللاعب.
+
+معلومات مهمة:
+- اللعب العشوائي لا يحتوي على عقوبات.
+- الجولات التالية تبدأ تلقائيًا.
+- يمكنك إرسال رأكشنات أثناء اللعب.
+
+English Version:
+
+How To Play
+
+Goal:
+Guess the hidden number before the other players.
+
+Gameplay:
+- The system chooses a hidden number.
+- Players take turns guessing.
+- After each guess, you receive hints to help you reach the correct number.
+
+Hints:
+After entering a guess, the game tells you:
+
+- High
+- Too High
+- Low
+- Too Low
+
+Hint explanation:
+
+2 Digits:
+- Difference 10 or less:
+  - High / Low
+- Difference greater than 10:
+  - Too High / Too Low
+
+3 Digits:
+- Difference 50 or less:
+  - High / Low
+- Difference greater than 50:
+  - Too High / Too Low
+
+4 Digits:
+- Difference 200 or less:
+  - High / Low
+- Difference greater than 200:
+  - Too High / Too Low
+
+Also:
+- The game shows how many digits in your guess are correct.
+
+Example:
+Correct number:
+369
+
+Your guess:
+349
+
+Feedback:
+- High or Low depending on the number
+- And shows that you have 2 correct digits
+
+However:
+- The game does NOT reveal the correct digit positions.
+- You must figure out the correct order yourself.
+
+Winning:
+- The first player to guess the full correct number wins the round.
+
+Solo Mode:
+- Play against the system.
+- Unlimited guesses.
+- Try to beat your best time.
+
+Online Mode:
+- Play against real players.
+- Gameplay is turn-based.
+- You can only guess during your turn.
+
+Punishments:
+Punishments appear only in rooms with 3 or more players.
+
+3 Players:
+- Final Elimination
+- Forgiveness
+- Choose Another Player
+
+4+ Players:
+- Final Elimination
+- Forgiveness
+- Vote
+- Choose Another Player
+
+Punishment explanations:
+
+Final Elimination:
+The player is removed immediately.
+
+Forgiveness:
+The player is forgiven and the next round starts.
+
+Vote:
+Players vote on whether the punished player should stay or be eliminated.
+
+Choose Another Player:
+The punished player chooses another player to receive the punishment instead, then presses the Punishment button to reveal a new punishment.
+
+Punishment selection:
+- After a round ends, the winner chooses which player will receive the punishment.
+- Then a random punishment is revealed for that player.
+
+Important:
+- Random Match has no punishments.
+- Next rounds start automatically.
+- Players can send reactions during matches.

@@ -19,29 +19,90 @@ export default function HowToPlayScreen() {
   const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
   const wd = isRTL ? "rtl" : "ltr";
 
-  const Block = ({
-    icon, title, body,
+  const CardHead = ({
+    icon, title, tint,
   }: {
-    icon: keyof typeof Feather.glyphMap; title: string; body: string;
-  }) => (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    icon: keyof typeof Feather.glyphMap;
+    title: string;
+    tint?: string;
+  }) => {
+    const accent = tint ?? colors.primary;
+    const bg = tint ? tint + "22" : colors.secondary;
+    return (
       <View style={styles.cardHead}>
-        <View style={[styles.iconWrap, { backgroundColor: colors.secondary }]}>
-          <Feather name={icon} size={18} color={colors.primary} />
+        <View style={[styles.iconWrap, { backgroundColor: bg }]}>
+          <Feather name={icon} size={18} color={accent} />
         </View>
         <Text style={[styles.cardTitle, { color: colors.foreground, writingDirection: wd }]}>
           {title}
         </Text>
       </View>
-      <Text style={[styles.body, { color: colors.mutedForeground, writingDirection: wd }]}>
-        {body}
+    );
+  };
+
+  const Card = ({
+    children, tint,
+  }: { children: React.ReactNode; tint?: string }) => (
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.card,
+          borderColor: tint ? tint + "44" : colors.border,
+        },
+      ]}
+    >
+      {children}
+    </View>
+  );
+
+  const Bullet = ({ text, color }: { text: string; color?: string }) => (
+    <View style={styles.bulletRow}>
+      <View
+        style={[
+          styles.dot,
+          { backgroundColor: color ?? colors.primary },
+        ]}
+      />
+      <Text
+        style={[
+          styles.bulletText,
+          { color: colors.foreground, writingDirection: wd },
+        ]}
+      >
+        {text}
       </Text>
     </View>
   );
 
-  // One punishment card: tinted left border + circular icon background using
-  // the highlight color per spec (red for elimination, green for the
-  // non-elimination cards, purple for vote/chooseAnother section accents).
+  const BodyText = ({ text }: { text: string }) => (
+    <Text style={[styles.body, { color: colors.mutedForeground, writingDirection: wd }]}>
+      {text}
+    </Text>
+  );
+
+  const BulletList = ({ items, color }: { items: string[]; color?: string }) => (
+    <View style={styles.bulletList}>
+      {items.map((it, i) => (
+        <Bullet key={i} text={it} color={color} />
+      ))}
+    </View>
+  );
+
+  const HintChip = ({ tKey, color }: { tKey: TranslationKey; color: string }) => (
+    <View
+      style={[
+        styles.chip,
+        { backgroundColor: color + "1a", borderColor: color + "55" },
+      ]}
+    >
+      <Text style={[styles.chipText, { color, writingDirection: wd }]}>
+        {t(tKey)}
+      </Text>
+    </View>
+  );
+
+  // One punishment card: tinted leading-edge border + tinted icon background.
   const PunishCard = ({
     icon, title, body, color,
   }: {
@@ -56,52 +117,14 @@ export default function HowToPlayScreen() {
         {
           backgroundColor: colors.card,
           borderColor: colors.border,
-          // Highlight the leading edge so the accent stays on the
-          // text-start side in both LTR (left) and RTL (right) layouts.
           ...(isRTL
             ? { borderRightColor: color, borderRightWidth: 4 }
             : { borderLeftColor: color, borderLeftWidth: 4 }),
         },
       ]}
     >
-      <View style={styles.cardHead}>
-        <View style={[styles.iconWrap, { backgroundColor: color + "22" }]}>
-          <Feather name={icon} size={18} color={color} />
-        </View>
-        <Text style={[styles.cardTitle, { color: colors.foreground, writingDirection: wd }]}>
-          {title}
-        </Text>
-      </View>
-      <Text style={[styles.body, { color: colors.mutedForeground, writingDirection: wd }]}>
-        {body}
-      </Text>
-    </View>
-  );
-
-  const CountRow = ({ tKey }: { tKey: TranslationKey }) => (
-    <View style={styles.countRow}>
-      <View style={[styles.bullet, { backgroundColor: PUNISHMENT_PURPLE }]} />
-      <Text
-        style={[styles.countText, { color: colors.foreground, writingDirection: wd }]}
-      >
-        {t(tKey)}
-      </Text>
-    </View>
-  );
-
-  const NoteRow = ({ tKey }: { tKey: TranslationKey }) => (
-    <View style={styles.noteRow}>
-      <Feather
-        name="info"
-        size={14}
-        color={colors.mutedForeground}
-        style={{ marginTop: 3 }}
-      />
-      <Text
-        style={[styles.noteText, { color: colors.mutedForeground, writingDirection: wd }]}
-      >
-        {t(tKey)}
-      </Text>
+      <CardHead icon={icon} title={title} tint={color} />
+      <BodyText text={body} />
     </View>
   );
 
@@ -112,30 +135,105 @@ export default function HowToPlayScreen() {
         contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
       >
-        <Block icon="target" title={t("howto.goal")} body={t("howto.goalText")} />
-        <Block icon="message-circle" title={t("howto.feedback")} body={t("howto.feedbackText")} />
+        {/* Goal */}
+        <Card>
+          <CardHead icon="target" title={t("howto.goal")} />
+          <BodyText text={t("howto.goalText")} />
+        </Card>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.cardHead}>
-            <View style={[styles.iconWrap, { backgroundColor: colors.secondary }]}>
-              <Feather name="book-open" size={18} color={colors.primary} />
-            </View>
-            <Text style={[styles.cardTitle, { color: colors.foreground, writingDirection: wd }]}>
-              {t("howto.examples")}
-            </Text>
+        {/* Gameplay */}
+        <Card>
+          <CardHead icon="play-circle" title={t("howto.gameplay.title")} />
+          <BulletList
+            items={[
+              t("howto.gameplay.b1"),
+              t("howto.gameplay.b2"),
+              t("howto.gameplay.b3"),
+            ]}
+          />
+        </Card>
+
+        {/* Hints — verdict labels */}
+        <Card>
+          <CardHead icon="message-circle" title={t("howto.hints.title")} />
+          <BodyText text={t("howto.hints.intro")} />
+          <View style={styles.chipRow}>
+            <HintChip tKey="howto.hints.low" color={colors.success} />
+            <HintChip tKey="howto.hints.high" color={colors.success} />
+            <HintChip tKey="howto.hints.tooLow" color={colors.destructive} />
+            <HintChip tKey="howto.hints.tooHigh" color={colors.destructive} />
           </View>
-          <View style={styles.examples}>
-            <ExampleRow hidden="482" guess="250" verdict={`${t("fb.tooLow")} — ${t("fb.correctDigit", { n: 1 })}`} />
-            <ExampleRow hidden="482" guess="500" verdict={`${t("fb.high")} — ${t("fb.correctDigits", { n: 0 })}`} />
-            <ExampleRow hidden="482" guess="480" verdict={`${t("fb.low")} — ${t("fb.correctDigits", { n: 2 })}`} />
-            <ExampleRow hidden="482" guess="482" verdict={t("fb.correct")} />
+        </Card>
+
+        {/* Hint rules per digit count */}
+        <Card>
+          <CardHead icon="sliders" title={t("howto.hints.rulesTitle")} />
+          <BulletList
+            items={[
+              t("howto.hints.d2"),
+              t("howto.hints.d3"),
+              t("howto.hints.d4"),
+            ]}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <BodyText text={t("howto.hints.correctCount")} />
+        </Card>
+
+        {/* Example */}
+        <Card>
+          <CardHead icon="book-open" title={t("howto.example.title")} />
+          <View style={styles.exampleRows}>
+            <ExampleRow
+              label={t("howto.example.correctLabel")}
+              value={lz("369")}
+              valueColor={colors.success}
+            />
+            <ExampleRow
+              label={t("howto.example.guessLabel")}
+              value={lz("349")}
+              valueColor={colors.foreground}
+            />
+            <ExampleRow
+              label={t("howto.example.feedbackLabel")}
+              value={t("howto.example.feedbackBody")}
+              isText
+            />
           </View>
-        </View>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <BodyText text={t("howto.example.note")} />
+        </Card>
 
-        <Block icon="clock" title={t("howto.solo")} body={t("howto.soloText")} />
-        <Block icon="users" title={t("howto.mp")} body={t("howto.mpText")} />
+        {/* Winning */}
+        <Card>
+          <CardHead icon="award" title={t("howto.win.title")} />
+          <BodyText text={t("howto.win.body")} />
+        </Card>
 
-        {/* Punishments — placed right after the Multiplayer block per spec. */}
+        {/* Solo */}
+        <Card>
+          <CardHead icon="clock" title={t("howto.solo")} />
+          <BulletList
+            items={[
+              t("howto.solo.b1"),
+              t("howto.solo.b2"),
+              t("howto.solo.b3"),
+            ]}
+          />
+        </Card>
+
+        {/* Online (Multiplayer) */}
+        <Card>
+          <CardHead icon="users" title={t("howto.mp")} />
+          <BulletList
+            items={[
+              t("howto.mp.b1"),
+              t("howto.mp.b2"),
+              t("howto.mp.b3"),
+            ]}
+          />
+        </Card>
+
+        {/* Punishments header */}
         <View
           style={[
             styles.sectionHeader,
@@ -144,7 +242,7 @@ export default function HowToPlayScreen() {
         >
           <View style={styles.cardHead}>
             <View style={[styles.iconWrap, { backgroundColor: PUNISHMENT_PURPLE + "33" }]}>
-              <Feather name="award" size={18} color={PUNISHMENT_PURPLE} />
+              <Feather name="alert-octagon" size={18} color={PUNISHMENT_PURPLE} />
             </View>
             <Text
               style={[
@@ -155,36 +253,17 @@ export default function HowToPlayScreen() {
               {t("howto.pun.section")}
             </Text>
           </View>
-          <Text
-            style={[styles.body, { color: colors.mutedForeground, writingDirection: wd }]}
-          >
-            {t("howto.pun.intro")}
-          </Text>
+          <BodyText text={t("howto.pun.intro")} />
         </View>
 
-        <View
-          style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-        >
-          <View style={styles.cardHead}>
-            <View
-              style={[styles.iconWrap, { backgroundColor: PUNISHMENT_PURPLE + "22" }]}
-            >
-              <Feather name="users" size={18} color={PUNISHMENT_PURPLE} />
-            </View>
-            <Text
-              style={[
-                styles.cardTitle,
-                { color: colors.foreground, writingDirection: wd },
-              ]}
-            >
-              {t("howto.pun.byCount")}
-            </Text>
-          </View>
-          <View style={styles.counts}>
-            <CountRow tKey="howto.pun.count3" />
-            <CountRow tKey="howto.pun.count4" />
-          </View>
-        </View>
+        {/* By player count */}
+        <Card tint={PUNISHMENT_PURPLE}>
+          <CardHead icon="users" title={t("howto.pun.byCount")} tint={PUNISHMENT_PURPLE} />
+          <BulletList
+            color={PUNISHMENT_PURPLE}
+            items={[t("howto.pun.count3"), t("howto.pun.count4")]}
+          />
+        </Card>
 
         <Text
           style={[
@@ -220,48 +299,59 @@ export default function HowToPlayScreen() {
           color={colors.success}
         />
 
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.cardHead}>
-            <View
-              style={[styles.iconWrap, { backgroundColor: PUNISHMENT_PURPLE + "22" }]}
-            >
-              <Feather name="info" size={18} color={PUNISHMENT_PURPLE} />
-            </View>
-            <Text
-              style={[
-                styles.cardTitle,
-                { color: colors.foreground, writingDirection: wd },
-              ]}
-            >
-              {t("howto.pun.notesHeader")}
-            </Text>
-          </View>
-          <View style={styles.notes}>
-            <NoteRow tKey="howto.pun.note1" />
-            <NoteRow tKey="howto.pun.note2" />
-            <NoteRow tKey="howto.pun.note3" />
-            <NoteRow tKey="howto.pun.note4" />
-          </View>
-        </View>
+        {/* How a punishment is chosen */}
+        <Card tint={PUNISHMENT_PURPLE}>
+          <CardHead
+            icon="target"
+            title={t("howto.pun.selection.title")}
+            tint={PUNISHMENT_PURPLE}
+          />
+          <BulletList
+            color={PUNISHMENT_PURPLE}
+            items={[t("howto.pun.selection.b1"), t("howto.pun.selection.b2")]}
+          />
+        </Card>
+
+        {/* Important */}
+        <Card tint={PUNISHMENT_PURPLE}>
+          <CardHead
+            icon="info"
+            title={t("howto.important.title")}
+            tint={PUNISHMENT_PURPLE}
+          />
+          <BulletList
+            color={PUNISHMENT_PURPLE}
+            items={[
+              t("howto.important.b1"),
+              t("howto.important.b2"),
+              t("howto.important.b3"),
+            ]}
+          />
+        </Card>
       </ScrollView>
     </View>
   );
 
   function ExampleRow({
-    hidden, guess, verdict,
-  }: { hidden: string; guess: string; verdict: string }) {
+    label, value, valueColor, isText,
+  }: {
+    label: string;
+    value: string;
+    valueColor?: string;
+    isText?: boolean;
+  }) {
     return (
-      <View style={[styles.exRow, { borderColor: colors.border }]}>
-        <Text style={[styles.exMono, { color: colors.foreground, writingDirection: wd }]}>
-          {lz(hidden)} · {lz(guess)}
+      <View style={styles.exRow}>
+        <Text style={[styles.exLabel, { color: colors.mutedForeground, writingDirection: wd }]}>
+          {label}
         </Text>
-        <Text style={[styles.exVerdict, { color: colors.mutedForeground, writingDirection: wd }]}>
-          {verdict}
+        <Text
+          style={[
+            isText ? styles.exText : styles.exMono,
+            { color: valueColor ?? colors.foreground, writingDirection: isText ? wd : "ltr" },
+          ]}
+        >
+          {value}
         </Text>
       </View>
     );
@@ -270,19 +360,48 @@ export default function HowToPlayScreen() {
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 20, paddingTop: 8, gap: 14 },
-  card: { padding: 16, borderRadius: 18, borderWidth: 1, gap: 10 },
+  card: { padding: 16, borderRadius: 18, borderWidth: 1, gap: 12 },
   cardHead: { flexDirection: "row", alignItems: "center", gap: 12 },
   iconWrap: {
     width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center",
   },
   cardTitle: { fontSize: 16, fontFamily: "Inter_700Bold", flexShrink: 1 },
   body: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21 },
-  examples: { gap: 8 },
-  exRow: { paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
-  exMono: {
-    fontSize: 14, fontFamily: "Inter_600SemiBold", fontVariant: ["tabular-nums"], letterSpacing: 0.6,
+
+  bulletList: { gap: 8 },
+  bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  dot: { width: 6, height: 6, borderRadius: 3, marginTop: 8 },
+  bulletText: {
+    fontSize: 14, fontFamily: "Inter_500Medium", flexShrink: 1, lineHeight: 21,
   },
-  exVerdict: { marginTop: 2, fontSize: 13, fontFamily: "Inter_500Medium" },
+
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
+
+  exampleRows: { gap: 10 },
+  exRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  exLabel: { fontSize: 13, fontFamily: "Inter_500Medium", flexShrink: 1 },
+  exMono: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 1.2,
+  },
+  exText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    flexShrink: 1,
+    textAlign: "right",
+  },
+
   sectionHeader: {
     padding: 16,
     borderRadius: 18,
@@ -305,11 +424,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
   },
-  counts: { gap: 8 },
-  countRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  bullet: { width: 6, height: 6, borderRadius: 3 },
-  countText: { fontSize: 14, fontFamily: "Inter_500Medium", flexShrink: 1, lineHeight: 20 },
-  notes: { gap: 8 },
-  noteRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  noteText: { fontSize: 13, fontFamily: "Inter_400Regular", flexShrink: 1, lineHeight: 19 },
 });

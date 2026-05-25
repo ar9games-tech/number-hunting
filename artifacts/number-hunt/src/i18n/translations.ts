@@ -190,17 +190,40 @@ export type TranslationKey =
   | "howto.title"
   | "howto.goal"
   | "howto.goalText"
-  | "howto.feedback"
-  | "howto.feedbackText"
-  | "howto.examples"
+  | "howto.gameplay.title"
+  | "howto.gameplay.b1"
+  | "howto.gameplay.b2"
+  | "howto.gameplay.b3"
+  | "howto.hints.title"
+  | "howto.hints.intro"
+  | "howto.hints.low"
+  | "howto.hints.high"
+  | "howto.hints.tooLow"
+  | "howto.hints.tooHigh"
+  | "howto.hints.rulesTitle"
+  | "howto.hints.d2"
+  | "howto.hints.d3"
+  | "howto.hints.d4"
+  | "howto.hints.correctCount"
+  | "howto.example.title"
+  | "howto.example.correctLabel"
+  | "howto.example.guessLabel"
+  | "howto.example.feedbackLabel"
+  | "howto.example.feedbackBody"
+  | "howto.example.note"
+  | "howto.win.title"
+  | "howto.win.body"
   | "howto.solo"
-  | "howto.soloText"
+  | "howto.solo.b1"
+  | "howto.solo.b2"
+  | "howto.solo.b3"
   | "howto.mp"
-  | "howto.mpText"
+  | "howto.mp.b1"
+  | "howto.mp.b2"
+  | "howto.mp.b3"
   | "howto.pun.section"
   | "howto.pun.intro"
   | "howto.pun.byCount"
-  | "howto.pun.count2"
   | "howto.pun.count3"
   | "howto.pun.count4"
   | "howto.pun.cardsHeader"
@@ -212,11 +235,13 @@ export type TranslationKey =
   | "howto.pun.vote.body"
   | "howto.pun.chooseAnother.title"
   | "howto.pun.chooseAnother.body"
-  | "howto.pun.notesHeader"
-  | "howto.pun.note1"
-  | "howto.pun.note2"
-  | "howto.pun.note3"
-  | "howto.pun.note4"
+  | "howto.pun.selection.title"
+  | "howto.pun.selection.b1"
+  | "howto.pun.selection.b2"
+  | "howto.important.title"
+  | "howto.important.b1"
+  | "howto.important.b2"
+  | "howto.important.b3"
   // Feedback labels
   | "fb.correct"
   | "fb.tooHigh"
@@ -601,42 +626,85 @@ const en: Record<TranslationKey, string> = {
   "reactions.textSection": "Quick text",
 
   "howto.title": "How to Play",
-  "howto.goal": "The goal",
-  "howto.goalText":
-    "A hidden number is chosen with the length you select (2, 3, or 4 digits). Crack it in as few guesses — and as fast — as you can.",
-  "howto.feedback": "Feedback",
-  "howto.feedbackText":
-    "Each guess is rated by how far it is from the hidden number:\n\n• Within range → \"Low\" or \"High\"\n• Far away → \"Too Low\" or \"Too High\"\n• Exact match → \"Correct!\"\n\nRange depends on difficulty: 2-digit ±10, 3-digit ±50, 4-digit ±200. For 3 and 4-digit modes you'll also see how many of your digits appear in the hidden number — but never which ones or where.",
-  "howto.examples": "Examples",
+  "howto.goal": "Goal",
+  "howto.goalText": "Guess the hidden number before the other players.",
+
+  "howto.gameplay.title": "Gameplay",
+  "howto.gameplay.b1": "The system picks a hidden number.",
+  "howto.gameplay.b2": "Players take turns guessing.",
+  "howto.gameplay.b3":
+    "After each guess, you get hints to help you reach the correct number.",
+
+  "howto.hints.title": "Hints",
+  "howto.hints.intro": "After each guess, the game tells you one of:",
+  "howto.hints.low": "Low",
+  "howto.hints.high": "High",
+  "howto.hints.tooLow": "Too Low",
+  "howto.hints.tooHigh": "Too High",
+
+  "howto.hints.rulesTitle": "How verdicts work",
+  "howto.hints.d2":
+    "2 digits — difference of 10 or less → High / Low. More than 10 → Too High / Too Low.",
+  "howto.hints.d3":
+    "3 digits — difference of 50 or less → High / Low. More than 50 → Too High / Too Low.",
+  "howto.hints.d4":
+    "4 digits — difference of 200 or less → High / Low. More than 200 → Too High / Too Low.",
+  "howto.hints.correctCount":
+    "The game also shows how many digits in your guess match the hidden number — but never which ones or where.",
+
+  "howto.example.title": "Example",
+  "howto.example.correctLabel": "Hidden number",
+  "howto.example.guessLabel": "Your guess",
+  "howto.example.feedbackLabel": "Feedback",
+  "howto.example.feedbackBody":
+    "High or Low depending on the number, plus “2 correct digits”.",
+  "howto.example.note":
+    "You see how many digits are correct, but not where. Figuring out the order is up to you.",
+
+  "howto.win.title": "How to win",
+  "howto.win.body":
+    "The first player to guess the full correct number wins the round.",
+
   "howto.solo": "Solo Mode",
-  "howto.soloText":
-    "A timer starts as soon as the round begins. There is no guess limit — beat your best time and earn a record.",
-  "howto.mp": "Multiplayer Mode",
-  "howto.mpText":
-    "Create a room and share the code. Once your friend joins, both of you race privately to guess the same server-chosen number. You only see your own guesses and feedback — the first to crack it wins.",
+  "howto.solo.b1": "Play against the system.",
+  "howto.solo.b2": "Unlimited guesses.",
+  "howto.solo.b3": "Try to beat your best time.",
+
+  "howto.mp": "Online Mode",
+  "howto.mp.b1": "Play against real players.",
+  "howto.mp.b2": "Gameplay is turn-based.",
+  "howto.mp.b3": "You can only guess during your turn.",
+
   "howto.pun.section": "Punishments",
   "howto.pun.intro":
-    "Punishments are available only in sessions with 3 or more players.",
+    "Punishments appear only in rooms with 3 or more players.",
   "howto.pun.byCount": "Available by player count",
-  "howto.pun.count2": "2 players: no punishments",
-  "howto.pun.count3": "3 players: Final Elimination, Forgiveness, Choose Another Player",
-  "howto.pun.count4": "4+ players: Final Elimination, Forgiveness, Vote, Choose Another Player",
+  "howto.pun.count3":
+    "3 players: Final Elimination, Forgiveness, Choose Another Player",
+  "howto.pun.count4":
+    "4+ players: Final Elimination, Forgiveness, Vote, Choose Another Player",
   "howto.pun.cardsHeader": "Punishment explanations",
   "howto.pun.directElim.title": "Final Elimination",
   "howto.pun.directElim.body": "The player is removed immediately.",
   "howto.pun.forgive.title": "Forgiveness",
-  "howto.pun.forgive.body": "The player is forgiven and the next round starts.",
+  "howto.pun.forgive.body":
+    "The player is forgiven and the next round starts.",
   "howto.pun.vote.title": "Vote",
   "howto.pun.vote.body":
-    "Players vote on whether the punished player should stay or be eliminated.",
+    "Players vote on whether the punished player stays or is eliminated.",
   "howto.pun.chooseAnother.title": "Choose Another Player",
   "howto.pun.chooseAnother.body":
-    "The punished player chooses another player to receive the punishment instead, then presses the Punishment button to reveal a new punishment.",
-  "howto.pun.notesHeader": "Notes",
-  "howto.pun.note1": "Punishments appear only after a match ends.",
-  "howto.pun.note2": "Only the winner can start a punishment.",
-  "howto.pun.note3": "Random Match does not include punishments.",
-  "howto.pun.note4": "Next rounds start automatically depending on punishment results.",
+    "The punished player picks someone else to take the punishment instead, then presses the Punishment button to reveal a new punishment.",
+
+  "howto.pun.selection.title": "How a punishment is chosen",
+  "howto.pun.selection.b1":
+    "After a round ends, the winner picks which player will be punished.",
+  "howto.pun.selection.b2": "Then a random punishment is drawn for that player.",
+
+  "howto.important.title": "Important",
+  "howto.important.b1": "Random Match has no punishments.",
+  "howto.important.b2": "Next rounds start automatically.",
+  "howto.important.b3": "You can send reactions during matches.",
 
   "fb.correct": "Correct!",
   "fb.tooHigh": "Too High",
@@ -1050,42 +1118,83 @@ const ar: Record<TranslationKey, string> = {
   "reactions.emojiSection": "إيموجي",
   "reactions.textSection": "ردود سريعة",
 
-  "howto.title": "طريقة اللعب",
-  "howto.goal": "الهدف",
-  "howto.goalText":
-    "يتم اختيار رقم مخفي بالطول الذي تختاره (2 أو 3 أو 4 خانات). حاول كشفه بأقل عدد من التخمينات وبأسرع وقت ممكن.",
-  "howto.feedback": "التغذية الراجعة",
-  "howto.feedbackText":
-    "يتم تقييم كل تخمين بحسب مدى بعده عن الرقم المخفي:\n\n• ضمن النطاق → \"منخفض\" أو \"مرتفع\"\n• بعيد جداً → \"منخفض جداً\" أو \"مرتفع جداً\"\n• مطابقة تامة → \"صحيح!\"\n\nالنطاق يعتمد على الصعوبة: خانتان ±10، ثلاث ±50، أربع ±200. في وضعَي 3 و4 خانات، يظهر أيضاً عدد الأرقام الصحيحة دون مواقعها.",
-  "howto.examples": "أمثلة",
-  "howto.solo": "الوضع الفردي",
-  "howto.soloText":
-    "يبدأ العداد بمجرد بدء الجولة. لا يوجد حد للتخمينات — اكسر أفضل وقت لك واحصل على سجل.",
-  "howto.mp": "وضع متعدد اللاعبين",
-  "howto.mpText":
-    "أنشئ غرفة وشارك الرمز. عندما ينضم صديقك، يتسابق كل منكما بشكل خاص لتخمين الرقم نفسه الذي يختاره الخادم. ترى فقط تخميناتك وتغذيتك الراجعة — والأسرع في كشفه يفوز.",
-  "howto.pun.section": "العقابات",
-  "howto.pun.intro":
-    "العقابات تتوفر فقط في الجلسات التي تحتوي على 3 لاعبين أو أكثر.",
+  "howto.title": "كيف تلعب؟",
+  "howto.goal": "هدف اللعبة",
+  "howto.goalText": "قم بتخمين الرقم الصحيح قبل باقي اللاعبين.",
+
+  "howto.gameplay.title": "طريقة اللعب",
+  "howto.gameplay.b1": "يقوم النظام باختيار رقم مخفي.",
+  "howto.gameplay.b2": "كل لاعب يحاول تخمين الرقم أثناء دوره.",
+  "howto.gameplay.b3":
+    "بعد كل محاولة ستحصل على تلميحات تساعدك للوصول إلى الرقم الصحيح.",
+
+  "howto.hints.title": "التلميحات",
+  "howto.hints.intro": "بعد كتابة الرقم سيظهر لك:",
+  "howto.hints.low": "منخفض",
+  "howto.hints.high": "مرتفع",
+  "howto.hints.tooLow": "منخفض جداً",
+  "howto.hints.tooHigh": "مرتفع جداً",
+
+  "howto.hints.rulesTitle": "شرح التلميحات",
+  "howto.hints.d2":
+    "في خانتين: إذا كان الفرق ١٠ أو أقل → مرتفع / منخفض. وإذا كان أكبر من ١٠ → مرتفع جداً / منخفض جداً.",
+  "howto.hints.d3":
+    "في ثلاث خانات: إذا كان الفرق ٥٠ أو أقل → مرتفع / منخفض. وإذا كان أكبر من ٥٠ → مرتفع جداً / منخفض جداً.",
+  "howto.hints.d4":
+    "في أربع خانات: إذا كان الفرق ٢٠٠ أو أقل → مرتفع / منخفض. وإذا كان أكبر من ٢٠٠ → مرتفع جداً / منخفض جداً.",
+  "howto.hints.correctCount":
+    "اللعبة توضح لك أيضاً كم رقم صحيح موجود داخل تخمينك، لكنها لا توضح أماكن الأرقام الصحيحة — عليك اكتشاف الترتيب بنفسك.",
+
+  "howto.example.title": "مثال",
+  "howto.example.correctLabel": "الرقم الصحيح",
+  "howto.example.guessLabel": "تخمينك",
+  "howto.example.feedbackLabel": "النتيجة",
+  "howto.example.feedbackBody":
+    "مرتفع أو منخفض حسب الرقم، مع ظهور: «رقمان صحيحان».",
+  "howto.example.note":
+    "ترى عدد الأرقام الصحيحة، لكن لا ترى مواقعها. عليك اكتشاف الترتيب الصحيح بنفسك.",
+
+  "howto.win.title": "طريقة الفوز",
+  "howto.win.body": "أول لاعب يكتب الرقم الصحيح بالكامل يفوز بالجولة.",
+
+  "howto.solo": "اللعب الفردي",
+  "howto.solo.b1": "تلعب ضد النظام.",
+  "howto.solo.b2": "لا يوجد حد للمحاولات.",
+  "howto.solo.b3": "حاول تحقيق أفضل وقت.",
+
+  "howto.mp": "الأون لاين",
+  "howto.mp.b1": "تلعب ضد لاعبين حقيقيين.",
+  "howto.mp.b2": "اللعب يكون بالأدوار.",
+  "howto.mp.b3": "لا يمكنك التخمين إلا عندما يأتي دورك.",
+
+  "howto.pun.section": "العقوبات",
+  "howto.pun.intro": "العقوبات تظهر فقط إذا كان عدد اللاعبين ٣ أو أكثر.",
   "howto.pun.byCount": "المتاح حسب عدد اللاعبين",
-  "howto.pun.count2": "لاعبان: لا توجد عقابات",
-  "howto.pun.count3": "ثلاثة لاعبين: خروج نهائي، سماح، اختيار لاعب آخر للعقاب",
-  "howto.pun.count4": "أربعة لاعبين فأكثر: خروج نهائي، سماح، تصويت، اختيار لاعب آخر للعقاب",
-  "howto.pun.cardsHeader": "شرح العقابات",
+  "howto.pun.count3":
+    "٣ لاعبين: خروج نهائي، سماح، اختيار لاعب آخر للعقاب",
+  "howto.pun.count4":
+    "٤ لاعبين أو أكثر: خروج نهائي، سماح، تصويت، اختيار لاعب آخر للعقاب",
+  "howto.pun.cardsHeader": "شرح العقوبات",
   "howto.pun.directElim.title": "خروج نهائي",
   "howto.pun.directElim.body": "خروج اللاعب مباشرة.",
   "howto.pun.forgive.title": "سماح",
   "howto.pun.forgive.body": "تتم مسامحة اللاعب وتبدأ الجولة التالية.",
   "howto.pun.vote.title": "تصويت",
-  "howto.pun.vote.body": "يقوم اللاعبون بالتصويت على خروج اللاعب المعاقَب أو بقائه.",
+  "howto.pun.vote.body":
+    "يقوم اللاعبون بالتصويت على خروج اللاعب المعاقَب أو بقائه.",
   "howto.pun.chooseAnother.title": "اختيار لاعب آخر للعقاب",
   "howto.pun.chooseAnother.body":
     "اللاعب المعاقَب يختار لاعبًا آخر ليأخذ العقاب بدلًا منه، ثم يضغط زر العقاب لإظهار عقاب جديد.",
-  "howto.pun.notesHeader": "ملاحظات",
-  "howto.pun.note1": "العقابات تظهر فقط بعد نهاية المباراة.",
-  "howto.pun.note2": "الفائز فقط يستطيع بدء العقاب.",
-  "howto.pun.note3": "اللعب العشوائي لا يحتوي على عقابات.",
-  "howto.pun.note4": "الجولات التالية تبدأ تلقائيًا حسب نتيجة العقاب.",
+
+  "howto.pun.selection.title": "طريقة اختيار العقوبة",
+  "howto.pun.selection.b1":
+    "بعد نهاية الجولة، الفائز هو من يختار اللاعب الذي سيتم معاقبته.",
+  "howto.pun.selection.b2": "ثم يتم سحب عقوبة عشوائية لهذا اللاعب.",
+
+  "howto.important.title": "معلومات مهمة",
+  "howto.important.b1": "اللعب العشوائي لا يحتوي على عقوبات.",
+  "howto.important.b2": "الجولات التالية تبدأ تلقائيًا.",
+  "howto.important.b3": "يمكنك إرسال رأكشنات أثناء اللعب.",
 
   "fb.correct": "صحيح!",
   "fb.tooHigh": "مرتفع جداً",
