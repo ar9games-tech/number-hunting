@@ -53,6 +53,7 @@ import {
 import { peekPendingRandomMatch } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import type { Digits } from "@/src/utils/gameLogic";
+import { resetToOnlineLobby } from "@/src/utils/nav";
 import { formatTime } from "@/src/utils/scoring";
 
 export default function ResultScreen() {
@@ -731,11 +732,21 @@ export default function ResultScreen() {
                 fullWidth
                 variant="ghost"
                 onPress={() => {
+                  // Tear down the socket subscription + cached room
+                  // state for this code (clears game / punishment /
+                  // winner / listeners). Local component state for
+                  // the result screen + punishment modal is dropped
+                  // automatically when this screen unmounts below.
                   if (code) leaveRoom(code);
                   // Drop the random-match flag so a stale value from
                   // this round can't influence the next screen.
                   void clearPendingRandomMatch();
-                  router.replace("/lobby");
+                  // Reset the stack so a single Back press from the
+                  // Online Multiplayer lobby returns straight to Home
+                  // — no matter how the user reached this room
+                  // (Create Room, Join Room, Random Match, or the
+                  // punishment flow).
+                  resetToOnlineLobby();
                 }}
               />
             </>

@@ -36,6 +36,7 @@ import { setGameplayActive } from "@/src/services/ads";
 import { formatPlayerIdentity } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { isValidGuess, normalizeDigits } from "@/src/utils/gameLogic";
+import { resetToOnlineLobby } from "@/src/utils/nav";
 
 /** Safety fallback only — the lock is normally released as soon as the
  *  server acknowledges the guess by extending the player's history. */
@@ -466,8 +467,12 @@ export default function RoomScreen() {
       rightSlot={
         <Pressable
           onPress={() => {
+            // Tear down the socket subscription + cached room state,
+            // then reset the navigation stack so a single Back press
+            // from the lobby returns to Home (instead of walking back
+            // through Create/Join/Room).
             leaveRoom(state.code);
-            router.replace("/lobby");
+            resetToOnlineLobby();
           }}
           hitSlop={12}
           accessibilityLabel={t("room.leave")}
