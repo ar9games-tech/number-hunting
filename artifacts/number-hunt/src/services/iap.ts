@@ -50,6 +50,7 @@ import React, {
 } from "react";
 import { Alert } from "react-native";
 
+import { setAdsRemovedStatus } from "@/src/services/adManager";
 import {
   getAdsRemoved,
   setAdsRemoved as persistAdsRemoved,
@@ -96,6 +97,7 @@ export function AdsRemovedProvider({ children }: { children: React.ReactNode }) 
       const v = await getAdsRemoved();
       if (!cancelled) {
         setAdsRemovedState(v);
+        setAdsRemovedStatus(v);
         setLoading(false);
       }
     })();
@@ -151,6 +153,10 @@ export function AdsRemovedProvider({ children }: { children: React.ReactNode }) 
         return false;
       }
       setAdsRemovedState(true);
+      // Notify the ad manager synchronously so any visible banner hides
+      // on the next render and no further interstitial is ever shown
+      // for this user — even before they navigate away from Settings.
+      setAdsRemovedStatus(true);
       return true;
     } catch (err) {
       // In production: differentiate user-cancel from real errors and only

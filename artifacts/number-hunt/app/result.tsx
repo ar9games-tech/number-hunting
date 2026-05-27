@@ -41,6 +41,10 @@ import {
   type VoteView,
 } from "@/src/net/socketPlaceholder";
 import {
+  incrementMatchCount,
+  showInterstitialIfAllowed,
+} from "@/src/services/adManager";
+import {
   clearPendingRandomMatch,
   consumePendingRandomMatch,
   consumePendingUnlocks,
@@ -408,6 +412,27 @@ export default function ResultScreen() {
         setUnlocks((prev) => Array.from(new Set([...prev, ...queued])));
       }
     });
+
+    // AdMob interstitial pacing. Every completed match (solo finish OR
+    // online resolution — win or loss) bumps the persisted counter, and
+    // when (count % N === 0) we show an interstitial. Delayed by 1.2s so
+    // the result UI lands first. CRITICAL: the timer is cancelled on
+    // unmount and gated by an `unmounted` flag so the interstitial can
+    // NEVER fire after the user has navigated away from /result (e.g.
+    // tapped Rematch / Leave Room / Play Again). Without this guard the
+    // ad could appear mid-game, which violates AdMob policy and our
+    // own product spec. Failure inside showInterstitialIfAllowed is
+    // swallowed by the manager so it can't crash the screen.
+    let unmounted = false;
+    const adTimer = setTimeout(() => {
+      if (unmounted) return;
+      void showInterstitialIfAllowed();
+    }, 1200);
+    void incrementMatchCount();
+    return () => {
+      unmounted = true;
+      clearTimeout(adTimer);
+    };
 
   }, [isOnline, youWon, digits, guesses, showVictory]);
 

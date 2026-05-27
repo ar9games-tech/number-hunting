@@ -26,7 +26,7 @@ _Populate as you build — short repo map plus pointers to the source-of-truth f
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **AdMob (mobile only).** `react-native-google-mobile-ads` is loaded via Metro platform extensions (`adManager.ts` for native, `adManager.web.ts` no-op for web) so the web bundle never imports the native module. Banners (`AdBanner.tsx` / `AdBanner.web.tsx`) only render on `Home`, `Online lobby`, and `Settings` — never during gameplay. Interstitial fires after every 3rd completed match with a 90 s cooldown, and the manager respects the `adsRemoved` IAP entitlement synchronously so a purchase hides ads on the next render. iOS App ID and unit IDs are in `src/config/admob.ts`; in `__DEV__` builds the manager substitutes Google's official test ad units so production policy can't be breached during testing. Requires an EAS development build or TestFlight build — Expo Go does not include the native AdMob module (the manager degrades gracefully if missing).
 
 ## Product
 

@@ -1,0 +1,158 @@
+Integrate Google AdMob ads into my React Native + Expo game “Number Hunting” and make it ready for iOS production/TestFlight.
+
+AdMob IDs:
+
+iOS AdMob App ID:
+ca-app-pub-4297621843674461~2950412213
+
+iOS Banner Ad Unit ID:
+ca-app-pub-4297621843674461/7436452133
+
+iOS Interstitial Ad Unit ID:
+ca-app-pub-4297621843674461/3634149948
+
+Important:
+- These IDs are for iOS.
+- If Android IDs are not available, use Google test IDs for Android until real Android IDs are provided.
+
+Package:
+Use:
+react-native-google-mobile-ads
+
+Do NOT use Expo Go for testing ads.
+Ads must be configured for:
+- Development Build
+- TestFlight
+- Production Build
+
+1. Install and configure SDK:
+- Install react-native-google-mobile-ads.
+- Configure the Google Mobile Ads SDK correctly.
+- Initialize Mobile Ads when the app starts.
+- Add safe try/catch so the app never crashes if ads fail.
+
+2. Configure app.json / app.config.js:
+Add the AdMob iOS App ID:
+ca-app-pub-4297621843674461~2950412213
+
+Configure:
+- react-native-google-mobile-ads plugin
+- iOS App ID
+- Android test App ID if Android production ID is missing
+
+3. Create config file:
+Create:
+src/config/admob.js
+
+Include:
+- IOS_ADMOB_APP_ID = "ca-app-pub-4297621843674461~2950412213"
+- IOS_BANNER_ID = "ca-app-pub-4297621843674461/7436452133"
+- IOS_INTERSTITIAL_ID = "ca-app-pub-4297621843674461/3634149948"
+- ANDROID_BANNER_ID = test banner ID
+- ANDROID_INTERSTITIAL_ID = test interstitial ID
+- USE_TEST_ADS_IN_DEV = true
+
+Use Google official test ad unit IDs in development mode.
+
+4. Banner Ads:
+Show banner ads only on:
+- Home screen
+- Online Multiplayer menu
+- Settings screen if layout allows
+
+Do NOT show banner ads during:
+- Solo gameplay
+- Online gameplay
+- Random Match gameplay
+- Winner screen
+- Punishment screen
+- Input/keypad screens
+
+Banner rules:
+- Place banner at bottom safely.
+- Respect SafeAreaView.
+- Do not cover buttons.
+- Do not push or hide the numeric keypad.
+- Hide banner completely if adsRemoved = true.
+
+5. Interstitial Ads:
+Show interstitial ads only:
+- After a match/session ends
+- Not during active gameplay
+- Not immediately on app launch
+
+Frequency:
+- Show interstitial every 3 completed matches only.
+- Add cooldown so ads are not annoying.
+- Do not show if adsRemoved = true.
+- Do not show in the middle of turn-based gameplay.
+
+6. Remove Ads support:
+If adsRemoved === true:
+- Hide all banner ads.
+- Do not load/show interstitial ads.
+- Keep Remove Ads purchase button unchanged.
+
+7. App Store safety:
+- Ads must not block navigation.
+- Ads must not appear too close to buttons.
+- Ads must not interrupt gameplay.
+- Ads must not show before the user interacts with the app.
+- Ads must not cause layout overflow on small screens.
+
+8. Files/components to add:
+- src/config/admob.js
+- src/services/adManager.js
+- src/components/AdBanner.js
+
+adManager.js should include:
+- initializeAds()
+- loadInterstitial()
+- showInterstitialIfAllowed()
+- incrementMatchCount()
+- canShowAds()
+- setAdsRemovedStatus()
+
+9. Error handling:
+Add logs:
+- “AdMob initialized”
+- “Banner loaded”
+- “Banner failed”
+- “Interstitial loaded”
+- “Interstitial failed”
+- “Interstitial shown”
+- “Interstitial closed”
+- “Ads disabled because adsRemoved is true”
+
+If ads fail to load:
+- Do not crash.
+- Continue app normally.
+
+10. Development vs production:
+- In development mode, use Google test ads.
+- In production/TestFlight, use my real iOS IDs.
+- Add comments explaining where to replace Android IDs later.
+
+11. Important layout fix:
+- Make sure ads never hide the keypad.
+- Numeric keypad must remain fixed and visible.
+- On small devices, banners should not break layout.
+
+12. README:
+Update README with:
+- AdMob setup notes
+- Explanation that ads do not work in Expo Go
+- Need to test using Development Build or TestFlight
+- Where the AdMob IDs are stored
+- How to disable ads using adsRemoved flag
+
+Keep all existing gameplay features unchanged.
+Do not break:
+- Solo Mode
+- Online Multiplayer
+- Random Match
+- Turn-based gameplay
+- Punishments
+- Reactions
+- Profile
+- Arabic/English support

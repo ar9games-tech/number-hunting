@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SettingsProvider, useSettings } from "@/src/contexts/SettingsContext";
+import { initializeAds } from "@/src/services/adManager";
 import { AdsRemovedProvider } from "@/src/services/iap";
 
 SplashScreen.preventAutoHideAsync();
@@ -58,6 +59,14 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  // Initialize AdMob once at app boot. The native implementation hydrates
+  // the adsRemoved entitlement cache and warms an interstitial; the web
+  // stub is a no-op so the Replit preview is unaffected. Wrapped in a
+  // try/catch via the manager itself — never blocks the UI.
+  useEffect(() => {
+    void initializeAds();
+  }, []);
 
   if (!fontsLoaded && !fontError) return null;
 

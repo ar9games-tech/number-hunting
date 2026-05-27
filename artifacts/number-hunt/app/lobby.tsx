@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { AdBanner } from "@/src/components/AdBanner";
 import { Button } from "@/src/components/Button";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
@@ -358,6 +359,10 @@ export default function MultiplayerLobbyScreen() {
           {t("lobby.note")}
         </Text>
       </ScrollView>
+      {/* Banner ad anchored to the bottom of the Online lobby (matchmaking
+          menu). Hidden for Remove-Ads buyers. Never appears once a match
+          starts — /room and /solo don't render this. */}
+      <AdBanner />
 
       {/* Searching modal — stays up until either a match is found (auto
           navigates to /room) or the user taps Cancel Search. */}

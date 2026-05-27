@@ -20,6 +20,33 @@ const PENDING_UNLOCKS_KEY = "number-hunt:pending-unlocks:v1";
 // Settings object, so `resetAll()` (or a future "reset settings" gesture)
 // cannot wipe a legitimate paid entitlement. See src/services/iap.ts.
 const ADS_REMOVED_KEY = "number-hunt:ads-removed:v1";
+// Persisted counter of completed matches (solo win OR online resolution).
+// Drives interstitial pacing in src/services/adManager.ts. Survives app
+// restarts so the cadence (every Nth match) is consistent across sessions.
+const MATCH_COUNT_KEY = "number-hunt:match-count:v1";
+
+/** Returns the total number of completed matches recorded so far. */
+export async function getMatchCount(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(MATCH_COUNT_KEY);
+    const n = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Atomically increments and returns the new match count. Best-effort. */
+export async function incrementMatchCount(): Promise<number> {
+  try {
+    const cur = await getMatchCount();
+    const next = cur + 1;
+    await AsyncStorage.setItem(MATCH_COUNT_KEY, String(next));
+    return next;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * Returns true if the user has purchased (or restored) the Remove Ads

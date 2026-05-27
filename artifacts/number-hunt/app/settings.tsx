@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { AdBanner } from "@/src/components/AdBanner";
 import { RemoveAdsCard } from "@/src/components/RemoveAdsCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
@@ -119,6 +120,9 @@ export default function SettingsScreen() {
           {t("settings.note")}
         </Text>
       </ScrollView>
+      {/* Banner ad anchored to the bottom of Settings. Auto-hides for
+          users who have purchased Remove Ads. */}
+      <AdBanner bottomInset={Platform.OS === "web" ? 0 : insets.bottom} />
     </View>
   );
 }

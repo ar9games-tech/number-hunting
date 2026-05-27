@@ -6,6 +6,7 @@ import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-nat
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { AdBanner } from "@/src/components/AdBanner";
 import { Button } from "@/src/components/Button";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
@@ -216,6 +217,11 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
       </View>
+      {/* Banner ad anchored to the bottom of the Home screen. Hidden when
+          the user has purchased Remove Ads, when running on web, or when
+          the native AdMob module is unavailable (e.g. Expo Go). Never
+          shown during gameplay screens. */}
+      <AdBanner bottomInset={Platform.OS === "web" ? 0 : insets.bottom} />
     </View>
   );
 }
