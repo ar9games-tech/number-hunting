@@ -23,7 +23,7 @@ Production assumptions for this scan: `NODE_ENV=production`, the deployment is p
 
 ## Scan Anchors
 
-- **Production entry points:** `artifacts/api-server/src/index.ts`, `artifacts/api-server/src/app.ts`, `artifacts/api-server/src/ws/game.ts`, `artifacts/api-server/src/routes/*.ts`
+- **Production entry points:** `artifacts/api-server/src/index.ts`, `artifacts/api-server/src/app.ts`, `artifacts/api-server/src/ws/game.ts`, `artifacts/api-server/src/routes/*.ts`, `artifacts/number-hunt/server/serve.js`
 - **Highest-risk area:** `artifacts/api-server/src/ws/game.ts` because it implements the public unauthenticated realtime protocol and owns all room state.
 - **Public surfaces:** `GET /api/healthz`, WebSocket upgrades to `/api/ws`, static/mobile client delivery from `artifacts/number-hunt`.
 - **Authenticated/admin surfaces:** none currently evident in production.
@@ -45,7 +45,7 @@ Private rooms rely on room codes as their access control mechanism. The system m
 
 ### Denial of Service
 
-The server stores room state, subscriptions, timers, and matchmaking state in process memory with no authentication barrier. It must bound how much memory, CPU, and timer state a single unauthenticated client can allocate, and it must rate-limit or otherwise constrain brute-force and spam traffic on the WebSocket protocol.
+The server stores room state, subscriptions, timers, and matchmaking state in process memory with no authentication barrier. It must bound how much memory, CPU, connection state, and timer state a single unauthenticated client can allocate, and it must rate-limit or otherwise constrain brute-force and spam traffic on the WebSocket protocol. Controls that protect private rooms or availability must survive reconnects and parallel socket churn rather than being scoped only to one transient connection object.
 
 ### Elevation of Privilege
 
