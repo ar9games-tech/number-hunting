@@ -388,29 +388,95 @@ const socketIdentity = new WeakMap<WebSocket, Identity>();
 const socketIds = new WeakMap<WebSocket, string>();
 
 // ---------------------------------------------------------------------------
-// Per-socket rate limiting for room-probing messages (getRoom + join).
-// Caps how fast an unauthenticated connection can use the server as an
-// existence oracle to enumerate private room codes.
+// Per-socket AND per-IP rate limiting for room-probing messages
+// (getRoom + join). The per-socket limit alone is bypassable by opening
+// many parallel sockets; the per-IP limit closes that vector.
 // ---------------------------------------------------------------------------
 const PROBE_RATE_LIMIT = 15;
 const PROBE_RATE_WINDOW_MS = 60_000;
 const socketProbes = new WeakMap<WebSocket, number[]>();
 
-function checkProbeRateLimit(ws: WebSocket): boolean {
-  const now = Date.now();
-  let ts = socketProbes.get(ws);
-  if (!ts) {
-    ts = [];
-    socketProbes.set(ws, ts);
+// IP-level probe budget: more permissive than per-socket to accommodate
+// legitimate shared-NAT users, but still tight enough to be meaningful.
+const IP_PROBE_RATE_LIMIT = 60;
+const ipProbes = new Map<string, number[]>();
+
+// Periodically evict stale IP probe windows so the Map doesn't grow forever.
+setInterval(() => {
+  const cutoff = Date.now() - PROBE_RATE_WINDOW_MS;
+  for (const [ip, ts] of ipProbes) {
+    const recent = ts.filter((t) => t >= cutoff);
+    if (recent.length === 0) ipProbes.delete(ip);
+    else ipProbes.set(ip, recent);
   }
+}, PROBE_RATE_WINDOW_MS).unref?.();
+
+// Associates each WebSocket with the client IP captured at upgrade time.
+const socketIp = new WeakMap<WebSocket, string>();
+
+function slidingWindow(ts: number[], now: number): void {
   const cutoff = now - PROBE_RATE_WINDOW_MS;
-  // Slide the window forward.
   let i = 0;
   while (i < ts.length && ts[i]! < cutoff) i++;
   if (i > 0) ts.splice(0, i);
-  if (ts.length >= PROBE_RATE_LIMIT) return false;
-  ts.push(now);
+}
+
+function checkProbeRateLimit(ws: WebSocket): boolean {
+  const now = Date.now();
+
+  // Per-socket check.
+  let sts = socketProbes.get(ws);
+  if (!sts) {
+    sts = [];
+    socketProbes.set(ws, sts);
+  }
+  slidingWindow(sts, now);
+  if (sts.length >= PROBE_RATE_LIMIT) return false;
+
+  // Per-IP check.
+  const ip = socketIp.get(ws) ?? "unknown";
+  let its = ipProbes.get(ip);
+  if (!its) {
+    its = [];
+    ipProbes.set(ip, its);
+  }
+  slidingWindow(its, now);
+  if (its.length >= IP_PROBE_RATE_LIMIT) return false;
+
+  // Both checks passed — record the attempt in both windows.
+  sts.push(now);
+  its.push(now);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Connection admission control — cap total connections and per-IP connections
+// to limit denial-of-service via socket exhaustion.
+// ---------------------------------------------------------------------------
+const MAX_TOTAL_CONNECTIONS = 500;
+const MAX_CONNECTIONS_PER_IP = 10;
+
+let totalConnections = 0;
+const ipConnectionCount = new Map<string, number>();
+
+// Check-only — does not mutate state. Used for the pre-upgrade rejection gate.
+function connectionLimitsExceeded(ip: string): boolean {
+  if (totalConnections >= MAX_TOTAL_CONNECTIONS) return true;
+  const current = ipConnectionCount.get(ip) ?? 0;
+  return current >= MAX_CONNECTIONS_PER_IP;
+}
+
+// Claim a slot — call only after the WebSocket handshake succeeds so that
+// every increment is guaranteed to have a paired decrement in the close handler.
+function claimConnection(ip: string): void {
+  totalConnections++;
+  ipConnectionCount.set(ip, (ipConnectionCount.get(ip) ?? 0) + 1);
+}
+
+function decrementIpConnections(ip: string): void {
+  const current = ipConnectionCount.get(ip) ?? 0;
+  if (current <= 1) ipConnectionCount.delete(ip);
+  else ipConnectionCount.set(ip, current - 1);
 }
 
 // Helper: returns true if the given WebSocket is a confirmed member of `code`.
@@ -1127,6 +1193,19 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
           });
           logger.warn({ code }, "ws: join rejected — room full");
           return;
+        }
+        // All checks passed — now safe to eject from the previous room. We
+        // defer this cleanup until here so that a failed join (room not found,
+        // full, already started) never silently removes the player from the
+        // room they were legitimately in.
+        const prevJoinIdentity = socketIdentity.get(ws);
+        if (prevJoinIdentity && prevJoinIdentity.code !== code) {
+          removePlayer(
+            ws,
+            prevJoinIdentity.code,
+            prevJoinIdentity.socketId,
+            "join new room",
+          );
         }
         room.players.push({
           socketId: playerId,
@@ -2013,7 +2092,28 @@ export function attachGameWs(server: Server) {
     try {
       const url = req.url ?? "";
       if (!url.startsWith("/api/ws")) return;
+
+      // Pre-flight admission check: reject before allocating any WebSocket
+      // resources. The counters are NOT incremented here — only inside the
+      // successful handleUpgrade callback — so a flood of malformed upgrade
+      // requests cannot permanently exhaust the quota.
+      const clientIp = req.socket.remoteAddress ?? "unknown";
+
+      if (connectionLimitsExceeded(clientIp)) {
+        logger.warn(
+          { clientIp, totalConnections },
+          "ws: upgrade rejected — connection cap reached",
+        );
+        socket.destroy();
+        return;
+      }
+
       wss.handleUpgrade(req, socket, head, (ws) => {
+        // Claim the slot only after the handshake succeeds. Every claimConnection
+        // call here is guaranteed to have a paired decrementIpConnections call in
+        // the close handler, so the counters cannot drift on handshake failures.
+        claimConnection(clientIp);
+        socketIp.set(ws, clientIp);
         wss.emit("connection", ws, req);
       });
     } catch (err) {
@@ -2061,6 +2161,11 @@ export function attachGameWs(server: Server) {
 
     ws.on("close", () => {
       clearInterval(heartbeat);
+      // Decrement the connection counters that were incremented at upgrade
+      // time so the admission-control caps stay accurate.
+      totalConnections = Math.max(0, totalConnections - 1);
+      const ip = socketIp.get(ws);
+      if (ip) decrementIpConnections(ip);
       // Always drop a disconnecting socket from the random matchmaking
       // queue so it can't be paired with a peer that's already gone.
       removeFromRandomQueue(ws);
