@@ -312,6 +312,29 @@ export default function HowToPlayScreen() {
           />
         </Card>
 
+        {/* Redirect rule */}
+        <Card tint={PUNISHMENT_PURPLE}>
+          <CardHead
+            icon="info"
+            title={t("howto.pun.redirect.title")}
+            tint={PUNISHMENT_PURPLE}
+          />
+          <BodyText text={t("howto.pun.redirect.body")} />
+        </Card>
+
+        {/* Second-draw chances after redirect */}
+        <Card tint={PUNISHMENT_PURPLE}>
+          <CardHead
+            icon="users"
+            title={t("howto.pun.odds2.title")}
+            tint={PUNISHMENT_PURPLE}
+          />
+          <BulletList
+            color={PUNISHMENT_PURPLE}
+            items={[t("howto.pun.odds2.count3"), t("howto.pun.odds2.count4")]}
+          />
+        </Card>
+
         {/* Important */}
         <Card tint={PUNISHMENT_PURPLE}>
           <CardHead

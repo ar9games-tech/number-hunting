@@ -238,6 +238,11 @@ export type TranslationKey =
   | "howto.pun.selection.title"
   | "howto.pun.selection.b1"
   | "howto.pun.selection.b2"
+  | "howto.pun.redirect.title"
+  | "howto.pun.redirect.body"
+  | "howto.pun.odds2.title"
+  | "howto.pun.odds2.count3"
+  | "howto.pun.odds2.count4"
   | "howto.important.title"
   | "howto.important.b1"
   | "howto.important.b2"
@@ -678,11 +683,11 @@ const en: Record<TranslationKey, string> = {
   "howto.pun.section": "Punishments",
   "howto.pun.intro":
     "Punishments appear only in rooms with 3 or more players.",
-  "howto.pun.byCount": "Available by player count",
+  "howto.pun.byCount": "Punishment chances",
   "howto.pun.count3":
-    "3 players: Final Elimination, Forgiveness, Choose Another Player",
+    "3 players: Final Elimination 33.3%, Forgiveness 33.3%, Choose Another Player 33.3%",
   "howto.pun.count4":
-    "4+ players: Final Elimination, Forgiveness, Vote, Choose Another Player",
+    "4+ players: Final Elimination 25%, Forgiveness 25%, Vote 25%, Choose Another Player 25%",
   "howto.pun.cardsHeader": "Punishment explanations",
   "howto.pun.directElim.title": "Final Elimination",
   "howto.pun.directElim.body": "The player is removed immediately.",
@@ -700,6 +705,14 @@ const en: Record<TranslationKey, string> = {
   "howto.pun.selection.b1":
     "After a round ends, the winner picks which player will be punished.",
   "howto.pun.selection.b2": "Then a random punishment is drawn for that player.",
+
+  "howto.pun.redirect.title": "Redirect rule",
+  "howto.pun.redirect.body":
+    "If the punishment is \u201CChoose Another Player\u201D and the punished player picks someone else, the second punishment draw will not include \u201CChoose Another Player\u201D again.",
+  "howto.pun.odds2.title": "Second draw chances after redirect",
+  "howto.pun.odds2.count3": "3 players: Final Elimination 50%, Forgiveness 50%",
+  "howto.pun.odds2.count4":
+    "4+ players: Final Elimination 33.3%, Forgiveness 33.3%, Vote 33.3%",
 
   "howto.important.title": "Important",
   "howto.important.b1": "Random Match has no punishments.",
@@ -1169,11 +1182,11 @@ const ar: Record<TranslationKey, string> = {
 
   "howto.pun.section": "العقوبات",
   "howto.pun.intro": "العقوبات تظهر فقط إذا كان عدد اللاعبين ٣ أو أكثر.",
-  "howto.pun.byCount": "المتاح حسب عدد اللاعبين",
+  "howto.pun.byCount": "نسبة ظهور العقوبات",
   "howto.pun.count3":
-    "٣ لاعبين: خروج نهائي، سماح، اختيار لاعب آخر للعقاب",
+    "٣ لاعبين: خروج نهائي ٣٣.٣٪، سماح ٣٣.٣٪، اختيار لاعب آخر للعقاب ٣٣.٣٪",
   "howto.pun.count4":
-    "٤ لاعبين أو أكثر: خروج نهائي، سماح، تصويت، اختيار لاعب آخر للعقاب",
+    "٤ لاعبين أو أكثر: خروج نهائي ٢٥٪، سماح ٢٥٪، تصويت ٢٥٪، اختيار لاعب آخر للعقاب ٢٥٪",
   "howto.pun.cardsHeader": "شرح العقوبات",
   "howto.pun.directElim.title": "خروج نهائي",
   "howto.pun.directElim.body": "خروج اللاعب مباشرة.",
@@ -1190,6 +1203,14 @@ const ar: Record<TranslationKey, string> = {
   "howto.pun.selection.b1":
     "بعد نهاية الجولة، الفائز هو من يختار اللاعب الذي سيتم معاقبته.",
   "howto.pun.selection.b2": "ثم يتم سحب عقوبة عشوائية لهذا اللاعب.",
+
+  "howto.pun.redirect.title": "ملاحظة",
+  "howto.pun.redirect.body":
+    "إذا ظهر عقاب اختيار لاعب آخر للعقاب، ثم اختار اللاعب المعاقَب لاعبًا آخر، فلن يظهر هذا العقاب مرة أخرى في السحب الثاني.",
+  "howto.pun.odds2.title": "نسبة السحب الثاني",
+  "howto.pun.odds2.count3": "٣ لاعبين: خروج نهائي ٥٠٪، سماح ٥٠٪",
+  "howto.pun.odds2.count4":
+    "٤ لاعبين أو أكثر: خروج نهائي ٣٣.٣٪، سماح ٣٣.٣٪، تصويت ٣٣.٣٪",
 
   "howto.important.title": "معلومات مهمة",
   "howto.important.b1": "اللعب العشوائي لا يحتوي على عقوبات.",
