@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Platform, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { FeedbackCard } from "@/src/components/FeedbackCard";
@@ -39,7 +39,6 @@ const AUTO_SUBMIT_DELAY_MS = 130;
 
 export default function SoloGameScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const { t } = useT();
   const params = useLocalSearchParams<{ digits?: string }>();
   const digits = (Math.min(4, Math.max(2, parseInt(params.digits ?? "3", 10))) || 3) as Digits;
@@ -88,7 +87,7 @@ export default function SoloGameScreen() {
   }, []);
 
   const showCount = digits >= 3;
-  const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 12;
+  const webBottomPad = Platform.OS === "web" ? webBottomInset() : 0;
 
   const submitGuess = (rawGuess: string) => {
     if (submittingRef.current || finished.current) return;
@@ -190,7 +189,10 @@ export default function SoloGameScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView
+      edges={["bottom"]}
+      style={{ flex: 1, backgroundColor: colors.background }}
+    >
       <ScreenHeader
         title={t("solo.title", { n: digits })}
         rightSlot={
@@ -202,7 +204,7 @@ export default function SoloGameScreen() {
           />
         }
       />
-      <View style={[styles.container, { paddingBottom: bottomPad }]}>
+      <View style={[styles.container, { paddingBottom: webBottomPad + 12 }]}>
         <View style={styles.top}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>
             {t("solo.hidden")}
@@ -210,7 +212,9 @@ export default function SoloGameScreen() {
           <NumberDisplay digits={digits} reveal={lastFeedback?.correct ? hidden : null} />
         </View>
 
-        <FeedbackCard feedback={lastFeedback} guess={lastGuess} showCorrectCount={showCount} />
+        <View style={styles.feedbackSlot}>
+          <FeedbackCard feedback={lastFeedback} guess={lastGuess} showCorrectCount={showCount} />
+        </View>
 
         <View style={styles.historyWrap}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>
@@ -229,14 +233,19 @@ export default function SoloGameScreen() {
           />
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Container is a flex column. History flexes to fill remaining space and
+  // scrolls internally (`minHeight:0` lets it shrink below its content
+  // size on small screens). Every other slot is `flexShrink:0` so the
+  // numeric keypad at the bottom is never compressed or pushed off-screen.
   container: { flex: 1, paddingHorizontal: 16, gap: 16 },
-  top: { alignItems: "center", gap: 10, paddingTop: 8 },
+  top: { alignItems: "center", gap: 10, paddingTop: 8, flexShrink: 0 },
+  feedbackSlot: { flexShrink: 0 },
   label: { fontSize: 11, letterSpacing: 1.2, fontFamily: "Inter_600SemiBold" },
-  historyWrap: { flex: 1, gap: 8 },
-  bottom: { gap: 12 },
+  historyWrap: { flex: 1, gap: 8, minHeight: 0 },
+  bottom: { gap: 12, flexShrink: 0 },
 });

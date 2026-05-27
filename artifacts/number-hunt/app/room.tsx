@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { GuessHistory, type HistoryItem } from "@/src/components/GuessHistory";
@@ -225,7 +225,15 @@ export default function RoomScreen() {
     }
   }, [state?.status, state?.revealedHidden]);
 
-  const bottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 12;
+  // SafeAreaView edges={["bottom"]} adds the native bottom inset for us;
+  // here we only add the small visual margin (+12) plus the web fallback
+  // inset since SafeAreaView is a no-op on web inside the preview iframe.
+  const webBottomPad = Platform.OS === "web" ? webBottomInset() : 0;
+  const bottomPad = webBottomPad + 12;
+  // Lobby (scrollable) path keeps the legacy combined padding so the
+  // ScrollView's last item still clears the home indicator without
+  // relying on SafeAreaView wrapping a ScrollView contentContainer.
+  const scrollBottomPad = (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 12;
   const wd = isRTL ? "rtl" : "ltr";
 
   const digits = state?.digits ?? null;
@@ -499,7 +507,10 @@ export default function RoomScreen() {
       ? colors.primaryForeground
       : colors.mutedForeground;
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView
+        edges={["bottom"]}
+        style={{ flex: 1, backgroundColor: colors.background }}
+      >
         {header}
         <View style={[styles.playingContainer, { paddingBottom: bottomPad }]}>
           {/* Turn banner — primary color when it's the viewer's turn, a
@@ -564,7 +575,12 @@ export default function RoomScreen() {
           ) : null}
 
           {state.opponents.length > 0 ? (
-            <View style={styles.oppRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.oppScroll}
+              contentContainerStyle={styles.oppRow}
+            >
               {state.opponents.map((o, i) => (
                 <View key={`${o.name}-${i}`} style={[styles.oppChip, { backgroundColor: colors.muted }]}>
                   <Text style={[styles.oppName, { color: colors.mutedForeground }]} numberOfLines={1}>
@@ -578,7 +594,7 @@ export default function RoomScreen() {
                   </View>
                 </View>
               ))}
-            </View>
+            </ScrollView>
           ) : null}
 
           <View style={styles.historyWrapPlaying}>
@@ -658,7 +674,7 @@ export default function RoomScreen() {
             </>
           ) : null}
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -666,7 +682,7 @@ export default function RoomScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {header}
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: scrollBottomPad }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Status banner */}
@@ -889,17 +905,23 @@ const styles = StyleSheet.create({
     borderRadius: 14, borderWidth: 1,
   },
   waitingHostText: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1 },
+  // Horizontal scroll wrapper for the opponents row — `flexGrow:0` so
+  // the ScrollView never expands vertically and can't push the keypad
+  // off-screen on very short devices. The 48px minHeight keeps the row
+  // visually consistent even when only one chip is present.
+  oppScroll: { flexGrow: 0, minHeight: 48 },
   // Reserve a 60px gutter on the end so opponent chips can never run
   // under the floating Reactions button (48px wide + 14px inset). The
   // gutter sits on the *visual* end side; RN flips paddingEnd
   // automatically in RTL so the button-side stays clear in both
-  // English (top-right) and Arabic (top-left).
+  // English (top-right) and Arabic (top-left). Chips now sit in a single
+  // horizontal-scrolling row so they can never wrap to a second line
+  // and grow the upper stack.
   oppRow: {
     flexDirection: "row",
     gap: 6,
-    flexWrap: "wrap",
     paddingEnd: 60,
-    minHeight: 48,
+    alignItems: "center",
   },
   turnBanner: {
     flexDirection: "row",
@@ -956,7 +978,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   historyWrapPlaying: { flex: 1, gap: 8, minHeight: 0 },
-  bottom: { gap: 12 },
+  // Keypad + GuessInput slot — `flexShrink:0` guarantees the numeric
+  // keypad keeps its full height even when content above (turn banner,
+  // spectator banner, opponents row) grows. Without this, on short
+  // screens the keypad would be the first thing the flex column
+  // compresses, leaving it half-visible or pushed off the bottom.
+  bottom: { gap: 12, flexShrink: 0 },
   // Transient incoming-reaction popups — anchored to the upper-middle
   // of the playing area so they never overlap the keypad or guess
   // input. They animate out via FloatingReaction's own lifecycle.

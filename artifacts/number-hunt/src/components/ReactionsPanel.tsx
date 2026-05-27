@@ -164,6 +164,10 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderRightWidth: StyleSheet.hairlineWidth,
+    // Cap the panel's height so it can never fully cover the numeric
+    // keypad on short devices — leaves the keypad partially visible
+    // and the dim backdrop tappable to close the sheet quickly.
+    maxHeight: "70%",
   },
   title: {
     fontSize: 17,
