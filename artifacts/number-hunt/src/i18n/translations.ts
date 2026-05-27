@@ -181,6 +181,30 @@ export type TranslationKey =
   | "iap.buyCta"
   | "iap.purchased"
   | "iap.processing"
+  // Ad Test (temporary developer surface — remove before final production cut)
+  | "adTest.title"
+  | "adTest.bannerSection"
+  | "adTest.interstitialSection"
+  | "adTest.debugSection"
+  | "adTest.showBannerCta"
+  | "adTest.showInterstitialCta"
+  | "adTest.statusLoading"
+  | "adTest.statusBannerLoaded"
+  | "adTest.statusBannerFailed"
+  | "adTest.statusIntLoaded"
+  | "adTest.statusIntFailed"
+  | "adTest.statusIntClosed"
+  | "adTest.statusIdle"
+  | "adTest.modeDev"
+  | "adTest.modeProd"
+  | "adTest.currentMode"
+  | "adTest.bannerUnit"
+  | "adTest.interstitialUnit"
+  | "adTest.adsRemoved"
+  | "adTest.adsRemovedYes"
+  | "adTest.adsRemovedNo"
+  | "adTest.noAd"
+  | "adTest.settingsEntry"
   // Reactions
   | "reactions.openLabel"
   | "reactions.panelTitle"
@@ -624,6 +648,29 @@ const en: Record<TranslationKey, string> = {
   "iap.buyCta": "Buy {price}",
   "iap.purchased": "✓ Ads removed — thanks for your support!",
   "iap.processing": "Processing…",
+  "adTest.title": "Ad Test",
+  "adTest.bannerSection": "Banner Ad",
+  "adTest.interstitialSection": "Interstitial Ad",
+  "adTest.debugSection": "Debug Info",
+  "adTest.showBannerCta": "Show Banner Test",
+  "adTest.showInterstitialCta": "Show Interstitial",
+  "adTest.statusLoading": "Loading Banner…",
+  "adTest.statusBannerLoaded": "Banner Loaded ✓",
+  "adTest.statusBannerFailed": "Banner Failed ✗",
+  "adTest.statusIntLoaded": "Interstitial Loaded ✓",
+  "adTest.statusIntFailed": "Interstitial Failed ✗",
+  "adTest.statusIntClosed": "Interstitial Closed ✓",
+  "adTest.statusIdle": "Idle",
+  "adTest.modeDev": "DEV (test ads)",
+  "adTest.modeProd": "PRODUCTION (real ads)",
+  "adTest.currentMode": "Current mode",
+  "adTest.bannerUnit": "Banner unit ID",
+  "adTest.interstitialUnit": "Interstitial unit ID",
+  "adTest.adsRemoved": "Ads removed",
+  "adTest.adsRemovedYes": "Yes (ads disabled)",
+  "adTest.adsRemovedNo": "No (ads enabled)",
+  "adTest.noAd": "No ad available right now — try again in a moment.",
+  "adTest.settingsEntry": "Ad Test (developer)",
 
   "reactions.openLabel": "Send a reaction",
   "reactions.panelTitle": "Send a reaction",
@@ -1125,6 +1172,29 @@ const ar: Record<TranslationKey, string> = {
   "iap.buyCta": "شراء {price}",
   "iap.purchased": "✓ تم إزالة الإعلانات — شكراً لدعمك!",
   "iap.processing": "جارٍ المعالجة…",
+  "adTest.title": "اختبار الإعلانات",
+  "adTest.bannerSection": "إعلان لافتة",
+  "adTest.interstitialSection": "إعلان بيني",
+  "adTest.debugSection": "معلومات التصحيح",
+  "adTest.showBannerCta": "عرض اختبار اللافتة",
+  "adTest.showInterstitialCta": "عرض الإعلان البيني",
+  "adTest.statusLoading": "جارٍ تحميل اللافتة…",
+  "adTest.statusBannerLoaded": "تم تحميل اللافتة ✓",
+  "adTest.statusBannerFailed": "فشل تحميل اللافتة ✗",
+  "adTest.statusIntLoaded": "تم تحميل الإعلان البيني ✓",
+  "adTest.statusIntFailed": "فشل الإعلان البيني ✗",
+  "adTest.statusIntClosed": "تم إغلاق الإعلان البيني ✓",
+  "adTest.statusIdle": "خامل",
+  "adTest.modeDev": "تطوير (إعلانات اختبار)",
+  "adTest.modeProd": "إنتاج (إعلانات حقيقية)",
+  "adTest.currentMode": "الوضع الحالي",
+  "adTest.bannerUnit": "معرّف وحدة اللافتة",
+  "adTest.interstitialUnit": "معرّف وحدة الإعلان البيني",
+  "adTest.adsRemoved": "الإعلانات مُزالة",
+  "adTest.adsRemovedYes": "نعم (الإعلانات معطّلة)",
+  "adTest.adsRemovedNo": "لا (الإعلانات مفعّلة)",
+  "adTest.noAd": "لا يوجد إعلان متاح حالياً — حاول بعد لحظة.",
+  "adTest.settingsEntry": "اختبار الإعلانات (للمطور)",
 
   "reactions.openLabel": "أرسل رد فعل",
   "reactions.panelTitle": "أرسل رد فعل",

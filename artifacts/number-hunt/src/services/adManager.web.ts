@@ -31,3 +31,12 @@ export async function incrementMatchCount(): Promise<number> {
 export async function showInterstitialIfAllowed(): Promise<boolean> {
   return false;
 }
+
+export function showInterstitialForTest(callbacks: {
+  onLoaded?: () => void;
+  onError?: (msg: string) => void;
+  onClosed?: () => void;
+}): () => void {
+  callbacks.onError?.("Ads are not available on web. Use a mobile device.");
+  return () => {};
+}

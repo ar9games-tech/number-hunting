@@ -213,6 +213,77 @@ export async function incrementMatchCount(): Promise<number> {
  * gameplay — typically on the result screen after a short delay so the
  * win/loss UI has time to render and the user has tapped Continue.
  */
+/**
+ * TEST-ONLY helper used by the Ad Test screen (`app/ad-test.tsx`).
+ *
+ * Loads a fresh interstitial and shows it as soon as it's ready, bypassing
+ * the production cadence (every Nth match + cooldown). This is the ONLY
+ * place that should ignore the cadence — never call it from gameplay
+ * code. Reports lifecycle events via the supplied callbacks so the
+ * screen can render visible status text.
+ *
+ * Returns a no-op cleanup function. All errors are swallowed and
+ * surfaced via the `onError` callback — the app can never crash here.
+ */
+export function showInterstitialForTest(callbacks: {
+  onLoaded?: () => void;
+  onError?: (msg: string) => void;
+  onClosed?: () => void;
+}): () => void {
+  let cancelled = false;
+  if (!adsSupported()) {
+    callbacks.onError?.("Ads are not supported on this platform.");
+    return () => {
+      cancelled = true;
+    };
+  }
+  const m = loadModule();
+  if (!m) {
+    callbacks.onError?.(
+      "AdMob native module not found. Build a development build to test ads.",
+    );
+    return () => {
+      cancelled = true;
+    };
+  }
+  const unitId = activeInterstitialUnitId();
+  if (!unitId) {
+    callbacks.onError?.("No interstitial unit ID configured.");
+    return () => {
+      cancelled = true;
+    };
+  }
+  try {
+    const ad = m.InterstitialAd.createForAdRequest(unitId);
+    const unsubLoaded = ad.addAdEventListener(m.AdEventType.LOADED, () => {
+      if (cancelled) return;
+      callbacks.onLoaded?.();
+      try {
+        void ad.show();
+      } catch (err) {
+        callbacks.onError?.(String((err as Error)?.message ?? err));
+      }
+      unsubLoaded();
+    });
+    const unsubErr = ad.addAdEventListener(m.AdEventType.ERROR, (err) => {
+      if (cancelled) return;
+      callbacks.onError?.(String((err as Error)?.message ?? err));
+      unsubErr();
+    });
+    const unsubClosed = ad.addAdEventListener(m.AdEventType.CLOSED, () => {
+      if (cancelled) return;
+      callbacks.onClosed?.();
+      unsubClosed();
+    });
+    ad.load();
+  } catch (err) {
+    callbacks.onError?.(String((err as Error)?.message ?? err));
+  }
+  return () => {
+    cancelled = true;
+  };
+}
+
 export async function showInterstitialIfAllowed(): Promise<boolean> {
   if (!canShowAds()) return false;
   const count = await getMatchCount();

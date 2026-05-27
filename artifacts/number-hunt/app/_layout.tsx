@@ -41,6 +41,10 @@ function RootLayoutNav() {
         <Stack.Screen name="achievements" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="how-to-play" />
+        {/* Temporary developer surface for QA-ing AdMob on a real
+            device / TestFlight build. Remove this Stack.Screen entry
+            (and app/ad-test.tsx + the Settings link) before shipping. */}
+        <Stack.Screen name="ad-test" />
       </Stack>
     </>
   );

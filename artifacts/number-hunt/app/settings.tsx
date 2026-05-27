@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React from "react";
 import {
   Platform,
@@ -115,6 +116,38 @@ export default function SettingsScreen() {
           </Text>
           <RemoveAdsCard />
         </View>
+
+        {/* TEMPORARY developer entry — remove this whole Pressable before
+            shipping the final production build. Routes to /ad-test where
+            you can verify banner + interstitial wiring on a real device. */}
+        <Pressable
+          onPress={() => router.push("/ad-test")}
+          style={({ pressed }) => [
+            styles.adTestBtn,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={t("adTest.settingsEntry")}
+        >
+          <Feather name="tool" size={16} color={colors.mutedForeground} />
+          <Text
+            style={[
+              styles.adTestBtnText,
+              { color: colors.foreground, writingDirection },
+            ]}
+          >
+            {t("adTest.settingsEntry")}
+          </Text>
+          <Feather
+            name={isRTL ? "chevron-left" : "chevron-right"}
+            size={16}
+            color={colors.mutedForeground}
+          />
+        </Pressable>
 
         <Text style={[styles.note, { color: colors.mutedForeground, writingDirection }]}>
           {t("settings.note")}
@@ -243,4 +276,14 @@ const styles = StyleSheet.create({
     fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center",
     paddingHorizontal: 16, lineHeight: 18,
   },
+  adTestBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  adTestBtnText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
 });
