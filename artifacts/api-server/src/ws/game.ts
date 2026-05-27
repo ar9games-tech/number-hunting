@@ -387,6 +387,38 @@ type Identity = { code: string; socketId: string };
 const socketIdentity = new WeakMap<WebSocket, Identity>();
 const socketIds = new WeakMap<WebSocket, string>();
 
+// ---------------------------------------------------------------------------
+// Per-socket rate limiting for room-probing messages (getRoom + join).
+// Caps how fast an unauthenticated connection can use the server as an
+// existence oracle to enumerate private room codes.
+// ---------------------------------------------------------------------------
+const PROBE_RATE_LIMIT = 15;
+const PROBE_RATE_WINDOW_MS = 60_000;
+const socketProbes = new WeakMap<WebSocket, number[]>();
+
+function checkProbeRateLimit(ws: WebSocket): boolean {
+  const now = Date.now();
+  let ts = socketProbes.get(ws);
+  if (!ts) {
+    ts = [];
+    socketProbes.set(ws, ts);
+  }
+  const cutoff = now - PROBE_RATE_WINDOW_MS;
+  // Slide the window forward.
+  let i = 0;
+  while (i < ts.length && ts[i]! < cutoff) i++;
+  if (i > 0) ts.splice(0, i);
+  if (ts.length >= PROBE_RATE_LIMIT) return false;
+  ts.push(now);
+  return true;
+}
+
+// Helper: returns true if the given WebSocket is a confirmed member of `code`.
+function isMember(ws: WebSocket, code: string): boolean {
+  const id = socketIdentity.get(ws);
+  return id !== undefined && id.code === code;
+}
+
 function idFor(ws: WebSocket): string {
   let id = socketIds.get(ws);
   if (!id) {
@@ -982,6 +1014,14 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       // drop any stale queue entry so the same socket can't be paired
       // into a second room behind its own back.
       removeFromRandomQueue(ws);
+      // If this socket already owns a room, tear it down before creating a
+      // new one. Without this a single connection could accumulate an
+      // unbounded number of ghost rooms that linger until the TTL sweeper
+      // runs hours later, enabling a memory-exhaustion DoS.
+      const prevIdentity = socketIdentity.get(ws);
+      if (prevIdentity) {
+        removePlayer(ws, prevIdentity.code, prevIdentity.socketId, "create new room");
+      }
       const maxPlayers = clampMaxPlayers(raw.maxPlayers);
       const hostId = idFor(ws);
       let code = generateRoomCode();
@@ -1039,6 +1079,21 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       // with random matchmaking.
       removeFromRandomQueue(ws);
       const code = String(raw.code || "").toUpperCase();
+      // Rate-limit join attempts from sockets that are not already a member
+      // of this room. The distinct notFound / full / started error codes are
+      // required by the UI, but they also act as a high-fidelity existence
+      // oracle. Without throttling an attacker can scan the entire code space
+      // in under an hour. Members re-joining their own room are not blocked.
+      if (!isMember(ws, code) && !checkProbeRateLimit(ws)) {
+        safeSend(ws, {
+          type: "joinResult",
+          reqId: raw.reqId,
+          state: null,
+          error: "notFound" satisfies JoinError,
+        });
+        logger.warn({ code }, "ws: join rate-limited");
+        return;
+      }
       const room = getRoom(code);
       if (!room) {
         safeSend(ws, {
@@ -1096,7 +1151,20 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
     }
 
     case "getRoom": {
-      const room = getRoom(String(raw.code || "").toUpperCase());
+      // Rate-limit probing: a socket that already knows its room code (i.e.
+      // is already a member) is never blocked. Only unauthenticated lookups
+      // consume the per-socket budget.
+      const getRoomCode = String(raw.code || "").toUpperCase();
+      if (!isMember(ws, getRoomCode) && !checkProbeRateLimit(ws)) {
+        safeSend(ws, {
+          type: "getRoomResult",
+          reqId: raw.reqId,
+          meta: null,
+        });
+        logger.warn({ code: getRoomCode }, "ws: getRoom rate-limited");
+        break;
+      }
+      const room = getRoom(getRoomCode);
       safeSend(ws, {
         type: "getRoomResult",
         reqId: raw.reqId,
@@ -1106,7 +1174,17 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
     }
 
     case "subscribe": {
-      subscribe(ws, String(raw.code || "").toUpperCase());
+      // Only allow a socket to subscribe to a room it is already a member
+      // of (i.e. socketIdentity was set by create/join). Without this guard
+      // any anonymous connection can subscribe to arbitrary room codes,
+      // accumulating subscriber-set entries for the attacker's chosen codes
+      // (DoS), and receiving sensitive broadcasts meant only for players.
+      const subCode = String(raw.code || "").toUpperCase();
+      if (!isMember(ws, subCode)) {
+        logger.warn({ code: subCode }, "ws: subscribe rejected — not a member");
+        break;
+      }
+      subscribe(ws, subCode);
       break;
     }
 
@@ -1357,6 +1435,10 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       const peerCount = subs ? subs.size : 0;
       if (subs) {
         for (const peer of subs) {
+          // Only deliver to confirmed room members — prevents a non-player
+          // who somehow ended up in the subscriber set from seeing player
+          // names, target ids, and card details.
+          if (!isMember(peer, code)) continue;
           safeSend(peer, {
             type: "punishmentRevealed",
             code,
@@ -1473,6 +1555,8 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       const peerCount = subs ? subs.size : 0;
       if (subs) {
         for (const peer of subs) {
+          // Defense-in-depth: skip any non-member that may exist in the set.
+          if (!isMember(peer, code)) continue;
           safeSend(peer, {
             type: "punishmentTargetChanged",
             code,
@@ -1581,7 +1665,11 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         reaction,
         timestamp: now,
       };
-      for (const peer of peers) safeSend(peer, payload);
+      for (const peer of peers) {
+        // Defense-in-depth: skip any non-member that may exist in the set.
+        if (!isMember(peer, code)) continue;
+        safeSend(peer, payload);
+      }
       break;
     }
 
