@@ -190,7 +190,7 @@ export default function HowToPlayScreen() {
             />
             <ExampleRow
               label={t("howto.example.guessLabel")}
-              value={lz("349")}
+              value={lz("934")}
               valueColor={colors.foreground}
             />
             <ExampleRow

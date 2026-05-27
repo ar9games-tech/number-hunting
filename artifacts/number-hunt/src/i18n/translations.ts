@@ -662,9 +662,9 @@ const en: Record<TranslationKey, string> = {
   "howto.example.guessLabel": "Your guess",
   "howto.example.feedbackLabel": "Feedback",
   "howto.example.feedbackBody":
-    "High or Low depending on the number, plus “2 correct digits”.",
+    "High or Low depending on the number, and shows you have 2 correct digits.",
   "howto.example.note":
-    "You see how many digits are correct, but not where. Figuring out the order is up to you.",
+    "However, the correct digits are NOT in the correct positions. You must figure out the correct order yourself.",
 
   "howto.win.title": "How to win",
   "howto.win.body":
@@ -1163,9 +1163,9 @@ const ar: Record<TranslationKey, string> = {
   "howto.example.guessLabel": "تخمينك",
   "howto.example.feedbackLabel": "النتيجة",
   "howto.example.feedbackBody":
-    "مرتفع أو منخفض حسب الرقم، مع ظهور: «رقمان صحيحان».",
+    "مرتفع أو منخفض حسب الرقم، ويوضح أن لديك رقمين صحيحين.",
   "howto.example.note":
-    "ترى عدد الأرقام الصحيحة، لكن لا ترى مواقعها. عليك اكتشاف الترتيب الصحيح بنفسك.",
+    "لكن الأرقام الصحيحة ليست في أماكنها الصحيحة. عليك اكتشاف الترتيب الصحيح بنفسك.",
 
   "howto.win.title": "طريقة الفوز",
   "howto.win.body": "أول لاعب يكتب الرقم الصحيح بالكامل يفوز بالجولة.",
