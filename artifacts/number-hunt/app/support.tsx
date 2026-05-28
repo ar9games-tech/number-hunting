@@ -15,7 +15,7 @@ import { useColors } from "@/hooks/useColors";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { webBottomInset } from "@/src/theme/theme";
 
-const SUPPORT_EMAIL = "Ayed_n4@hotmail.com";
+const SUPPORT_EMAIL = "ar9games@gmail.com";
 const APP_NAME = "Number Hunting";
 
 export default function SupportScreen() {
