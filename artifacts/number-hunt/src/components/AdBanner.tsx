@@ -13,11 +13,10 @@
  * to special-case the web platform.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { activeBannerUnitId } from "@/src/config/admob";
-import { useAdsRemoved } from "@/src/services/iap";
 
 type BannerProps = {
   /** Bottom padding (e.g. safe-area inset). Defaults to 0. */
@@ -51,15 +50,8 @@ function loadModule(): BannerModule | null {
 }
 
 export function AdBanner({ bottomInset = 0 }: BannerProps) {
-  const { adsRemoved, loading } = useAdsRemoved();
   const [failed, setFailed] = useState(false);
 
-  // Re-evaluate whether to render once IAP hydration finishes.
-  useEffect(() => {
-    setFailed(false);
-  }, [adsRemoved]);
-
-  if (loading || adsRemoved) return null;
   if (Platform.OS !== "ios" && Platform.OS !== "android") return null;
   const mod = loadModule();
   if (!mod) return null;

@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { AdBanner } from "@/src/components/AdBanner";
-import { RemoveAdsCard } from "@/src/components/RemoveAdsCard";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { useT } from "@/src/i18n/useT";
@@ -103,19 +102,6 @@ export default function SettingsScreen() {
             />
           </Row>
         </Section>
-
-        {/* Shop / IAP surface */}
-        <View style={{ gap: 8 }}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: colors.mutedForeground, writingDirection },
-            ]}
-          >
-            {t("iap.section").toUpperCase()}
-          </Text>
-          <RemoveAdsCard />
-        </View>
 
         {/* Developer-only entry to the Ad Test screen. Gated behind
             __DEV__ so production / TestFlight users never see it. The

@@ -407,6 +407,9 @@ importers:
 
   artifacts/number-hunt:
     dependencies:
+      expo-tracking-transparency:
+        specifier: ^56.0.5
+        version: 56.0.5(expo@54.0.34)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))
       react-native-google-mobile-ads:
         specifier: ^16.3.3
         version: 16.3.3(expo@54.0.34)(react@19.1.0)
@@ -3485,6 +3488,12 @@ packages:
     peerDependenciesMeta:
       react-native-web:
         optional: true
+
+  expo-tracking-transparency@56.0.5:
+    resolution: {integrity: sha512-ErScmVzDOsCwD+FRzT9CND5R2SMVU+UOgLQgSCyCqvGlOa2C2rTTmrQPpHWLd8MiR/SMKvERWse3cM4sn8wazA==}
+    peerDependencies:
+      expo: '*'
+      react-native: '*'
 
   expo-web-browser@15.0.11:
     resolution: {integrity: sha512-r2LS4Ro6DgUPZkcaEfgt8mp9eJuoA93x11Jh7S6utFe0FEzvUNn2yFhxg8XVwESaaHGt2k5V8LuK36rsp0BeIw==}
@@ -9311,6 +9320,11 @@ snapshots:
       react-native-web: 0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
     transitivePeerDependencies:
       - supports-color
+
+  expo-tracking-transparency@56.0.5(expo@54.0.34)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0)):
+    dependencies:
+      expo: 54.0.34(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      react-native: 0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0)
 
   expo-web-browser@15.0.11(expo@54.0.34)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0)):
     dependencies:

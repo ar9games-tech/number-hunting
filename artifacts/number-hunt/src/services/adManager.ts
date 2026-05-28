@@ -23,7 +23,6 @@ import {
   INTERSTITIAL_EVERY_N_MATCHES,
 } from "@/src/config/admob";
 import {
-  getAdsRemoved,
   getMatchCount,
   incrementMatchCount as persistIncrementMatchCount,
 } from "@/src/storage/storage";
@@ -95,11 +94,6 @@ export async function initializeAds(): Promise<void> {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    try {
-      adsRemovedCached = await getAdsRemoved();
-    } catch {
-      adsRemovedCached = false;
-    }
     if (!adsSupported()) {
       initialized = true;
       return;
@@ -108,6 +102,25 @@ export async function initializeAds(): Promise<void> {
     if (!m) {
       initialized = true;
       return;
+    }
+    // App Tracking Transparency (iOS 14.5+). We must request permission
+    // BEFORE initialising the ad SDK so AdMob respects the user's choice.
+    // The native SDK still works without permission — it just serves
+    // non-personalised ads, which is fully compliant with Apple's rules.
+    // Wrapped in try/catch + dynamic require so the web bundle and any
+    // build missing the native module never crash.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const att = require("expo-tracking-transparency") as {
+        getTrackingPermissionsAsync: () => Promise<{ status: string; canAskAgain: boolean }>;
+        requestTrackingPermissionsAsync: () => Promise<{ status: string }>;
+      };
+      const current = await att.getTrackingPermissionsAsync();
+      if (current.status === "undetermined" && current.canAskAgain) {
+        await att.requestTrackingPermissionsAsync();
+      }
+    } catch (err) {
+      if (__DEV__) console.log("[ads] ATT prompt skipped", err);
     }
     try {
       await m.default.initialize();
@@ -137,20 +150,6 @@ export async function initializeAds(): Promise<void> {
  */
 export function canShowAds(): boolean {
   return !adsRemovedCached && adsSupported();
-}
-
-/**
- * Called by the IAP layer when the user buys / restores Remove Ads.
- * Updates the in-memory cache so banners hide on the very next render
- * without a reload, and prevents any future interstitial from showing.
- */
-export function setAdsRemovedStatus(removed: boolean): void {
-  adsRemovedCached = removed;
-  if (removed) {
-    if (__DEV__) console.log("[ads] Ads disabled because adsRemoved is true");
-    interstitialInstance = null;
-    interstitialLoaded = false;
-  }
 }
 
 // ---------------------------------------------------------------------------

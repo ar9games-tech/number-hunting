@@ -83,34 +83,12 @@ export default function HomeScreen() {
         style={StyleSheet.absoluteFill}
       />
       <View style={[styles.container, { paddingTop: topPad, paddingBottom: bottomPad }]}>
-        {/* Top bar is force-LTR so the Store button stays in the
-            visual top-LEFT corner in Arabic too (Arabic would otherwise
-            mirror flex-row and push it to the right). Top-left holds
-            ONLY the Store icon (white); the Settings gear sits at
-            top-right. How to Play remains reachable via the bottom
-            links row, so no help icon is needed in the header. */}
+        {/* Top bar is force-LTR so the Settings gear stays in the
+            visual top-RIGHT corner in Arabic too (Arabic would otherwise
+            mirror flex-row). How to Play remains reachable via the
+            bottom links row, so no help icon is needed in the header. */}
         <View style={styles.topBar} {...({ dir: "ltr" } as object)}>
-          <Pressable
-            onPress={() => router.push("/store")}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={t("home.store")}
-          >
-            <View
-              style={[
-                styles.iconBtn,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              {/* Use the theme's foreground color so the icon is
-                  legible in BOTH light (dark glyph) and dark (light
-                  glyph) themes — matches the Settings gear. */}
-              <Feather name="shopping-bag" size={20} color={colors.foreground} />
-            </View>
-          </Pressable>
+          <View />
           <Pressable
             onPress={() => router.push("/settings")}
             hitSlop={12}

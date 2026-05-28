@@ -174,13 +174,6 @@ export type TranslationKey =
   | "settings.reactions"
   | "settings.reactionsOnA11y"
   | "settings.reactionsOffA11y"
-  // In-app purchases ("Remove Ads Forever")
-  | "iap.section"
-  | "iap.removeAdsTitle"
-  | "iap.removeAdsBody"
-  | "iap.buyCta"
-  | "iap.purchased"
-  | "iap.processing"
   // Ad Test (temporary developer surface — remove before final production cut)
   | "adTest.title"
   | "adTest.bannerSection"
@@ -360,9 +353,6 @@ export type TranslationKey =
   // Home
   | "home.achievements"
   | "home.profile"
-  | "home.store"
-  | "store.title"
-  | "store.intro"
   // Achievements screen
   | "ach.title"
   | "ach.progress"
@@ -481,10 +471,6 @@ const en: Record<TranslationKey, string> = {
   "home.howto": "How to Play",
   "home.achievements": "Achievements",
   "home.profile": "Profile",
-  "home.store": "Store",
-  "store.title": "Store",
-  "store.intro": "Support Number Hunting and enjoy an ad-free experience.",
-
   "mode.title": "Choose Mode",
   "mode.solo": "Solo",
   "mode.soloDesc": "Race the clock. Beat your best time.",
@@ -642,12 +628,6 @@ const en: Record<TranslationKey, string> = {
   "settings.reactions": "In-game reactions",
   "settings.reactionsOnA11y": "Reactions on",
   "settings.reactionsOffA11y": "Reactions off",
-  "iap.section": "Shop",
-  "iap.removeAdsTitle": "Remove Ads Forever",
-  "iap.removeAdsBody": "One-time purchase. Removes banner, interstitial, and rewarded ad prompts across the whole app.",
-  "iap.buyCta": "Buy {price}",
-  "iap.purchased": "✓ Ads removed — thanks for your support!",
-  "iap.processing": "Processing…",
   "adTest.title": "Ad Test",
   "adTest.bannerSection": "Banner Ad",
   "adTest.interstitialSection": "Interstitial Ad",
@@ -1009,10 +989,6 @@ const ar: Record<TranslationKey, string> = {
   "home.howto": "طريقة اللعب",
   "home.achievements": "الإنجازات",
   "home.profile": "الملف الشخصي",
-  "home.store": "المتجر",
-  "store.title": "المتجر",
-  "store.intro": "ادعم صيد الأرقام واستمتع بتجربة خالية من الإعلانات.",
-
   "mode.title": "اختر الوضع",
   "mode.solo": "فردي",
   "mode.soloDesc": "تسابق مع الوقت. اكسر أفضل وقت لك.",
@@ -1166,12 +1142,6 @@ const ar: Record<TranslationKey, string> = {
   "settings.reactions": "ردود الفعل أثناء اللعبة",
   "settings.reactionsOnA11y": "ردود الفعل مفعّلة",
   "settings.reactionsOffA11y": "ردود الفعل متوقفة",
-  "iap.section": "المتجر",
-  "iap.removeAdsTitle": "إزالة الإعلانات نهائياً",
-  "iap.removeAdsBody": "عملية شراء لمرة واحدة. تزيل جميع لافتات الإعلانات والإعلانات البينية وإعلانات المكافآت في التطبيق.",
-  "iap.buyCta": "شراء {price}",
-  "iap.purchased": "✓ تم إزالة الإعلانات — شكراً لدعمك!",
-  "iap.processing": "جارٍ المعالجة…",
   "adTest.title": "اختبار الإعلانات",
   "adTest.bannerSection": "إعلان لافتة",
   "adTest.interstitialSection": "إعلان بيني",

@@ -16,10 +16,6 @@ export function canShowAds(): boolean {
   return false;
 }
 
-export function setAdsRemovedStatus(_removed: boolean): void {
-  // intentionally empty
-}
-
 export function loadInterstitial(): void {
   // intentionally empty
 }

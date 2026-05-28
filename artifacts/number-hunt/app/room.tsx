@@ -32,7 +32,6 @@ import {
   REACTION_COOLDOWN_MS,
   REACTION_MAX_STACK,
 } from "@/src/services/reactionManager";
-import { setGameplayActive } from "@/src/services/ads";
 import { formatPlayerIdentity } from "@/src/storage/storage";
 import { webBottomInset } from "@/src/theme/theme";
 import { isValidGuess, normalizeDigits } from "@/src/utils/gameLogic";
@@ -113,16 +112,6 @@ export default function RoomScreen() {
       router.replace("/welcome");
     }
   }, [ready, settings.hasOnboarded, settings.playerName]);
-
-  // Suppress all ads (banner / interstitial / rewarded) for the entire
-  // lifetime of an online match — see `src/services/ads.ts` for the gate.
-  // Cleared on unmount, including navigation to the result screen.
-  useEffect(() => {
-    setGameplayActive(true);
-    return () => {
-      setGameplayActive(false);
-    };
-  }, []);
 
   // 1) Attach to the room. Either we already have cached state (we just
   //    created it, or we're re-attaching after a result screen) or we need

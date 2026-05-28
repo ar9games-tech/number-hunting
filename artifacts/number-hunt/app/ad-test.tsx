@@ -50,7 +50,6 @@ import {
 } from "@/src/config/admob";
 import { useT } from "@/src/i18n/useT";
 import { showInterstitialForTest } from "@/src/services/adManager";
-import { useAdsRemoved } from "@/src/services/iap";
 import { webBottomInset } from "@/src/theme/theme";
 
 type BannerStatus = "idle" | "loading" | "loaded" | "failed";
@@ -72,7 +71,6 @@ export default function AdTestScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t, isRTL } = useT();
-  const { adsRemoved } = useAdsRemoved();
   const writingDirection = isRTL ? "rtl" : "ltr";
   const bottomPad =
     (Platform.OS === "web" ? webBottomInset() : insets.bottom) + 24;
@@ -224,14 +222,6 @@ export default function AdTestScreen() {
             colors={colors}
             wd={writingDirection}
             mono
-          />
-          <DebugRow
-            label={t("adTest.adsRemoved")}
-            value={
-              adsRemoved ? t("adTest.adsRemovedYes") : t("adTest.adsRemovedNo")
-            }
-            colors={colors}
-            wd={writingDirection}
           />
         </Section>
       </ScrollView>
