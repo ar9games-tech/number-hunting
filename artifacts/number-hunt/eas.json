@@ -30,7 +30,7 @@
       "env": {
         "NODE_ENV": "production",
         "EXPO_PUBLIC_APP_ENV": "production",
-        "EXPO_PUBLIC_WS_URL": "wss://REPLACE_WITH_RAILWAY_SUBDOMAIN.up.railway.app/api/ws"
+        "EXPO_PUBLIC_WS_URL": "wss://api-server-production-778e.up.railway.app/api/ws"
       }
     }
   },
