@@ -1,77 +1,107 @@
-# TestFlight + Online Multiplayer Setup
+# TestFlight + Online Multiplayer Setup (Railway)
 
 Online multiplayer in TestFlight requires **two** things deployed:
 
-1. A public, always-on **API server** (the WebSocket game server).
-2. An **iOS app build** that knows the server's URL.
+1. A public, always-on **API server** on Railway (handles WebSockets + room state).
+2. An **iOS app build** that knows the Railway URL.
 
 Without step 1, the phone has nothing to connect to. Without step 2, the phone doesn't know where to look.
 
-## Step 1 — Publish the API Server as a Reserved VM
+---
 
-The game keeps every room, player turn, vote, and punishment in server memory. That means you need **one** server that stays running and owns all the state — not a fleet that scales up and down.
+## Step 1 — Deploy the API server to Railway
 
-1. Click the **Publish** button in Replit.
-2. Pick the **API Server** artifact.
-3. In **Advanced**, set the deployment type to **Reserved VM** (not Autoscale).
-   - Reserved VM = one always-on instance, room state never disappears, WebSockets stay open.
-   - Autoscale = WRONG for this app. It would split rooms across instances and kill them when traffic drops.
-4. Choose a small VM size (1 vCPU / 0.5–1 GB RAM is plenty for hundreds of concurrent rooms).
-5. Publish.
+The game keeps every room, player turn, vote, and punishment in server memory, so it needs **one** always-on instance — Railway gives you exactly that.
 
-When it finishes you'll get a URL like `https://number-hunting-api.<your-name>.replit.app`. Copy that domain (just the host, no `https://`, no trailing slash).
+### One-time setup
 
-## Step 2 — Point the iOS Build at the Server
+1. Go to https://railway.com → sign up (GitHub login is easiest).
+2. Push this repo to GitHub if you haven't already:
+   ```bash
+   git remote add origin https://github.com/<your-user>/<your-repo>.git
+   git push -u origin main
+   ```
+3. In Railway: **New Project → Deploy from GitHub repo → pick your repo**.
+4. Railway will auto-detect the `Dockerfile` at the repo root and start building.
+5. Once it builds, click the service → **Settings → Networking → Generate Domain**.
+   - You'll get a URL like `https://number-hunting-production.up.railway.app`.
+6. (Optional) Add a `DATABASE_URL` env var under **Variables** if/when you wire DB features. The current build doesn't require it.
+
+### What's already configured for you
+
+- `Dockerfile` (at repo root) — multi-stage build, bundles `dist/index.mjs` into a tiny final image.
+- `.dockerignore` — excludes the mobile app and dev junk so builds are fast.
+- `railway.json` — tells Railway to use the Dockerfile, healthcheck `/api/healthz`, auto-restart on failure.
+- Server reads `PORT` from env (Railway sets it automatically).
+- WebSocket support is built into Railway by default — no extra config needed.
+
+### Verify
+
+Open `https://<your-railway-domain>/api/healthz` in a browser. You should see `{"status":"ok"}` or similar 200 response. If you get an error, check the **Deployments → Logs** tab in Railway.
+
+---
+
+## Step 2 — Point the iOS build at Railway
 
 Open `artifacts/number-hunt/eas.json` and replace the placeholder in `build.production.env.EXPO_PUBLIC_WS_URL`:
 
 ```json
-"EXPO_PUBLIC_WS_URL": "wss://number-hunting-api.<your-name>.replit.app/api/ws"
+"EXPO_PUBLIC_WS_URL": "wss://number-hunting-production.up.railway.app/api/ws"
 ```
 
 Notes:
-
-- Use `wss://` (TLS WebSocket), not `ws://`.
+- Use `wss://` (TLS WebSocket), not `ws://` — iOS App Transport Security blocks plain `ws://`.
 - The path must end with `/api/ws`.
-- The client (`src/net/socketPlaceholder.ts → resolveWsUrl()`) checks `EXPO_PUBLIC_WS_URL` first, so this overrides everything else in production.
+- The client (`src/net/socketPlaceholder.ts → resolveWsUrl()`) reads `EXPO_PUBLIC_WS_URL` first, so this overrides everything in the production binary.
 
-## Step 3 — Build & Upload
+---
+
+## Step 3 — Build & upload the iOS binary
 
 ```bash
 cd artifacts/number-hunt
 eas build --platform ios --profile production
-# wait for build to finish (~15-25 min), then:
+# wait ~15–25 min, then:
 eas submit --platform ios --profile production --latest
 ```
 
-The TestFlight binary now connects to the public server. Two phones in different cities can both reach the same room.
+The new TestFlight build connects to Railway. Two phones in different cities can now share a room.
 
-## Verifying It Works
+---
 
-1. Install the TestFlight build on **two** devices (or one device + Replit web preview pointed at the deployed server).
+## Verifying end-to-end
+
+1. Install the TestFlight build on **two** devices.
 2. Device A → Create Online Room → note the 4-letter code.
 3. Device B → Join with that code.
-4. Both should see each other in the lobby, exchange turns, and finish a match.
-5. After a match, the result screen shows correctly on both devices. (No mid-game ads ever.)
+4. Both should see each other in the lobby and finish a full match.
+5. No mid-game ads ever. Interstitial fires only after every 3rd completed match.
 
-If anything fails, check:
+If anything fails:
+- **Railway logs:** Service → Deployments → click the latest → Logs.
+- **`wss://`** scheme in the URL (not `ws://`).
+- **`/api/ws`** path is reachable.
+- **`/api/healthz`** returns 200.
 
-- **Server logs** in the Replit Publishing tab — look for connection errors or crashes.
-- **`wss://`** scheme in the URL (a plain `ws://` will be blocked by iOS App Transport Security).
-- **`/api/ws`** path is reachable — open `https://<your-domain>/api/healthz` in a browser; should return `200 OK`.
+---
 
-## Why Not Autoscale?
+## Why Railway and not Replit Autoscale?
 
-| Concern | Reserved VM | Autoscale |
+| Concern | Railway | Replit Autoscale |
 |---|---|---|
 | Long-lived WebSockets | ✅ stays open | ❌ killed on scale-down |
-| In-memory room state | ✅ one place | ❌ split across instances |
-| Cold start latency | ✅ none | ❌ first request waits |
+| In-memory room state | ✅ one instance | ❌ split across instances |
+| Cold-start latency | ✅ none | ❌ first request waits |
 | Players in same room → same server | ✅ guaranteed | ❌ random instance |
-| Cost when idle | ❌ pays 24/7 | ✅ scales to zero |
+| Cost | ✅ ~$5/mo free credit covers small game | depends on traffic |
+| Dockerfile-based | ✅ first-class | partial |
 
-The game can't be rewritten to use Autoscale without moving every piece of room state into Redis or Postgres — a much bigger project. Reserved VM is the right answer for now.
+Reserved VM on Replit would also work, but Railway is simpler if you prefer it and the free tier easily covers a small game.
 
-## Updating the Server Later
+---
 
-Every time you push code changes, click **Publish** again on the API Server artifact to redeploy. The TestFlight app keeps the same `EXPO_PUBLIC_WS_URL` so you don't need to rebuild the iOS binary unless the URL itself changes.
+## Updating the server later
+
+Every time you push to GitHub's `main` branch, Railway redeploys automatically. The TestFlight app keeps the same `EXPO_PUBLIC_WS_URL`, so you don't need to rebuild the iOS binary unless the URL itself changes.
+
+To redeploy manually: Railway → service → **Deployments → Redeploy**.
