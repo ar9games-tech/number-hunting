@@ -117,9 +117,10 @@ export default function SettingsScreen() {
           <RemoveAdsCard />
         </View>
 
-        {/* TEMPORARY developer entry — remove this whole Pressable before
-            shipping the final production build. Routes to /ad-test where
-            you can verify banner + interstitial wiring on a real device. */}
+        {/* Developer-only entry to the Ad Test screen. Gated behind
+            __DEV__ so production / TestFlight users never see it. The
+            release build strips this whole block at compile time. */}
+        {__DEV__ ? (
         <Pressable
           onPress={() => router.push("/ad-test")}
           style={({ pressed }) => [
@@ -148,6 +149,7 @@ export default function SettingsScreen() {
             color={colors.mutedForeground}
           />
         </Pressable>
+        ) : null}
 
         <Text style={[styles.note, { color: colors.mutedForeground, writingDirection }]}>
           {t("settings.note")}

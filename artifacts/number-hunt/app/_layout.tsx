@@ -41,10 +41,13 @@ function RootLayoutNav() {
         <Stack.Screen name="achievements" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="how-to-play" />
-        {/* Temporary developer surface for QA-ing AdMob on a real
-            device / TestFlight build. Remove this Stack.Screen entry
-            (and app/ad-test.tsx + the Settings link) before shipping. */}
-        <Stack.Screen name="ad-test" />
+        {/* Developer-only surface for QA-ing AdMob on a real device.
+            Gated behind __DEV__ so it's compiled out of production /
+            TestFlight release builds — release users can never reach
+            this screen even by typing the URL because the route isn't
+            registered. The screen file itself can stay; React Native's
+            Metro release build strips __DEV__ branches. */}
+        {__DEV__ ? <Stack.Screen name="ad-test" /> : null}
       </Stack>
     </>
   );

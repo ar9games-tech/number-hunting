@@ -27,6 +27,7 @@
  */
 
 import { Feather } from "@expo/vector-icons";
+import { Redirect } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Platform,
@@ -56,6 +57,18 @@ type BannerStatus = "idle" | "loading" | "loaded" | "failed";
 type IntStatus = "idle" | "loading" | "loaded" | "failed" | "closed";
 
 export default function AdTestScreen() {
+  // HARD PRODUCTION GUARD. Expo Router discovers screens from the file
+  // system, so even though `_layout.tsx` only registers this screen
+  // when `__DEV__`, the route file itself is still part of the bundle
+  // and could in theory be reached. In a release build we immediately
+  // redirect to the home screen so end-users / App Reviewers can never
+  // see the developer ad test UI. The body below this guard is dead
+  // code in production and gets stripped by Metro's release minifier
+  // along with the `__DEV__` branches it depends on.
+  if (!__DEV__) {
+    return <Redirect href="/" />;
+  }
+
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t, isRTL } = useT();

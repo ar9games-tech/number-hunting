@@ -1,0 +1,10 @@
+# Files excluded from EAS Build uploads. These are dev/preview artifacts
+# that have no place in a production iOS binary and only inflate upload
+# size or risk leaking dev-only code paths.
+dist/
+.expo/
+web-build/
+server/
+scripts/
+*.log
+.DS_Store
