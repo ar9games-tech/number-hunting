@@ -10,7 +10,6 @@
  * Public API (must match adManager.web.ts):
  *   - initializeAds()
  *   - canShowAds()
- *   - setAdsRemovedStatus(removed)
  *   - incrementMatchCount()
  *   - showInterstitialIfAllowed()
  *   - loadInterstitial()
@@ -33,7 +32,6 @@ import {
 
 let initialized = false;
 let initPromise: Promise<void> | null = null;
-let adsRemovedCached = false;
 let lastInterstitialAt = 0;
 let interstitialInstance: unknown = null;
 let interstitialLoaded = false;
@@ -149,7 +147,7 @@ export async function initializeAds(): Promise<void> {
  * to decide whether to render anything at all.
  */
 export function canShowAds(): boolean {
-  return !adsRemovedCached && adsSupported();
+  return adsSupported();
 }
 
 // ---------------------------------------------------------------------------

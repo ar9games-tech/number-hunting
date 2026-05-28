@@ -196,9 +196,8 @@ export default function HomeScreen() {
         </Animated.View>
       </View>
       {/* Banner ad anchored to the bottom of the Home screen. Hidden when
-          the user has purchased Remove Ads, when running on web, or when
-          the native AdMob module is unavailable (e.g. Expo Go). Never
-          shown during gameplay screens. */}
+          running on web or when the native AdMob module is unavailable
+          (e.g. Expo Go). Never shown during gameplay screens. */}
       <AdBanner bottomInset={Platform.OS === "web" ? 0 : insets.bottom} />
     </View>
   );

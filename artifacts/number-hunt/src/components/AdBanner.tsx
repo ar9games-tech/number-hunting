@@ -2,7 +2,6 @@
  * AdBanner — native (iOS/Android) implementation.
  *
  * Renders an AdMob banner safely:
- *   • Renders nothing if `adsRemoved` is true or AdMob isn't ready yet.
  *   • Renders nothing on Expo Go (the native module is missing) so the
  *     game still works for visual testing before a development build.
  *   • Respects bottom safe-area inset so the banner never sits under the

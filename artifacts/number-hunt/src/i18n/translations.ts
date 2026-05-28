@@ -193,9 +193,6 @@ export type TranslationKey =
   | "adTest.currentMode"
   | "adTest.bannerUnit"
   | "adTest.interstitialUnit"
-  | "adTest.adsRemoved"
-  | "adTest.adsRemovedYes"
-  | "adTest.adsRemovedNo"
   | "adTest.noAd"
   | "adTest.settingsEntry"
   // Reactions
@@ -646,9 +643,6 @@ const en: Record<TranslationKey, string> = {
   "adTest.currentMode": "Current mode",
   "adTest.bannerUnit": "Banner unit ID",
   "adTest.interstitialUnit": "Interstitial unit ID",
-  "adTest.adsRemoved": "Ads removed",
-  "adTest.adsRemovedYes": "Yes (ads disabled)",
-  "adTest.adsRemovedNo": "No (ads enabled)",
   "adTest.noAd": "No ad available right now — try again in a moment.",
   "adTest.settingsEntry": "Ad Test (developer)",
 
@@ -1160,9 +1154,6 @@ const ar: Record<TranslationKey, string> = {
   "adTest.currentMode": "الوضع الحالي",
   "adTest.bannerUnit": "معرّف وحدة اللافتة",
   "adTest.interstitialUnit": "معرّف وحدة الإعلان البيني",
-  "adTest.adsRemoved": "الإعلانات مُزالة",
-  "adTest.adsRemovedYes": "نعم (الإعلانات معطّلة)",
-  "adTest.adsRemovedNo": "لا (الإعلانات مفعّلة)",
   "adTest.noAd": "لا يوجد إعلان متاح حالياً — حاول بعد لحظة.",
   "adTest.settingsEntry": "اختبار الإعلانات (للمطور)",
 
