@@ -39,6 +39,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import AdTestBanner from "@/src/components/AdTestBanner";
 import { Button } from "@/src/components/Button";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import {
@@ -50,28 +51,6 @@ import { useT } from "@/src/i18n/useT";
 import { showInterstitialForTest } from "@/src/services/adManager";
 import { useAdsRemoved } from "@/src/services/iap";
 import { webBottomInset } from "@/src/theme/theme";
-
-// Lazy-loaded native module so this screen can render on web/Expo Go
-// without throwing — the banner section just shows a friendly message
-// when the module is missing. Mirrors the pattern in AdBanner.tsx.
-type BannerModule = {
-  BannerAd: React.ComponentType<{
-    unitId: string;
-    size: string;
-    onAdLoaded?: () => void;
-    onAdFailedToLoad?: (err: unknown) => void;
-  }>;
-  BannerAdSize: { ANCHORED_ADAPTIVE_BANNER: string };
-};
-function loadBannerModule(): BannerModule | null {
-  if (Platform.OS !== "ios" && Platform.OS !== "android") return null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require("react-native-google-mobile-ads") as BannerModule;
-  } catch {
-    return null;
-  }
-}
 
 type BannerStatus = "idle" | "loading" | "loaded" | "failed";
 type IntStatus = "idle" | "loading" | "loaded" | "failed" | "closed";
@@ -105,10 +84,6 @@ export default function AdTestScreen() {
   const intUnit = activeInterstitialUnitId() || "(none)";
   const useTestAds = __DEV__ && USE_TEST_ADS_IN_DEV;
   const modeLabel = useTestAds ? t("adTest.modeDev") : t("adTest.modeProd");
-
-  const bannerModule = loadBannerModule();
-  const Banner = bannerModule?.BannerAd ?? null;
-  const bannerSize = bannerModule?.BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
 
   const handleShowBanner = () => {
     setBannerStatus("loading");
@@ -173,23 +148,25 @@ export default function AdTestScreen() {
             wd={writingDirection}
           />
           {bannerVisible ? (
-            Banner && bannerSize ? (
-              <View style={styles.bannerWrap}>
-                <Banner
-                  unitId={bannerUnit}
-                  size={bannerSize}
-                  onAdLoaded={() => setBannerStatus("loaded")}
-                  onAdFailedToLoad={(err) => {
-                    if (__DEV__) console.log("[ad-test] Banner failed", err);
-                    setBannerStatus("failed");
-                  }}
-                />
-              </View>
-            ) : (
-              <Text style={[styles.muted, { color: colors.mutedForeground, writingDirection }]}>
-                {t("adTest.noAd")}
-              </Text>
-            )
+            <View style={styles.bannerWrap}>
+              <AdTestBanner
+                onLoaded={() => setBannerStatus("loaded")}
+                onFailed={(err) => {
+                  if (__DEV__) console.log("[ad-test] Banner failed", err);
+                  setBannerStatus("failed");
+                }}
+              />
+              {bannerStatus === "failed" ? (
+                <Text
+                  style={[
+                    styles.muted,
+                    { color: colors.mutedForeground, writingDirection },
+                  ]}
+                >
+                  {t("adTest.noAd")}
+                </Text>
+              ) : null}
+            </View>
           ) : null}
         </Section>
 
