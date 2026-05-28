@@ -1,5 +1,6 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
+ENV npm_config_user_agent=pnpm/11.4.0
 RUN corepack enable
 COPY . .
 RUN pnpm install --frozen-lockfile
