@@ -92,6 +92,11 @@ export type RoomState = {
   currentTurnId: string | null;
   /** Display name of the current-turn player, or null. UI only. */
   currentTurnName: string | null;
+  /**
+   * Wall-clock ms deadline for the current turn's 30s countdown, or null
+   * outside the playing phase. Drives the live per-turn countdown UI.
+   */
+  turnDeadline: number | null;
   // ---- Session state (multi-round play) ---------------------------------
   /** Monotonically-increasing round counter — flips drive /result → /room
    *  auto-navigation. */

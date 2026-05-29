@@ -81,6 +81,14 @@ type Player = {
   joinedAt: number;
 };
 
+/**
+ * Per-turn time limit for online play. When it's a player's turn they
+ * have this long to submit a guess; if they don't, the server advances
+ * the turn to the next active player automatically. Single-player (solo)
+ * is local-only and never uses this.
+ */
+const TURN_DURATION_MS = 30_000;
+
 type RoomInternal = {
   code: string;
   maxPlayers: number;
@@ -202,6 +210,17 @@ type RoomInternal = {
    * win, and the session freezes the instant someone guesses correctly.
    */
   random: boolean;
+  /**
+   * Per-turn countdown timer handle. Started whenever a player's turn
+   * begins during the "playing" phase; on fire it rotates the turn to
+   * the next active player. Cleared on win, round end, and room close.
+   */
+  turnTimer: ReturnType<typeof setTimeout> | null;
+  /**
+   * Wall-clock ms deadline for the current turn, or 0 when no timer is
+   * running. Sent to clients so they can render a live countdown.
+   */
+  turnDeadline: number;
 };
 
 /** Punishment cards. IDs match what the client renders in its modal. */
@@ -320,6 +339,11 @@ type PlayerView = {
   currentTurnId: string | null;
   /** Display name of the current-turn player, or null. UI only. */
   currentTurnName: string | null;
+  /**
+   * Wall-clock ms deadline for the current turn's 30s countdown, or null
+   * when no turn is running. Clients render a live countdown from this.
+   */
+  turnDeadline: number | null;
   // ---- Session state (multi-round play) -----------------------------------
   /** Monotonically-increasing round counter. Used by the client to detect
    * round-flips and navigate from /result back to /room. */
@@ -626,6 +650,7 @@ function buildView(room: RoomInternal, socketId: string): PlayerView {
     revealedHidden: room.status === "won" ? room.hidden : null,
     currentTurnId: room.currentTurnId,
     currentTurnName: currentTurnPlayer?.name ?? null,
+    turnDeadline: room.turnDeadline > 0 ? room.turnDeadline : null,
     roundNumber: room.roundNumber,
     eliminatedIds: [...room.eliminatedIds],
     youAreEliminated: room.eliminatedIds.has(socketId),
@@ -684,6 +709,68 @@ function clearRoundState(room: RoomInternal) {
     clearTimeout(room.effectTimer);
     room.effectTimer = null;
   }
+  clearTurnTimer(room);
+}
+
+/**
+ * Stop the per-turn countdown for a room and clear its deadline. Safe to
+ * call when no timer is running.
+ */
+function clearTurnTimer(room: RoomInternal) {
+  if (room.turnTimer) {
+    clearTimeout(room.turnTimer);
+    room.turnTimer = null;
+  }
+  room.turnDeadline = 0;
+}
+
+/**
+ * (Re)start the 30s per-turn countdown for the current turn. No-op (and
+ * clears any existing timer) when the room isn't actively playing or has
+ * no current turn. On fire, the turn advances to the next active player.
+ */
+function startTurnTimer(room: RoomInternal) {
+  clearTurnTimer(room);
+  if (room.status !== "playing" || !room.currentTurnId) return;
+  room.turnDeadline = Date.now() + TURN_DURATION_MS;
+  room.turnTimer = setTimeout(() => {
+    room.turnTimer = null;
+    handleTurnTimeout(room);
+  }, TURN_DURATION_MS);
+}
+
+/**
+ * Fired when the current player runs out of time. Rotates the turn to the
+ * next active player in join order (same rule as the post-guess advance),
+ * broadcasts, and restarts the countdown. Guards against a torn-down room.
+ */
+function handleTurnTimeout(room: RoomInternal) {
+  if (!rooms.has(room.code)) return;
+  if (room.status !== "playing" || !room.currentTurnId) {
+    clearTurnTimer(room);
+    return;
+  }
+  const order = room.players;
+  const idx = order.findIndex((p) => p.socketId === room.currentTurnId);
+  let next: string | null = room.currentTurnId;
+  if (idx >= 0 && order.length > 0) {
+    for (let step = 1; step <= order.length; step++) {
+      const candidate = order[(idx + step) % order.length];
+      if (candidate && !room.eliminatedIds.has(candidate.socketId)) {
+        next = candidate.socketId;
+        break;
+      }
+    }
+  }
+  room.currentTurnId = next;
+  // Start the next turn's countdown BEFORE broadcasting so the state
+  // carries the fresh deadline.
+  startTurnTimer(room);
+  logger.info(
+    { code: room.code, next },
+    "ws: turn timed out, advancing to next player",
+  );
+  broadcast(room.code);
 }
 
 /**
@@ -707,6 +794,9 @@ function startNextRound(room: RoomInternal) {
   room.status = "playing";
   room.currentTurnId = active[0]?.socketId ?? null;
   room.roundNumber += 1;
+  // Start the 30s countdown BEFORE broadcasting so the state carries the
+  // fresh deadline for the new round's opening turn.
+  startTurnTimer(room);
   broadcast(room.code);
   logger.info(
     { code: room.code, roundNumber: room.roundNumber, active: active.length },
@@ -740,6 +830,7 @@ function endSession(room: RoomInternal, winnerSocketId: string | null) {
   room.sessionWinnerName = w?.name ?? null;
   room.status = "won";
   room.currentTurnId = null;
+  clearTurnTimer(room);
   if (room.voteTimer) {
     clearTimeout(room.voteTimer);
     room.voteTimer = null;
@@ -977,6 +1068,7 @@ function closeRoom(code: string, reason: string) {
     clearTimeout(r.effectTimer);
     r.effectTimer = null;
   }
+  if (r) clearTurnTimer(r);
   rooms.delete(code);
   const subs = subscribers.get(code);
   if (subs) {
@@ -1127,6 +1219,8 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         voteTimer: null,
         effectTimer: null,
         random: false,
+        turnTimer: null,
+        turnDeadline: 0,
       };
       rooms.set(code, { room, updatedAt: Date.now() });
       socketIdentity.set(ws, { code, socketId: hostId });
@@ -1290,6 +1384,9 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
       // First round of a session — bump the round counter. Subsequent
       // rounds are started by `startNextRound` after punishment effects.
       room.roundNumber = 1;
+      // Start the 30s countdown BEFORE broadcasting so the state carries
+      // the fresh deadline for the opening player's turn.
+      startTurnTimer(room);
       broadcast(code);
       logger.info({ code, digits }, "ws: game started");
       break;
@@ -1350,6 +1447,8 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
           room.sessionWinnerId = id.socketId;
           room.sessionWinnerName = playerById(room, id.socketId)?.name ?? null;
         }
+        // Round is over — stop the per-turn countdown.
+        clearTurnTimer(room);
         broadcast(code);
       } else {
         // Advance to the next ACTIVE player in join order. We rotate
@@ -1368,6 +1467,9 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
           }
         }
         room.currentTurnId = next;
+        // Reset the countdown for the next player BEFORE broadcasting so
+        // the state carries the fresh deadline.
+        startTurnTimer(room);
         broadcast(code);
       }
       break;
@@ -1869,12 +1971,17 @@ function handleMessage(ws: WebSocket, raw: ClientMessage) {
         voteTimer: null,
         effectTimer: null,
         random: true,
+        turnTimer: null,
+        turnDeadline: 0,
       };
       rooms.set(code, { room, updatedAt: Date.now() });
       socketIdentity.set(opponent.ws, { code, socketId: hostId });
       socketIdentity.set(ws, { code, socketId: guestId });
       subscribe(opponent.ws, code);
       subscribe(ws, code);
+      // Start the 30s countdown BEFORE building the views so each match
+      // payload carries the fresh deadline for the first player's turn.
+      startTurnTimer(room);
       // Send each socket its own per-player view (opponents list /
       // yourId / etc. differ per viewer). Mirror the create/join
       // pattern so the client can cache and navigate immediately.
@@ -1952,6 +2059,9 @@ function removePlayer(
       }
     }
     room.currentTurnId = next;
+    // The current player left — restart the countdown for whoever now
+    // holds the turn so the new player gets a fresh 30s.
+    startTurnTimer(room);
   }
 
   // Detach from subscribers + identity so we don't leak future state.

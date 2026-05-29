@@ -1,6 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/src/i18n/useT";
@@ -10,6 +16,9 @@ export type HistoryItem = {
   guess: string;
   feedback: Feedback;
   by?: string;
+  /** Optimistic row: the guess was just sent and we're awaiting the
+   *  server's feedback. Renders the digits immediately with a spinner. */
+  pending?: boolean;
 };
 
 export function GuessHistory({
@@ -40,6 +49,22 @@ export function GuessHistory({
       showsVerticalScrollIndicator={false}
     >
       {items.map((it, idx) => {
+        if (it.pending) {
+          return (
+            <View
+              key={idx}
+              style={[
+                styles.row,
+                { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.7 },
+              ]}
+            >
+              <Text style={[styles.guess, { color: colors.foreground }]}>{lz(it.guess)}</Text>
+              <View style={[styles.chip, { backgroundColor: colors.muted }]}>
+                <ActivityIndicator size="small" color={colors.mutedForeground} />
+              </View>
+            </View>
+          );
+        }
         const isHigh = it.feedback.level === "high" || it.feedback.level === "tooHigh";
         const isExtreme = it.feedback.level === "tooHigh" || it.feedback.level === "tooLow";
         const tone = it.feedback.correct

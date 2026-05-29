@@ -80,6 +80,14 @@ export default function RoomScreen() {
   const pendingHistoryLenRef = useRef(-1);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [locked, setLocked] = useState(false);
+  // Optimistic guess: the digits we just sent, shown instantly in the
+  // history as a "pending" row while we wait for the server to echo back
+  // the real feedback. Cleared the moment the ack lands (or on error /
+  // turn rotation). Removes the round-trip "nothing happened" feel that
+  // makes online play feel slower than instant single-player.
+  const [pendingGuess, setPendingGuess] = useState<string | null>(null);
+  // Re-render tick (1Hz) so the per-turn countdown updates live.
+  const [, setNowTick] = useState(0);
 
   // --- Reactions ----------------------------------------------------------
   // Active floating reactions stacked above the keypad. Each entry has a
@@ -103,6 +111,9 @@ export default function RoomScreen() {
       fallbackTimerRef.current = null;
     }
     setLocked(false);
+    // Drop any optimistic pending row whenever the lock releases — covers
+    // the dropped-ack safety path so the spinner can never linger forever.
+    setPendingGuess(null);
   };
 
   // Guard: online play needs a profile. Bounce missing identities back to
@@ -260,11 +271,15 @@ export default function RoomScreen() {
     // Expect the server to grow our history by exactly one entry. The
     // ack-watcher effect (below) releases the lock the moment that lands.
     pendingHistoryLenRef.current = cur.yourHistory.length + 1;
+    // Show the guess instantly as a pending row — the server feedback
+    // fills in a moment later when the ack lands.
+    setPendingGuess(guess);
     try {
       sendGuess(cur.code, guess);
     } catch {
       Alert.alert(t("room.sendErrorTitle"), t("room.sendErrorMsg"));
       releaseLock();
+      setPendingGuess(null);
       setGuessInput("");
       return;
     }
@@ -295,6 +310,9 @@ export default function RoomScreen() {
       len >= pendingHistoryLenRef.current
     ) {
       releaseLock();
+      // Server confirmed the guess (real feedback is now in yourHistory) —
+      // drop the optimistic pending row.
+      setPendingGuess(null);
     }
   }, [state?.yourHistory.length]);
 
@@ -319,6 +337,7 @@ export default function RoomScreen() {
     const unsub = onTurnError(state.code, (evt) => {
       releaseLock();
       cancelPendingAutoSubmit();
+      setPendingGuess(null);
       setGuessInput("");
       // Always show the explicit "Wait for your turn" wording per spec
       // (EN/AR). Append the active player's name when known so the user
@@ -349,8 +368,23 @@ export default function RoomScreen() {
     if (!currentTurnIsMe) {
       cancelPendingAutoSubmit();
       setGuessInput("");
+      setPendingGuess(null);
     }
   }, [currentTurnIsMe]);
+
+  // Drive the per-turn countdown: while a turn deadline is live, re-render
+  // once a second so the displayed seconds tick down. Stops when there's
+  // no active deadline to avoid a perpetual timer.
+  const turnDeadline = state?.turnDeadline ?? null;
+  useEffect(() => {
+    if (!turnDeadline) return;
+    const id = setInterval(() => setNowTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [turnDeadline]);
+  const turnSecondsLeft =
+    turnDeadline != null
+      ? Math.max(0, Math.ceil((turnDeadline - Date.now()) / 1000))
+      : null;
 
   // Subscribe to incoming reactions for this room. Scoped to the
   // playing phase only so lobby/won UI never plays a pop or shows a
@@ -437,13 +471,26 @@ export default function RoomScreen() {
     setRoomDigits(state.code, n);
   };
 
-  const historyItems: HistoryItem[] = useMemo(
-    () =>
-      state
-        ? state.yourHistory.map((h) => ({ guess: h.guess, feedback: h.feedback }))
-        : [],
-    [state],
-  );
+  const historyItems: HistoryItem[] = useMemo(() => {
+    if (!state) return [];
+    const rows: HistoryItem[] = state.yourHistory.map((h) => ({
+      guess: h.guess,
+      feedback: h.feedback,
+    }));
+    // Optimistic pending row sits on top until the server echoes the
+    // real feedback. Guard against a one-frame duplicate by skipping it
+    // if the latest confirmed guess already matches.
+    if (pendingGuess && state.yourHistory[0]?.guess !== pendingGuess) {
+      rows.unshift({
+        guess: pendingGuess,
+        // Placeholder feedback — never rendered because `pending` short-
+        // circuits the row to a spinner before any feedback is read.
+        feedback: { level: "low", correct: false, correctDigitCount: 0 },
+        pending: true,
+      });
+    }
+    return rows;
+  }, [state, pendingGuess]);
 
   if (!state) {
     return (
@@ -526,6 +573,18 @@ export default function RoomScreen() {
             >
               {turnBannerText}
             </Text>
+            {turnSecondsLeft != null ? (
+              <View
+                style={[
+                  styles.turnTimerPill,
+                  { backgroundColor: turnBannerFg + "26" },
+                ]}
+              >
+                <Text style={[styles.turnTimerText, { color: turnBannerFg }]}>
+                  {lz(turnSecondsLeft)}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Spectator banner — eliminated players keep their socket
@@ -926,6 +985,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.3,
+  },
+  turnTimerPill: {
+    minWidth: 26,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  turnTimerText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
   },
   turnNotice: {
     fontSize: 12,
